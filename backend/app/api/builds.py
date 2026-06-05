@@ -83,6 +83,10 @@ async def get_build(build_id: int, db: Session = Depends(get_db)):
         league=build.league,
         game_version=build.game_version,
         build=full_data.get("build", {}),
+        treeSpecs=full_data.get("treeSpecs", []),
+        skillSets=full_data.get("skillSets", []),
+        items=full_data.get("items", []),
+        playerStats=full_data.get("playerStats", {}),
         homework=build.get_homework(),
         created_at=build.created_at.isoformat() if build.created_at else None,
     )

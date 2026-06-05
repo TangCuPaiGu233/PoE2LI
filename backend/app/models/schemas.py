@@ -78,6 +78,10 @@ class BuildSummary(BaseModel):
 
 class BuildDetail(BuildSummary):
     """Response for GET /api/builds/{id} — includes full data + homework."""
+    treeSpecs: list[TreeSpec] = []
+    skillSets: list[SkillSet] = []
+    items: list[Item] = []
+    playerStats: dict[str, int | float | str] = {}
     homework: dict | None = None
     created_at: str | None = None
 
