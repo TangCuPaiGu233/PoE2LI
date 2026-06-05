@@ -30,8 +30,8 @@ class Gem(BaseModel):
     """A skill gem or support gem."""
     nameSpec: str | None = None
     skillId: str | None = None
-    level: str | None = None
-    quality: str | None = None
+    level: int = 0
+    quality: int = 0
     enabled: bool = True
     slot: str = "unknown"
 
@@ -59,6 +59,7 @@ class DecodeResponse(BaseModel):
     skillSets: list[SkillSet] = []
     items: list[Item] = []
     playerStats: dict[str, int | float | str] = {}
+    config: dict[str, str] = {}
 
 
 class ErrorResponse(BaseModel):

@@ -45,6 +45,7 @@ def decode_pob(pob_code: str) -> DecodeResponse | ErrorResponse:
     items = [Item(**i) for i in raw_data.get("items", [])]
 
     player_stats = raw_data.get("playerStats", {})
+    config = raw_data.get("config", {})
 
     return DecodeResponse(
         build=build_info,
@@ -52,4 +53,5 @@ def decode_pob(pob_code: str) -> DecodeResponse | ErrorResponse:
         skillSets=skill_sets,
         items=items,
         playerStats=player_stats,
+        config=config,
     )
