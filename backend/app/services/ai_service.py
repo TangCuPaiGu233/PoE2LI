@@ -41,13 +41,30 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     cold_res = stats.get("ColdResist", "N/A")
     lightning_res = stats.get("LightningResist", "N/A")
 
-    # Extract gems with full details
-    gem_list = []
+    # Extract gems with full details, separate companions
+    companions = []
+    active_skills = []
+    support_gems = []
     for ss in skills:
         for g in ss.gems:
             if g.enabled and g.nameSpec:
-                gem_list.append(f"{g.nameSpec} (Lv{g.level}, Q{g.quality}, Slot: {g.slot})")
-    gems_str = "\n".join(f"- {g}" for g in gem_list[:15]) or "未配置"
+                entry = f"{g.nameSpec} (Lv{g.level}, Q{g.quality})"
+                if "companion" in g.nameSpec.lower() or "Companion" in g.nameSpec:
+                    companions.append(entry)
+                elif g.level >= 15:  # Main active skills
+                    active_skills.append(entry)
+                else:
+                    support_gems.append(entry)
+
+    gems_str = ""
+    if companions:
+        gems_str += "=== 核心 Companion（伙伴）===\n" + "\n".join(f"- {c}" for c in companions) + "\n"
+    if active_skills:
+        gems_str += "=== 主动技能 ===\n" + "\n".join(f"- {s}" for s in active_skills) + "\n"
+    if support_gems:
+        gems_str += "=== 辅助宝石（前10个）===\n" + "\n".join(f"- {s}" for s in support_gems[:10])
+    if not gems_str:
+        gems_str = "未配置"
 
     # Extract items with FULL raw text (not just name)
     item_list = []
@@ -65,9 +82,10 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     return f"""你是一个 Path of Exile 2 构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
 
 特别注意：
-- 仔细查看技能宝石列表，找出主要输出技能和辅助技能
+- 技能宝石已按类型分组：Companion（伙伴）、主动技能、辅助宝石
+- 如果有 Companion（伙伴），这是构建的核心！详细分析每个 Companion 的作用
+- Companion 是 PoE2 的独特机制，它们是独立战斗的 AI 伙伴，不是传统召唤物
 - 仔细查看装备属性，找出核心装备和关键词缀
-- 如果有 Companion（伙伴）、Totem（图腾）、Minion（召唤物）等特殊机制，重点分析
 - 分析这个构建的核心玩法思路，不要泛泛而谈
 
 ## 构建信息
