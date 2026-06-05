@@ -125,3 +125,14 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 8. Affix translation: table lookup first, AI only for unknowns, writeback to dictionary
 9. PoE2 is rapidly iterating — parsers/KB must handle format changes with graceful degradation
 10. Don't copy AGPL source (pobb.in) — reference data structures, rewrite in Python
+
+## Agent skills
+
+### Issue tracker
+Issues live in this repo's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+Default vocabulary — all five canonical labels used verbatim. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+Single-context — `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
