@@ -41,6 +41,23 @@
 | **Mod Translation** | English→Chinese affix mapping. Table lookup first, AI fallback for unknowns |
 | **Knowledge Chunks** | RAG vector store entries (pgvector). Always filtered by `league` + `game_version` |
 
+## API Terms
+
+| Term | Meaning |
+|------|---------|
+| **Decode** | `POST /api/builds/decode` — PoB code → BuildData JSON (no storage) |
+| **Homework** | `POST /api/builds/homework` — PoB code → decode + AI playbook (no storage) |
+| **Save** | `POST /api/builds` — PoB code → decode + AI + store in DB |
+| **Retrieve** | `GET /api/builds/{id}` — get stored build + homework |
+
+## Database Terms
+
+| Term | Meaning |
+|------|---------|
+| **builds table** | Main table: `id`, `pob_code`, `build_data` (JSON), `homework` (JSON), `league`, `game_version`, `status` |
+| **status** | `pending` → `parsed` → `done` (or `failed`). `done` means homework is generated |
+| **SQLite** | Dev/test database. Production will use PostgreSQL |
+
 ## Architecture Decisions
 
 | Decision | Reasoning |
