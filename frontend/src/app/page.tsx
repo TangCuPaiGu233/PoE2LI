@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const API_URL = "http://localhost:8000";
 
@@ -29,21 +29,49 @@ interface BuildData {
   homework?: Homework;
   treeSpecs?: { nodes: number[] }[];
   skillSets?: { gems: { nameSpec?: string }[] }[];
+  created_at?: string;
+}
+
+interface BuildSummary {
+  id: number;
+  status: string;
+  build: BuildInfo;
+  created_at?: string;
 }
 
 export default function Home() {
   const [pobCode, setPobCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
   const [result, setResult] = useState<BuildData | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ message: string; reason?: string } | null>(null);
+  const [history, setHistory] = useState<BuildSummary[]>([]);
+
+  // Load history on mount
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/builds`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data);
+      }
+    } catch {
+      // Ignore history load errors
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pobCode.trim()) return;
 
     setLoading(true);
-    setError("");
+    setError(null);
     setResult(null);
+    setLoadingStep("解码 PoB 分享码...");
 
     try {
       const res = await fetch(`${API_URL}/api/builds`, {
@@ -54,135 +82,264 @@ export default function Home() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail || "Failed to decode");
+        const detail = err.detail;
+        if (typeof detail === "object") {
+          throw { message: detail.error, reason: detail.reason };
+        }
+        throw { message: detail || "解码失败" };
       }
 
       const data = await res.json();
+      setLoadingStep("AI 正在生成攻略...");
 
       // Fetch full build with homework
       const fullRes = await fetch(`${API_URL}/api/builds/${data.id}`);
       const fullData = await fullRes.json();
       setResult(fullData);
+      loadHistory(); // Refresh history
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      if (err && typeof err === "object" && "message" in err) {
+        setError(err as { message: string; reason?: string });
+      } else {
+        setError({ message: err instanceof Error ? err.message : "未知错误" });
+      }
     } finally {
       setLoading(false);
+      setLoadingStep("");
+    }
+  };
+
+  const loadBuild = async (id: number) => {
+    setLoading(true);
+    setError(null);
+    setLoadingStep("加载历史记录...");
+    try {
+      const res = await fetch(`${API_URL}/api/builds/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResult(data);
+      } else {
+        setError({ message: "加载失败" });
+      }
+    } catch {
+      setError({ message: "加载失败" });
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
     }
   };
 
   return (
-    <main className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold mb-2">
-            流放漓 <span className="text-amber-400">PoE2LI</span>
-          </h1>
-          <p className="text-gray-400">粘贴 PoB 分享码，获取 AI 生成的构建攻略</p>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24, fontFamily: "system-ui" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+        PoE2 智能工具站「流放漓」
+      </h1>
+      <p style={{ color: "#666", marginBottom: 24 }}>
+        粘贴 PoB 分享码，AI 自动生成中文攻略
+      </p>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
+        <textarea
+          value={pobCode}
+          onChange={(e) => setPobCode(e.target.value)}
+          placeholder="粘贴 PoB 分享码 (eNp 开头的长字符串)..."
+          style={{
+            width: "100%",
+            height: 80,
+            padding: 12,
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            fontFamily: "monospace",
+            fontSize: 12,
+            resize: "vertical",
+          }}
+        />
+        <button
+          type="submit"
+          disabled={loading || !pobCode.trim()}
+          style={{
+            marginTop: 12,
+            padding: "10px 24px",
+            background: loading ? "#ccc" : "#0066ff",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: loading ? "not-allowed" : "pointer",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          {loading ? loadingStep || "处理中..." : "解析 PoB 并生成攻略"}
+        </button>
+      </form>
+
+      {/* Error */}
+      {error && (
+        <div
+          style={{
+            padding: 16,
+            background: "#fff0f0",
+            border: "1px solid #ffcccc",
+            borderRadius: 8,
+            marginBottom: 24,
+          }}
+        >
+          <strong style={{ color: "#cc0000" }}>错误：</strong> {error.message}
+          {error.reason && (
+            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#666" }}>
+              原因：{error.reason}
+            </p>
+          )}
         </div>
+      )}
 
-        {/* Input */}
-        <form onSubmit={handleSubmit} className="mb-8">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={pobCode}
-              onChange={(e) => setPobCode(e.target.value)}
-              placeholder="粘贴 PoB 分享码 (eN...)"
-              className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-amber-500 text-gray-100 placeholder-gray-500"
+      {/* Result */}
+      {result && (
+        <div
+          style={{
+            padding: 20,
+            background: "#f8f9fa",
+            border: "1px solid #e0e0e0",
+            borderRadius: 12,
+            marginBottom: 24,
+          }}
+        >
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+            Build 概览
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <StatCard
+              label="职业"
+              value={`${result.build.className || "?"} / ${result.build.ascendClassName || "?"}`}
             />
-            <button
-              type="submit"
-              disabled={loading || !pobCode.trim()}
-              className="px-6 py-3 bg-amber-500 text-gray-900 font-semibold rounded-lg hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "解析中..." : "生成攻略"}
-            </button>
+            <StatCard label="等级" value={String(result.build.level || "?")} />
+            <StatCard
+              label="天赋节点"
+              value={String(result.treeSpecs?.[0]?.nodes?.length || 0)}
+            />
+            <StatCard
+              label="宝石"
+              value={String(
+                result.skillSets?.reduce((s, ss) => s + (ss.gems?.length || 0), 0) || 0
+              )}
+            />
+            <StatCard label="物品" value={String(result.items?.length || 0)} />
+            <StatCard
+              label="DPS"
+              value={formatNum(result.playerStats?.TotalDPS as number)}
+            />
+            <StatCard
+              label="生命"
+              value={formatNum(result.playerStats?.Life as number)}
+            />
+            <StatCard
+              label="护甲"
+              value={formatNum(result.playerStats?.Armour as number)}
+            />
           </div>
-        </form>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-200">
-            {error}
-          </div>
-        )}
-
-        {/* Result */}
-        {result && (
-          <div className="space-y-6">
-            {/* Build Info */}
-            <div className="p-6 bg-gray-900 rounded-lg border border-gray-800">
-              <h2 className="text-xl font-bold mb-4 text-amber-400">构建信息</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Stat label="职业" value={`${result.build.className || "?"}`} />
-                <Stat label="升华" value={result.build.ascendClassName || "无"} />
-                <Stat label="等级" value={result.build.level || "?"} />
-                <Stat
-                  label="天赋节点"
-                  value={String(result.treeSpecs?.[0]?.nodes?.length || 0)}
-                />
-              </div>
+          {result.homework && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+                AI 攻略
+              </h3>
+              <HomeworkSection title="核心思路" content={result.homework.core_idea} />
+              <HomeworkSection title="核心装备" content={result.homework.core_items} />
+              <HomeworkSection
+                title="平价替代"
+                content={result.homework.budget_alternatives}
+              />
+              <HomeworkSection
+                title="天赋亮点"
+                content={result.homework.talent_highlights}
+              />
+              <HomeworkSection title="强度评价" content={result.homework.strength_review} />
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Key Stats */}
-            <div className="p-6 bg-gray-900 rounded-lg border border-gray-800">
-              <h2 className="text-xl font-bold mb-4 text-amber-400">关键属性</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Stat label="生命" value={String(result.playerStats?.Life || "?")} />
-                <Stat label="魔力" value={String(result.playerStats?.Mana || "?")} />
-                <Stat label="DPS" value={formatNum(result.playerStats?.TotalDPS)} />
-                <Stat label="EHP" value={formatNum(result.playerStats?.TotalEHP)} />
-                <Stat label="力量" value={String(result.playerStats?.Str || "?")} />
-                <Stat label="敏捷" value={String(result.playerStats?.Dex || "?")} />
-                <Stat label="智慧" value={String(result.playerStats?.Int || "?")} />
-                <Stat
-                  label="命中"
-                  value={String(result.playerStats?.HitChance || "?") + "%"}
-                />
-              </div>
-            </div>
-
-            {/* Homework */}
-            {result.homework && (
-              <div className="space-y-4">
-                <Section title="核心思路" content={result.homework.core_idea} />
-                <Section title="核心装备" content={result.homework.core_items} />
-                <Section title="预算替代" content={result.homework.budget_alternatives} />
-                <Section title="天赋亮点" content={result.homework.talent_highlights} />
-                <Section title="强度评估" content={result.homework.strength_review} />
-              </div>
-            )}
+      {/* History */}
+      {history.length > 0 && (
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+            历史记录 ({history.length})
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {history.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => loadBuild(b.id)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 14px",
+                  background: result?.id === b.id ? "#e8f0fe" : "white",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <span>
+                  <strong>{b.build.className}</strong> / {b.build.ascendClassName}{" "}
+                  Lv.{b.build.level}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: b.status === "done" ? "green" : "#999",
+                  }}
+                >
+                  {b.status}
+                </span>
+              </button>
+            ))}
           </div>
-        )}
-      </div>
-    </main>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-sm text-gray-400">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Section({ title, content }: { title: string; content: string }) {
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-6 bg-gray-900 rounded-lg border border-gray-800">
-      <h3 className="text-lg font-bold mb-3 text-amber-400">{title}</h3>
-      <div className="text-gray-300 whitespace-pre-line leading-relaxed">{content}</div>
+    <div
+      style={{
+        padding: "8px 12px",
+        background: "white",
+        border: "1px solid #e8e8e8",
+        borderRadius: 6,
+      }}
+    >
+      <div style={{ fontSize: 11, color: "#999", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 15, fontWeight: 600 }}>{value}</div>
     </div>
   );
 }
 
-function formatNum(val: number | string | undefined): string {
-  if (val === undefined || val === null) return "?";
-  const num = typeof val === "string" ? parseFloat(val) : val;
-  if (isNaN(num)) return "?";
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-  return num.toFixed(1);
+function HomeworkSection({ title, content }: { title: string; content: string }) {
+  if (!content) return null;
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{title}</h4>
+      <p style={{ fontSize: 13, lineHeight: 1.6, color: "#333", margin: 0 }}>{content}</p>
+    </div>
+  );
+}
+
+function formatNum(n: number): string {
+  if (!n) return "0";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return n.toFixed(0);
 }
