@@ -17,7 +17,7 @@ async def create_build(req: DecodeRequest, db: Session = Depends(get_db)):
     """Save a new build — decodes PoB code and stores BuildData."""
     # Decode
     build_data = decode_pob(req.pob_code)
-    if hasattr(build_data, "error"):
+    if isinstance(build_data, ErrorResponse):
         raise HTTPException(status_code=400, detail=build_data.error)
 
     # Generate homework
@@ -26,8 +26,8 @@ async def create_build(req: DecodeRequest, db: Session = Depends(get_db)):
     # Save to DB
     build = Build(
         pob_code=req.pob_code,
-        league=req.league if hasattr(req, "league") else None,
-        game_version=req.game_version if hasattr(req, "game_version") else None,
+        league=req.league,
+        game_version=req.game_version or build_data.build.targetVersion,
         status="done",
     )
     build.set_build_data(build_data.model_dump())

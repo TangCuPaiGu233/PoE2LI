@@ -31,3 +31,4 @@ def test_homework_with_invalid_code_returns_400():
     """POST /api/builds/homework with garbage returns 400."""
     response = client.post("/api/builds/homework", json={"pob_code": "garbage"})
     assert response.status_code == 400
+    assert "detail" in response.json()

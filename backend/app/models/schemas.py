@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 class DecodeRequest(BaseModel):
     """Request body for POST /api/builds/decode."""
     pob_code: str = Field(..., min_length=1, description="PoB share code starting with eN")
+    league: str | None = Field(None, description="League name (e.g. 'Standard')")
+    game_version: str | None = Field(None, description="Game version (e.g. '0.1')")
 
 
 class BuildInfo(BaseModel):

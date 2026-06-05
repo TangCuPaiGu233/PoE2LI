@@ -35,7 +35,7 @@ def test_decode_invalid_code_returns_400():
     """POST /api/builds/decode with garbage returns 400."""
     response = client.post("/api/builds/decode", json={"pob_code": "not_a_valid_code"})
     assert response.status_code == 400
-    assert "error" in response.json()
+    assert "detail" in response.json()
 
 
 def test_decode_empty_code_returns_422():

@@ -8,15 +8,30 @@ import sys
 from typing import Any
 
 
+def _to_int(val: str | None, default: int = 0) -> int:
+    """Safely convert string to int."""
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
 def decode_pob_code(code: str) -> str:
     """Decode a PoB share code into XML string.
 
     Steps:
-    1. Restore URL-safe base64 chars (- → +, _ → /)
-    2. Add padding if needed
-    3. Base64 decode
-    4. Zlib decompress (zlib wrapper first, raw deflate fallback)
+    1. Validate prefix (must start with eN)
+    2. Restore URL-safe base64 chars (- → +, _ → /)
+    3. Add padding if needed
+    4. Base64 decode
+    5. Zlib decompress (zlib wrapper first, raw deflate fallback)
     """
+    # Quick validation: PoB codes start with eN
+    if not code[:2] == "eN":
+        raise ValueError(f"Invalid PoB code: must start with 'eN', got '{code[:10]}...'")
+
     # Restore URL-safe base64
     code = code.replace("-", "+").replace("_", "/")
 
@@ -52,17 +67,41 @@ def parse_build_data(xml_str: str) -> dict[str, Any]:
         }
 
     # --- Skills (gem setups) ---
-    # PoB has two formats: SkillSet > Skill > Gem, or top-level Skill > Gem
+    # PoB has two formats (mutually exclusive):
+    #   Format 1: Skills > SkillSet > Skill > Gem
+    #   Format 2: Skills > Skill > Gem (no SkillSet wrapper)
     skills_node = root.find("Skills")
     skill_sets: list[dict] = []
     if skills_node is not None:
-        # Format 1: SkillSet > Skill > Gem
-        for skill_spec in skills_node.findall("SkillSet"):
-            skill_set: dict[str, Any] = {
-                "id": skill_spec.get("id"),
-                "gems": [],
-            }
-            for skill in skill_spec.findall("Skill"):
+        skill_sets_elem = skills_node.findall("SkillSet")
+
+        if skill_sets_elem:
+            # Format 1: SkillSet > Skill > Gem
+            for skill_spec in skill_sets_elem:
+                skill_set: dict[str, Any] = {
+                    "id": skill_spec.get("id"),
+                    "gems": [],
+                }
+                for skill in skill_spec.findall("Skill"):
+                    slot = skill.get("slot", "unknown")
+                    for gem in skill.findall("Gem"):
+                        gem_data = {
+                            "nameSpec": gem.get("nameSpec"),
+                            "skillId": gem.get("skillId"),
+                            "level": _to_int(gem.get("level")),
+                            "quality": _to_int(gem.get("quality")),
+                            "enabled": gem.get("enabled", "true") == "true",
+                            "slot": slot,
+                        }
+                        skill_set["gems"].append(gem_data)
+                skill_sets.append(skill_set)
+        else:
+            # Format 2: top-level Skills > Skill > Gem
+            for skill in skills_node.findall("Skill"):
+                skill_set = {
+                    "id": skill.get("slot", "unknown"),
+                    "gems": [],
+                }
                 slot = skill.get("slot", "unknown")
                 for gem in skill.findall("Gem"):
                     gem_data = {
@@ -74,25 +113,8 @@ def parse_build_data(xml_str: str) -> dict[str, Any]:
                         "slot": slot,
                     }
                     skill_set["gems"].append(gem_data)
-            skill_sets.append(skill_set)
-
-        # Format 2: top-level Skills > Skill > Gem
-        for skill in skills_node.findall("Skill"):
-            skill_set = {
-                "id": skill.get("slot", "unknown"),
-                "gems": [],
-            }
-            for gem in skill.findall("Gem"):
-                gem_data = {
-                    "nameSpec": gem.get("nameSpec"),
-                    "skillId": gem.get("skillId"),
-                    "level": gem.get("level"),
-                    "quality": gem.get("quality"),
-                    "enabled": gem.get("enabled", "true") == "true",
-                }
-                skill_set["gems"].append(gem_data)
-            if skill_set["gems"]:
-                skill_sets.append(skill_set)
+                if skill_set["gems"]:
+                    skill_sets.append(skill_set)
 
     build_data["skillSets"] = skill_sets
 

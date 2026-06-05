@@ -1,7 +1,7 @@
 """Database model for builds."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from app.core.database import Base
 
@@ -16,8 +16,8 @@ class Build(Base):
     league = Column(String(50), nullable=True)
     game_version = Column(String(20), nullable=True)
     status = Column(String(20), nullable=False, default="parsed")  # pending/parsed/done/failed
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def get_build_data(self) -> dict:
         return json.loads(self.build_data)
