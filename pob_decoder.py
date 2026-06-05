@@ -1,11 +1,21 @@
 """PoB Code Decoder — Phase 1: PoB in, structured JSON out."""
 
 import base64
+import binascii
 import zlib
 import xml.etree.ElementTree as ET
 import json
 import sys
 from typing import Any
+
+
+class PoBDecodeError(Exception):
+    """Custom exception for PoB decoding failures."""
+
+    def __init__(self, reason: str, detail: str = ""):
+        self.reason = reason
+        self.detail = detail
+        super().__init__(f"{reason}: {detail}")
 
 
 def _to_int(val: str | None, default: int = 0) -> int:
@@ -27,10 +37,12 @@ def decode_pob_code(code: str) -> str:
     3. Add padding if needed
     4. Base64 decode
     5. Zlib decompress (zlib wrapper first, raw deflate fallback)
+
+    Raises PoBDecodeError on any failure.
     """
     # Quick validation: PoB codes start with eN
-    if not code[:2] == "eN":
-        raise ValueError(f"Invalid PoB code: must start with 'eN', got '{code[:10]}...'")
+    if not code or not code[:2] == "eN":
+        raise PoBDecodeError("invalid_prefix", f"Must start with 'eN', got '{code[:10]}...'")
 
     # Restore URL-safe base64
     code = code.replace("-", "+").replace("_", "/")
@@ -39,20 +51,32 @@ def decode_pob_code(code: str) -> str:
     code += "=" * (-len(code) % 4)
 
     # Base64 decode
-    raw = base64.b64decode(code)
+    try:
+        raw = base64.b64decode(code)
+    except binascii.Error as e:
+        raise PoBDecodeError("invalid_base64", str(e)) from e
 
     # Try zlib wrapper first, then raw deflate
     try:
-        xml_str = zlib.decompress(raw)
+        xml_bytes = zlib.decompress(raw)
     except zlib.error:
-        xml_str = zlib.decompress(raw, -zlib.MAX_WBITS)
+        try:
+            xml_bytes = zlib.decompress(raw, -zlib.MAX_WBITS)
+        except zlib.error as e:
+            raise PoBDecodeError("decompress_failed", str(e)) from e
 
-    return xml_str.decode("utf-8")
+    return xml_bytes.decode("utf-8")
 
 
 def parse_build_data(xml_str: str) -> dict[str, Any]:
-    """Parse PoB XML into structured BuildData."""
-    root = ET.fromstring(xml_str)
+    """Parse PoB XML into structured BuildData.
+
+    Raises PoBDecodeError on malformed XML.
+    """
+    try:
+        root = ET.fromstring(xml_str)
+    except ET.ParseError as e:
+        raise PoBDecodeError("malformed_xml", str(e)) from e
 
     build_data: dict[str, Any] = {}
 
@@ -107,8 +131,8 @@ def parse_build_data(xml_str: str) -> dict[str, Any]:
                     gem_data = {
                         "nameSpec": gem.get("nameSpec"),
                         "skillId": gem.get("skillId"),
-                        "level": gem.get("level"),
-                        "quality": gem.get("quality"),
+                        "level": _to_int(gem.get("level")),
+                        "quality": _to_int(gem.get("quality")),
                         "enabled": gem.get("enabled", "true") == "true",
                         "slot": slot,
                     }
@@ -129,7 +153,7 @@ def parse_build_data(xml_str: str) -> dict[str, Any]:
                 "title": spec.get("title", ""),
                 "classId": spec.get("classId"),
                 "ascendClassId": spec.get("ascendClassId"),
-                "nodes": [int(n) for n in nodes_text.split(",") if n.strip()],
+                "nodes": [_to_int(n) for n in nodes_text.split(",") if n.strip()],
             }
             tree_specs.append(tree_spec)
     build_data["treeSpecs"] = tree_specs

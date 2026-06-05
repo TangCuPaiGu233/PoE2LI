@@ -6,7 +6,7 @@ from pathlib import Path
 # Add project root to path so we can import pob_decoder
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-from pob_decoder import decode_pob_code, parse_build_data
+from pob_decoder import decode_pob_code, parse_build_data, PoBDecodeError
 from app.models.schemas import (
     BuildInfo, TreeSpec, Gem, SkillSet, Item,
     DecodeResponse, ErrorResponse,
@@ -20,13 +20,17 @@ def decode_pob(pob_code: str) -> DecodeResponse | ErrorResponse:
     """
     try:
         xml_str = decode_pob_code(pob_code)
+    except PoBDecodeError as e:
+        return ErrorResponse(error=f"PoB 解码失败 ({e.reason}): {e.detail}")
     except Exception as e:
-        return ErrorResponse(error=f"Failed to decode PoB code: {e}")
+        return ErrorResponse(error=f"PoB 解码异常: {e}")
 
     try:
         raw_data = parse_build_data(xml_str)
+    except PoBDecodeError as e:
+        return ErrorResponse(error=f"PoB 解析失败 ({e.reason}): {e.detail}")
     except Exception as e:
-        return ErrorResponse(error=f"Failed to parse PoB XML: {e}")
+        return ErrorResponse(error=f"PoB 解析异常: {e}")
 
     # Convert raw dicts to Pydantic models
     build_info = BuildInfo(**raw_data.get("build", {}))
