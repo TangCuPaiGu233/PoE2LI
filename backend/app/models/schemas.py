@@ -73,7 +73,7 @@ class BuildSummary(BaseModel):
     status: str
     league: str | None = None
     game_version: str | None = None
-    build: dict = {}
+    build: BuildInfo = BuildInfo()
 
 
 class BuildDetail(BuildSummary):

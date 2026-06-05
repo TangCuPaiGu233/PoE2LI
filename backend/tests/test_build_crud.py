@@ -74,7 +74,7 @@ def test_save_and_retrieve_build(client):
     assert get_resp.status_code == 200
     retrieved = get_resp.json()
     assert retrieved["id"] == build_id
-    assert retrieved["build"]["build"]["className"] == "Ranger"
+    assert retrieved["build"]["className"] == "Ranger"
     assert retrieved["homework"] is not None
     assert "core_idea" in retrieved["homework"]
 

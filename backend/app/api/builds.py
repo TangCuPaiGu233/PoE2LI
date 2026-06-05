@@ -75,12 +75,14 @@ async def get_build(build_id: int, db: Session = Depends(get_db)):
     if not build:
         raise HTTPException(status_code=404, detail="Build not found")
 
+    full_data = build.get_build_data()
+
     return BuildDetail(
         id=build.id,
         status=build.status,
         league=build.league,
         game_version=build.game_version,
-        build=build.get_build_data(),
+        build=full_data.get("build", {}),
         homework=build.get_homework(),
         created_at=build.created_at.isoformat() if build.created_at else None,
     )
