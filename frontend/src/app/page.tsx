@@ -28,7 +28,7 @@ interface BuildData {
   playerStats: PlayerStats;
   homework?: Homework;
   treeSpecs?: { nodes: number[] }[];
-  skillSets?: { gems: { nameSpec?: string }[] }[];
+  skillSets?: { gems: { nameSpec?: string; level?: number }[] }[];
   items?: { id?: string; rarity?: string; name?: string }[];
   created_at?: string;
 }
