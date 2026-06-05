@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: poe2li-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HTTPS_PROXY=http://192.168.110.26:7890
+      - HTTP_PROXY=http://192.168.110.26:7890
+      - ANTHROPIC_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
+      - DB_PATH=/app/data/poe2li.db
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: poe2li-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://192.168.110.26:8000
+    depends_on:
+      backend:
+        condition: service_healthy

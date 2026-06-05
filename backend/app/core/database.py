@@ -1,10 +1,12 @@
 """Database configuration — SQLite for dev/test, PostgreSQL for production."""
 
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-# SQLite for dev/testing (no external DB needed)
-DATABASE_URL = "sqlite:///./poe2li.db"
+# SQLite — use /app/data in Docker, local file in dev
+DB_PATH = os.getenv("DB_PATH", "./poe2li.db")
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
