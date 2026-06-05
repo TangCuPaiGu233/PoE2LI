@@ -1,6 +1,7 @@
 """AI service for generating build playbooks.
 
 Uses mimo-v2.5 (Anthropic-compatible API) to generate Chinese build guides.
+Proxy is configured via HTTPS_PROXY/HTTP_PROXY environment variables.
 """
 
 import os
@@ -12,13 +13,10 @@ from app.models.schemas import DecodeResponse
 ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://token-plan-cn.xiaomimimo.com/anthropic")
 ANTHROPIC_AUTH_TOKEN = os.getenv("ANTHROPIC_AUTH_TOKEN", "tp-c439jd6uhy2mbragl3fwwoa8w2ige8td81ggbsrs86ibsraq")
 
-# Proxy configuration
-PROXY_URL = os.getenv("HTTPS_PROXY", "http://192.168.110.26:7890")
-
+# Client uses proxy from HTTPS_PROXY/HTTP_PROXY env vars automatically
 client = Anthropic(
     base_url=ANTHROPIC_BASE_URL,
     api_key=ANTHROPIC_AUTH_TOKEN,
-    http_client=None,  # Use default httpx client with proxy from env
 )
 
 # Structured output schema for homework
