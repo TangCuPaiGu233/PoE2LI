@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Auto-detect API URL: same host, port 8000
+function getApiUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return "http://localhost:8000";
+}
 
 interface BuildInfo {
   className?: string;
@@ -52,7 +58,7 @@ export default function Home() {
 
   const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/builds`);
+      const res = await fetch(`${getApiUrl()}/api/builds`);
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -86,7 +92,7 @@ export default function Home() {
     setLoadingStep("解码 PoB 分享码...");
 
     try {
-      const res = await fetch(`${API_URL}/api/builds`, {
+      const res = await fetch(`${getApiUrl()}/api/builds`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pob_code: pobCode.trim() }),
@@ -104,7 +110,7 @@ export default function Home() {
       const data = await res.json();
       setLoadingStep("AI 正在生成攻略（约 10 秒）...");
 
-      const fullRes = await fetch(`${API_URL}/api/builds/${data.id}`);
+      const fullRes = await fetch(`${getApiUrl()}/api/builds/${data.id}`);
       const fullData = await fullRes.json();
       setResult(fullData);
       loadHistory();
@@ -125,7 +131,7 @@ export default function Home() {
     setError(null);
     setLoadingStep("加载中...");
     try {
-      const res = await fetch(`${API_URL}/api/builds/${id}`);
+      const res = await fetch(`${getApiUrl()}/api/builds/${id}`);
       if (res.ok) {
         setResult(await res.json());
       } else {
