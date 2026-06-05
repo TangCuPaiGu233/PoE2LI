@@ -1,0 +1,140 @@
+{
+  "build": {
+    "level": "90",
+    "className": "Marauder",
+    "ascendClassName": "Juggernaut",
+    "targetVersion": "0_1"
+  },
+  "skillSets": [
+    {
+      "id": "1",
+      "gems": [
+        {
+          "nameSpec": "Cyclone",
+          "skillId": "Cyclone",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Body Armour"
+        },
+        {
+          "nameSpec": "Melee Physical Damage",
+          "skillId": "MeleePhysicalDamageSupport",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Body Armour"
+        },
+        {
+          "nameSpec": "Brutality",
+          "skillId": "BrutalitySupport",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Body Armour"
+        },
+        {
+          "nameSpec": "Infused Channelling",
+          "skillId": "InfusedChannellingSupport",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Body Armour"
+        },
+        {
+          "nameSpec": "Impale",
+          "skillId": "ImpaleSupport",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Body Armour"
+        },
+        {
+          "nameSpec": "Fortify",
+          "skillId": "FortifySupport",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Body Armour"
+        },
+        {
+          "nameSpec": "Ancestral Warchief",
+          "skillId": "AncestralWarchief",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Weapon 1"
+        },
+        {
+          "nameSpec": "Multiple Totems",
+          "skillId": "MultipleTotemsSupport",
+          "level": "20",
+          "quality": "20",
+          "enabled": true,
+          "slot": "Weapon 1"
+        }
+      ]
+    }
+  ],
+  "treeSpecs": [
+    {
+      "title": "Endgame",
+      "classId": "1",
+      "ascendClassId": "1",
+      "nodes": [
+        26786,
+        53960,
+        2847,
+        21336,
+        46318,
+        60505,
+        63526,
+        56935,
+        30047,
+        49696,
+        38707,
+        11248,
+        54127
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "1",
+      "raw": "Rarity: RARE\nEagle Grip\nVaal Gauntlets\nArmour: 320\nRequires Level 63, 100 Str\n+80 to maximum Life\n+45% to Fire Resistance\n+35% to Cold Resistance\n+20% increased Attack Speed",
+      "rarity": "RARE",
+      "name": "Eagle Grip",
+      "baseName": "Vaal Gauntlets",
+      "slot": "Gloves"
+    },
+    {
+      "id": "2",
+      "raw": "Rarity: UNIQUE\nKaom's Heart\nGlorious Plate\nArmour: 550\nRequires Level 68, 191 Str\n+500 to maximum Life\nHas no Sockets\n30% of Fire Damage is taken as Physical Damage",
+      "rarity": "UNIQUE",
+      "name": "Kaom's Heart",
+      "baseName": "Glorious Plate",
+      "slot": "Body Armour"
+    },
+    {
+      "id": "3",
+      "raw": "Rarity: RARE\nOnslaught Strike\nVaal Axe\nPhysical Damage: 320-480\nCritical Strike Chance: 5.00%\nAttacks per Second: 1.35\nRequires Level 64, 158 Str, 76 Dex\n+25% to Global Critical Strike Multiplier\nAdds 45 to 80 Physical Damage\n+30% to Fire Resistance",
+      "rarity": "RARE",
+      "name": "Onslaught Strike",
+      "baseName": "Vaal Axe",
+      "slot": "Weapon 1"
+    }
+  ],
+  "playerStats": {
+    "TotalDPS": 50000,
+    "Life": 4500,
+    "Mana": 1200,
+    "Str": 300,
+    "Dex": 150,
+    "Int": 100,
+    "TotalEHP": 25000,
+    "FireResist": 85,
+    "ColdResist": 85,
+    "LightningResist": 85,
+    "ChaosResist": 75
+  }
+}
