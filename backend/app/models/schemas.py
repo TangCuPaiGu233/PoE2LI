@@ -4,7 +4,12 @@ from pydantic import BaseModel, Field
 
 
 class DecodeRequest(BaseModel):
-    """Request body for POST /api/builds/decode."""
+    """Request body for POST /api/builds/decode — pure decode, no storage."""
+    pob_code: str = Field(..., min_length=1, description="PoB share code starting with eN")
+
+
+class CreateBuildRequest(BaseModel):
+    """Request body for POST /api/builds — decode + store + generate homework."""
     pob_code: str = Field(..., min_length=1, description="PoB share code starting with eN")
     league: str | None = Field(None, description="League name (e.g. 'Standard')")
     game_version: str | None = Field(None, description="Game version (e.g. '0.1')")
@@ -62,6 +67,22 @@ class DecodeResponse(BaseModel):
     config: dict[str, str] = {}
 
 
+class BuildSummary(BaseModel):
+    """Response for GET /api/builds (list) and POST /api/builds (create)."""
+    id: int
+    status: str
+    league: str | None = None
+    game_version: str | None = None
+    build: dict = {}
+
+
+class BuildDetail(BuildSummary):
+    """Response for GET /api/builds/{id} — includes full data + homework."""
+    homework: dict | None = None
+    created_at: str | None = None
+
+
 class ErrorResponse(BaseModel):
-    """Standard error response."""
+    """Structured error response with machine-readable reason."""
     error: str
+    reason: str | None = None

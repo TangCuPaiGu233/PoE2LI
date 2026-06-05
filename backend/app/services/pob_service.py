@@ -21,16 +21,16 @@ def decode_pob(pob_code: str) -> DecodeResponse | ErrorResponse:
     try:
         xml_str = decode_pob_code(pob_code)
     except PoBDecodeError as e:
-        return ErrorResponse(error=f"PoB 解码失败 ({e.reason}): {e.detail}")
+        return ErrorResponse(error=f"PoB 解码失败: {e.detail}", reason=e.reason)
     except Exception as e:
-        return ErrorResponse(error=f"PoB 解码异常: {e}")
+        return ErrorResponse(error=f"PoB 解码异常: {e}", reason="unknown")
 
     try:
         raw_data = parse_build_data(xml_str)
     except PoBDecodeError as e:
-        return ErrorResponse(error=f"PoB 解析失败 ({e.reason}): {e.detail}")
+        return ErrorResponse(error=f"PoB 解析失败: {e.detail}", reason=e.reason)
     except Exception as e:
-        return ErrorResponse(error=f"PoB 解析异常: {e}")
+        return ErrorResponse(error=f"PoB 解析异常: {e}", reason="unknown")
 
     # Convert raw dicts to Pydantic models
     build_info = BuildInfo(**raw_data.get("build", {}))

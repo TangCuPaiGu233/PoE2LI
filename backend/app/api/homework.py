@@ -23,7 +23,10 @@ async def generate_build_homework(req: DecodeRequest):
     # Step 1: Decode
     build_data = decode_pob(req.pob_code)
     if isinstance(build_data, ErrorResponse):
-        raise HTTPException(status_code=400, detail=build_data.error)
+        raise HTTPException(
+            status_code=400,
+            detail={"error": build_data.error, "reason": build_data.reason},
+        )
 
     # Step 2: Generate homework
     homework = generate_homework(build_data)

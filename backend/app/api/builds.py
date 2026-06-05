@@ -5,20 +5,26 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.build import Build
-from app.models.schemas import DecodeRequest, ErrorResponse
+from app.models.schemas import (
+    CreateBuildRequest, BuildSummary, BuildDetail,
+    ErrorResponse,
+)
 from app.services.pob_service import decode_pob
 from app.services.ai_service import generate_homework
 
 router = APIRouter()
 
 
-@router.post("/api/builds")
-async def create_build(req: DecodeRequest, db: Session = Depends(get_db)):
-    """Save a new build — decodes PoB code and stores BuildData."""
+@router.post("/api/builds", response_model=BuildSummary)
+async def create_build(req: CreateBuildRequest, db: Session = Depends(get_db)):
+    """Save a new build — decodes PoB code, generates homework, stores in DB."""
     # Decode
     build_data = decode_pob(req.pob_code)
     if isinstance(build_data, ErrorResponse):
-        raise HTTPException(status_code=400, detail=build_data.error)
+        raise HTTPException(
+            status_code=400,
+            detail={"error": build_data.error, "reason": build_data.reason},
+        )
 
     # Generate homework
     homework = generate_homework(build_data)
@@ -37,44 +43,44 @@ async def create_build(req: DecodeRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(build)
 
-    return {
-        "id": build.id,
-        "status": build.status,
-        "league": build.league,
-        "game_version": build.game_version,
-        "build": build.get_build_data().get("build", {}),
-    }
+    return BuildSummary(
+        id=build.id,
+        status=build.status,
+        league=build.league,
+        game_version=build.game_version,
+        build=build.get_build_data().get("build", {}),
+    )
 
 
-@router.get("/api/builds")
+@router.get("/api/builds", response_model=list[BuildSummary])
 async def list_builds(db: Session = Depends(get_db)):
     """List all saved builds."""
     builds = db.query(Build).order_by(Build.created_at.desc()).limit(50).all()
     return [
-        {
-            "id": b.id,
-            "status": b.status,
-            "league": b.league,
-            "build": b.get_build_data().get("build", {}),
-            "created_at": b.created_at.isoformat() if b.created_at else None,
-        }
+        BuildSummary(
+            id=b.id,
+            status=b.status,
+            league=b.league,
+            game_version=b.game_version,
+            build=b.get_build_data().get("build", {}),
+        )
         for b in builds
     ]
 
 
-@router.get("/api/builds/{build_id}")
+@router.get("/api/builds/{build_id}", response_model=BuildDetail)
 async def get_build(build_id: int, db: Session = Depends(get_db)):
-    """Get a specific build by ID."""
+    """Get a specific build by ID with full data and homework."""
     build = db.query(Build).filter(Build.id == build_id).first()
     if not build:
         raise HTTPException(status_code=404, detail="Build not found")
 
-    return {
-        "id": build.id,
-        "status": build.status,
-        "league": build.league,
-        "game_version": build.game_version,
-        "build": build.get_build_data(),
-        "homework": build.get_homework(),
-        "created_at": build.created_at.isoformat() if build.created_at else None,
-    }
+    return BuildDetail(
+        id=build.id,
+        status=build.status,
+        league=build.league,
+        game_version=build.game_version,
+        build=build.get_build_data(),
+        homework=build.get_homework(),
+        created_at=build.created_at.isoformat() if build.created_at else None,
+    )

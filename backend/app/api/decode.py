@@ -11,12 +11,15 @@ router = APIRouter()
 async def decode_build(req: DecodeRequest):
     """Decode a PoB share code into structured BuildData.
 
-    Accepts a PoB code (base64+zlib encoded XML), decodes and parses it,
-    and returns structured JSON with build info, tree, skills, items, and stats.
+    Pure decode — no storage, no AI generation.
+    Accepts a PoB code and returns structured JSON with build info, tree, skills, items, and stats.
     """
     result = decode_pob(req.pob_code)
 
     if isinstance(result, ErrorResponse):
-        raise HTTPException(status_code=400, detail=result.error)
+        raise HTTPException(
+            status_code=400,
+            detail={"error": result.error, "reason": result.reason},
+        )
 
     return result
