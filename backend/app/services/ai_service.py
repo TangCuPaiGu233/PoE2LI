@@ -222,7 +222,7 @@ def _parse_ai_response(content: str) -> dict:
         "core_idea": [r"core_idea", r"core_ista", r"core_id", r"core_ide[a-z]?"],
         "core_items": [r"core_items?", r"core_item"],
         "budget_alternatives": [r"budget_alternatives?", r"budget_alternative"],
-        "talent_highlights": [r"talent_highlights?", r"talent_highlight", r"talent_points?"],
+        "talent_highlights": [r"talent_highlights?", r"talent_highlight", r"talent_points?", r"talent亮点"],
         "strength_review": [r"strength_reviews?", r"strength_review"],
     }
     for canonical, patterns in fuzzy_patterns.items():
