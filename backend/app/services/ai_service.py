@@ -167,6 +167,8 @@ def _fix_keys(result: dict) -> dict:
         "budget_alternatives": "budget_alternatives",
         "talent_highlights": "talent_highlights",
         "talent_highlight": "talent_highlights",
+        "talent_points": "talent_highlights",
+        "talent_point": "talent_highlights",
         "strength_review": "strength_review",
         "strength_reviews": "strength_review",
     }
@@ -221,7 +223,7 @@ def _parse_ai_response(content: str) -> dict:
         "core_idea": [r"core_idea", r"core_ista", r"core_id", r"core_ide[a-z]?"],
         "core_items": [r"core_items?", r"core_item"],
         "budget_alternatives": [r"budget_alternatives?", r"budget_alternative"],
-        "talent_highlights": [r"talent_highlights?", r"talent_highlight"],
+        "talent_highlights": [r"talent_highlights?", r"talent_highlight", r"talent_points?"],
         "strength_review": [r"strength_reviews?", r"strength_review"],
     }
     for canonical, patterns in fuzzy_patterns.items():
