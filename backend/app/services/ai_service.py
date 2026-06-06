@@ -153,11 +153,40 @@ def _build_prompt(build_data: DecodeResponse) -> str:
 }}"""
 
 
+def _fix_keys(result: dict) -> dict:
+    """Fix common AI typos in JSON keys."""
+    KEY_MAP = {
+        "core_idea": "core_idea",
+        "core_ista": "core_idea",
+        "core_id": "core_idea",
+        "core_ide": "core_idea",
+        "core_items": "core_items",
+        "core_item": "core_items",
+        "budget_alternatives": "budget_alternatives",
+        "budget_alternative": "budget_alternatives",
+        "budget_alternatives": "budget_alternatives",
+        "talent_highlights": "talent_highlights",
+        "talent_highlight": "talent_highlights",
+        "strength_review": "strength_review",
+        "strength_reviews": "strength_review",
+    }
+    fixed = {}
+    for k, v in result.items():
+        canonical = KEY_MAP.get(k, k)
+        # If already exists, merge (prefer longer content)
+        if canonical in fixed:
+            if len(str(v)) > len(str(fixed[canonical])):
+                fixed[canonical] = v
+        else:
+            fixed[canonical] = v
+    return fixed
+
+
 def _parse_ai_response(content: str) -> dict:
     """Parse AI response, handling various formats robustly."""
     # Try direct JSON parse first
     try:
-        return json.loads(content)
+        return _fix_keys(json.loads(content))
     except json.JSONDecodeError:
         pass
 
@@ -165,7 +194,7 @@ def _parse_ai_response(content: str) -> dict:
     json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
     if json_match:
         try:
-            return json.loads(json_match.group(1))
+            return _fix_keys(json.loads(json_match.group(1)))
         except json.JSONDecodeError:
             pass
 
@@ -175,34 +204,43 @@ def _parse_ai_response(content: str) -> dict:
     if brace_start >= 0 and brace_end > brace_start:
         json_str = content[brace_start:brace_end + 1]
         try:
-            return json.loads(json_str)
+            return _fix_keys(json.loads(json_str))
         except json.JSONDecodeError:
             # Try fixing common JSON issues
-            # Remove trailing commas
             json_str = re.sub(r',\s*}', '}', json_str)
             json_str = re.sub(r',\s*]', ']', json_str)
             try:
-                return json.loads(json_str)
+                return _fix_keys(json.loads(json_str))
             except json.JSONDecodeError:
                 pass
 
     # If all else fails, try to extract key-value pairs manually
+    # Also handle fuzzy key names (typos like core_ista -> core_idea)
     result = {}
-    for key in ["core_idea", "core_items", "budget_alternatives", "talent_highlights", "strength_review"]:
-        # Look for "key": "value" pattern
-        pattern = rf'"{key}"\s*:\s*"([^"]*)"'
-        match = re.search(pattern, content)
-        if match:
-            result[key] = match.group(1)
-        else:
-            # Look for 'key': 'value' pattern
-            pattern = rf"'{key}'\s*:\s*'([^']*)'"
-            match = re.search(pattern, content)
+    fuzzy_patterns = {
+        "core_idea": [r"core_idea", r"core_ista", r"core_id", r"core_ide[a-z]?"],
+        "core_items": [r"core_items?", r"core_item"],
+        "budget_alternatives": [r"budget_alternatives?", r"budget_alternative"],
+        "talent_highlights": [r"talent_highlights?", r"talent_highlight"],
+        "strength_review": [r"strength_reviews?", r"strength_review"],
+    }
+    for canonical, patterns in fuzzy_patterns.items():
+        for pat in patterns:
+            # Look for "key": "value" pattern
+            pattern = rf'"{pat}"\s*:\s*"((?:[^"\\]|\\.)*)"'
+            match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                result[key] = match.group(1)
+                result[canonical] = match.group(1)
+                break
+            # Look for 'key': 'value' pattern
+            pattern = rf"'{pat}'\s*:\s*'((?:[^'\\]|\\.)*)'"
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                result[canonical] = match.group(1)
+                break
 
     if result:
-        return result
+        return _fix_keys(result)
 
     raise ValueError(f"Could not parse AI response as JSON: {content[:200]}...")
 
