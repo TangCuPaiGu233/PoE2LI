@@ -41,40 +41,68 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     cold_res = stats.get("ColdResist", "N/A")
     lightning_res = stats.get("LightningResist", "N/A")
 
-    # Extract gems with full details, separate companions
+    # Group skills by socket group (SkillSet > Skill > Gem)
+    # PoB organizes gems into socket groups — each Skill in a SkillSet is one socket group
     companions = []
-    active_skills = []
-    support_gems = []
+    socket_groups = []
     for ss in skills:
+        # Each ss.gems is a flat list, but they come from multiple Skill elements
+        # Group by slot
+        current_slot = None
+        current_gems = []
         for g in ss.gems:
-            if g.enabled and g.nameSpec:
-                entry = f"{g.nameSpec} (Lv{g.level}, Q{g.quality})"
-                if "companion" in g.nameSpec.lower() or "Companion" in g.nameSpec:
-                    companions.append(entry)
-                elif g.level >= 15:  # Main active skills
-                    active_skills.append(entry)
-                else:
-                    support_gems.append(entry)
+            if not g.nameSpec or not g.enabled:
+                continue
+            if g.slot != current_slot:
+                if current_gems:
+                    socket_groups.append({"slot": current_slot, "gems": current_gems})
+                current_slot = g.slot
+                current_gems = []
+            current_gems.append(g)
+        if current_gems:
+            socket_groups.append({"slot": current_slot, "gems": current_gems})
+
+    # Also collect companions separately for highlighting
+    for sg in socket_groups:
+        for g in sg["gems"]:
+            if "companion" in (g.nameSpec or "").lower() or "Companion" in (g.nameSpec or ""):
+                companions.append(g)
 
     gems_str = ""
     if companions:
-        gems_str += "=== 核心 Companion（伙伴）===\n" + "\n".join(f"- {c}" for c in companions) + "\n"
-    if active_skills:
-        gems_str += "=== 主动技能 ===\n" + "\n".join(f"- {s}" for s in active_skills) + "\n"
-    if support_gems:
-        gems_str += "=== 辅助宝石（前10个）===\n" + "\n".join(f"- {s}" for s in support_gems[:10])
+        gems_str += "=== Companion（伙伴）— 这是构建核心 ===\n"
+        for c in companions:
+            gems_str += f"- **{c.nameSpec}** Lv{c.level} Q{c.quality}\n"
+        gems_str += "\n"
+
+    gems_str += "=== Socket Groups（技能组合）===\n"
+    for sg in socket_groups:
+        slot = sg["slot"] or "unknown"
+        gem_names = [f"{g.nameSpec}(Lv{g.level})" for g in sg["gems"]]
+        gems_str += f"[{slot}] {' + '.join(gem_names)}\n"
     if not gems_str:
         gems_str = "未配置"
 
-    # Extract items with FULL raw text (not just name)
+    # Extract items with FULL raw text, filter useless lines
+    USELESS_LINES = {"Unique ID", "Item Level", "Quality", "Sockets", "Rune:", "LevelReq:"}
     item_list = []
     for i in items:
-        if i.name:
-            # Include first few lines of raw text for affixes
-            raw_lines = i.raw.split("\n")[:8] if i.raw else []
-            raw_preview = " | ".join(raw_lines)
-            item_list.append(f"[{i.rarity}] {i.name} - {raw_preview}")
-    items_str = "\n".join(f"- {i}" for i in item_list[:15]) or "无装备数据"
+        if not i.name:
+            continue
+        # Get all lines of raw text, filter out noise
+        raw_lines = i.raw.split("\n") if i.raw else []
+        filtered = []
+        for line in raw_lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Skip useless metadata lines
+            if any(stripped.startswith(prefix) for prefix in USELESS_LINES):
+                continue
+            filtered.append(stripped)
+        item_text = "\n  ".join(filtered)
+        item_list.append(f"[{i.rarity}] {i.name}\n  {item_text}")
+    items_str = "\n\n".join(item_list[:15]) or "无装备数据"
 
     # Extract tree info
     node_count = sum(len(ts.nodes) for ts in tree)
@@ -82,11 +110,12 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     return f"""你是一个 Path of Exile 2 构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
 
 特别注意：
-- 技能宝石已按类型分组：Companion（伙伴）、主动技能、辅助宝石
-- 如果有 Companion（伙伴），这是构建的核心！详细分析每个 Companion 的作用
-- Companion 是 PoE2 的独特机制，它们是独立战斗的 AI 伙伴，不是传统召唤物
-- 仔细查看装备属性，找出核心装备和关键词缀
+- Companion（伙伴）是 PoE2 的独特机制，它们是独立战斗的 AI 伙伴，有自己的技能和行为
+- 如果有 Companion，必须详细分析每个 Companion 的作用和它们的辅助宝石搭配
+- 装备数据包含完整词缀，仔细阅读词缀来判断装备的核心价值
+- 特别关注带有 "Minion"（召唤物）"Companion" 关键词的词缀
 - 分析这个构建的核心玩法思路，不要泛泛而谈
+- 如果 DPS 为 0 但有 Companion/Minion，说明伤害来自伙伴而非角色本身
 
 ## 构建信息
 - 职业: {build.className} / {build.ascendClassName}
@@ -101,10 +130,10 @@ def _build_prompt(build_data: DecodeResponse) -> str:
 - 力量/敏捷/智慧: {str_val}/{dex_val}/{int_val}
 - 抗性: 火{fire_res} / 冰{cold_res} / 电{lightning_res}
 
-## 技能宝石（按槽位分组）
+## 技能宝石（按 Socket Group 分组）
 {gems_str}
 
-## 装备（含词缀预览）
+## 装备（完整词缀）
 {items_str}
 
 ## 输出要求
@@ -193,7 +222,7 @@ def generate_homework(build_data: DecodeResponse) -> dict:
     try:
         response = client.messages.create(
             model="mimo-v2.5",
-            max_tokens=3000,
+            max_tokens=4000,
             messages=[
                 {"role": "user", "content": prompt}
             ],
