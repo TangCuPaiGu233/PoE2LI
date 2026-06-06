@@ -70,7 +70,7 @@ def _build_prompt(build_data: DecodeResponse) -> str:
 
     gems_str = ""
     if companions:
-        gems_str += "=== Companion（伙伴）— 这是构建核心 ===\n"
+        gems_str += "=== Companion（伙伴）— PoE2 独立战斗实体，与普通召唤物不同 ===\n"
         for c in companions:
             gems_str += f"- **{c.nameSpec}** Lv{c.level} Q{c.quality}\n"
         gems_str += "\n"
@@ -102,7 +102,7 @@ def _build_prompt(build_data: DecodeResponse) -> str:
             filtered.append(stripped)
         item_text = "\n  ".join(filtered)
         item_list.append(f"[{i.rarity}] {i.name}\n  {item_text}")
-    items_str = "\n\n".join(item_list[:15]) or "无装备数据"
+    items_str = "\n\n".join(item_list) or "无装备数据"
 
     # Extract tree info
     node_count = sum(len(ts.nodes) for ts in tree)
@@ -110,12 +110,11 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     return f"""你是一个 Path of Exile 2 构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
 
 特别注意：
-- Companion（伙伴）是 PoE2 的独特机制，它们是独立战斗的 AI 伙伴，有自己的技能和行为
-- 如果有 Companion，必须详细分析每个 Companion 的作用和它们的辅助宝石搭配
+- Companion（伙伴）是 PoE2 独立战斗实体，有自己的 AI 和技能，与传统 Minion（召唤物）不同
+- 请基于数据自行判断：Companion 是核心输出还是辅助手段，不要预设结论
 - 装备数据包含完整词缀，仔细阅读词缀来判断装备的核心价值
-- 特别关注带有 "Minion"（召唤物）"Companion" 关键词的词缀
+- 如果 DPS 为 0，请分析伤害可能来自哪里（Companion、Minion、DoT 等）
 - 分析这个构建的核心玩法思路，不要泛泛而谈
-- 如果 DPS 为 0 但有 Companion/Minion，说明伤害来自伙伴而非角色本身
 
 ## 构建信息
 - 职业: {build.className} / {build.ascendClassName}
