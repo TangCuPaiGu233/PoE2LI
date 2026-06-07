@@ -45,6 +45,7 @@ def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
+            extra_body={"thinking": {"type": "enabled"}},
         )
         
         content = response.choices[0].message.content or ""
@@ -513,6 +514,7 @@ def chat_about_build(build, question: str, db_session=None) -> str:
             messages=[
                 {"role": "user", "content": prompt}
             ],
+            extra_body={"thinking": {"type": "enabled"}},
         )
 
         answer = response.choices[0].message.content or "抱歉，我无法回答这个问题。"
@@ -545,6 +547,7 @@ def generate_homework(build_data: DecodeResponse) -> dict:
             messages=[
                 {"role": "user", "content": prompt}
             ],
+            extra_body={"thinking": {"type": "enabled"}},
         )
 
         content = response.choices[0].message.content or ""
