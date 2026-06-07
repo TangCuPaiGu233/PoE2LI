@@ -1,6 +1,9 @@
 """AI service for generating build playbooks.
 
-Uses DeepSeek V4 Flash (SiliconFlow OpenAI-compatible API) to generate Chinese build guides.
+Supports dual LLM providers via env vars:
+  - OpenRouter (default, free tier): qwen/qwen3-next-80b-a3b-instruct:free
+  - SiliconFlow (paid): deepseek-ai/DeepSeek-V4-Flash
+Switch by changing LLM_BASE_URL, LLM_API_KEY, LLM_MODEL in docker-compose.yml.
 """
 
 import os
@@ -14,10 +17,10 @@ from app.models.build import ModTranslation
 
 logger = logging.getLogger(__name__)
 
-# SiliconFlow API (OpenAI-compatible) — shared with embedding service
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
-LLM_API_KEY = os.getenv("EMBEDDING_API_KEY", os.getenv("SILICONFLOW_API_KEY", ""))
-LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+# LLM provider — defaults to OpenRouter free tier, switchable to SiliconFlow paid
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-instruct:free")
 
 client = OpenAI(
     base_url=LLM_BASE_URL,

@@ -44,15 +44,19 @@ services:
     environment:
       - HTTPS_PROXY=http://192.168.110.26:7890
       - HTTP_PROXY=http://192.168.110.26:7890
-      - NO_PROXY=api.siliconflow.cn,localhost,127.0.0.1
+      - NO_PROXY=openrouter.ai,api.siliconflow.cn,localhost,127.0.0.1
       - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # LLM — SiliconFlow DeepSeek V4 Flash (same provider as embeddings)
-      - LLM_BASE_URL=https://api.siliconflow.cn/v1
-      - LLM_MODEL=deepseek-ai/DeepSeek-V4-Flash
-      - LLM_API_KEY=${SILICONFLOW_API_KEY}
+      # LLM — OpenRouter free tier (primary)
+      - LLM_BASE_URL=https://openrouter.ai/api/v1
+      - LLM_MODEL=qwen/qwen3-next-80b-a3b-instruct:free
+      - LLM_API_KEY=${OPENROUTER_API_KEY}
+      # LLM — SiliconFlow paid (backup, uncomment to switch):
+      # - LLM_BASE_URL=https://api.siliconflow.cn/v1
+      # - LLM_MODEL=deepseek-ai/DeepSeek-V4-Flash
+      # - LLM_API_KEY=${SILICONFLOW_API_KEY}
       # Embedding — SiliconFlow BGE-M3 API (free tier, no GPU needed)
       # Get your API key at: https://cloud.siliconflow.cn
       - EMBEDDING_PROVIDER=api
@@ -84,15 +88,19 @@ services:
     environment:
       - HTTPS_PROXY=http://192.168.110.26:7890
       - HTTP_PROXY=http://192.168.110.26:7890
-      - NO_PROXY=api.siliconflow.cn,localhost,127.0.0.1
+      - NO_PROXY=openrouter.ai,api.siliconflow.cn,localhost,127.0.0.1
       - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # LLM — same SiliconFlow config as backend
-      - LLM_BASE_URL=https://api.siliconflow.cn/v1
-      - LLM_MODEL=deepseek-ai/DeepSeek-V4-Flash
-      - LLM_API_KEY=${SILICONFLOW_API_KEY}
+      # LLM — OpenRouter free tier (primary)
+      - LLM_BASE_URL=https://openrouter.ai/api/v1
+      - LLM_MODEL=qwen/qwen3-next-80b-a3b-instruct:free
+      - LLM_API_KEY=${OPENROUTER_API_KEY}
+      # LLM — SiliconFlow paid (backup, uncomment to switch):
+      # - LLM_BASE_URL=https://api.siliconflow.cn/v1
+      # - LLM_MODEL=deepseek-ai/DeepSeek-V4-Flash
+      # - LLM_API_KEY=${SILICONFLOW_API_KEY}
       # Embedding — same SiliconFlow config as backend
       - EMBEDDING_PROVIDER=api
       - EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
