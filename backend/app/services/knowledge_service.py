@@ -199,9 +199,8 @@ def _retrieve_postgres(
     exclude_build_id: int | None,
 ) -> list[dict]:
     """pgvector cosine distance retrieval on PostgreSQL."""
-    from pgvector.sqlalchemy import cosine_distance
-
-    distance_col = cosine_distance(KnowledgeChunk.embedding, query_embedding).label("distance")
+    # pgvector >= 0.3: cosine_distance is a method on the Vector column
+    distance_col = KnowledgeChunk.embedding.cosine_distance(query_embedding).label("distance")
 
     query = db.query(KnowledgeChunk, distance_col).filter(
         KnowledgeChunk.stale == False,  # noqa: E712

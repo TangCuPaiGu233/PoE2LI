@@ -507,6 +507,9 @@ def chat_about_build(build, question: str, db_session=None) -> str:
 {question}
 """
 
+    logger.info(f"Chat context for build {build.id}: {context_str[:500]}")
+    logger.info(f"Chat question: {question}")
+
     try:
         response = client.chat.completions.create(
             model=LLM_MODEL,
