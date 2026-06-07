@@ -1,8 +1,8 @@
 """AI service for generating build playbooks.
 
 Supports dual LLM providers via env vars:
-  - OpenRouter (default, free tier): qwen/qwen3-next-80b-a3b-instruct:free
-  - SiliconFlow (paid): deepseek-ai/DeepSeek-V4-Flash
+  - SiliconFlow (default, paid): deepseek-ai/DeepSeek-V4-Flash
+  - OpenRouter (backup, free tier): qwen/qwen3-next-80b-a3b-instruct:free
 Switch by changing LLM_BASE_URL, LLM_API_KEY, LLM_MODEL in docker-compose.yml.
 """
 
@@ -17,10 +17,10 @@ from app.models.build import ModTranslation
 
 logger = logging.getLogger(__name__)
 
-# LLM provider — defaults to OpenRouter free tier, switchable to SiliconFlow paid
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+# LLM provider — defaults to SiliconFlow paid, switchable to OpenRouter free
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen/qwen3-next-80b-a3b-instruct:free")
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
 
 client = OpenAI(
     base_url=LLM_BASE_URL,
