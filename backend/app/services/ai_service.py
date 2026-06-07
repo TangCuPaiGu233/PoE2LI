@@ -225,14 +225,16 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     # Extract tree info
     node_count = sum(len(ts.nodes) for ts in tree)
 
-    return f"""你是一个 Path of Exile 2 构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
+    return f"""你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
 
-特别注意：
+重要规则：
+- 这是 Path of Exile 2，不是 PoE1。PoE2 的技能、装备、机制和 PoE1 差异很大，不要混用。
+- 所有分析必须严格基于下方提供的实际数据，不要编造不存在的装备、技能或天赋节点。
+- 如果数据中没有足够信息来回答某个方面，请在该字段写"数据不足，暂无法分析"，不要猜测。
 - Companion（伙伴）是 PoE2 独立战斗实体，有自己的 AI 和技能，与传统 Minion（召唤物）不同
 - 请基于数据自行判断：Companion 是核心输出还是辅助手段，不要预设结论
 - 装备数据包含完整词缀，仔细阅读词缀来判断装备的核心价值
 - 如果 DPS 为 0，请分析伤害可能来自哪里（Companion、Minion、DoT 等）
-- 分析这个构建的核心玩法思路，不要泛泛而谈
 
 ## 构建信息
 - 职业: {build.className} / {build.ascendClassName}
@@ -258,14 +260,15 @@ def _build_prompt(build_data: DecodeResponse) -> str:
 2. 基于实际数据分析，不要编造不存在的装备或技能
 3. 重点分析这个构建的核心输出手段和独特玩法
 4. 如果有 Companion/Minion/Totem，详细说明它们的作用
-5. 给出实用的建议
+5. 平价替代：只推荐你在当前装备数据中看到的更便宜选择，或明确写"当前数据不足以推荐替代品"
+6. 天赋亮点：基于天赋节点数量来分析加点密度和方向，不要编造具体节点名称
 
 请严格按以下 JSON 格式输出，每个字段的值必须是纯字符串：
 {{
   "core_idea": "核心思路：分析这个构建的核心输出手段和玩法特色",
   "core_items": "核心装备：列出关键装备及其作用",
-  "budget_alternatives": "预算替代：低成本替代方案",
-  "talent_highlights": "天赋亮点：关键天赋节点选择",
+  "budget_alternatives": "预算替代：低成本替代方案（无数据则写数据不足）",
+  "talent_highlights": "天赋亮点：基于节点数的分析",
   "strength_review": "强度评估：优劣势和适用场景"
 }}"""
 
