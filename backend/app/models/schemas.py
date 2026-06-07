@@ -10,9 +10,28 @@ class DecodeRequest(BaseModel):
 
 class CreateBuildRequest(BaseModel):
     """Request body for POST /api/builds — decode + store + generate homework."""
-    pob_code: str = Field(..., min_length=1, description="PoB share code starting with eN")
+    pob_code: str = Field(..., min_length=1, description="PoB share code or pobb.in URL")
     league: str | None = Field(None, description="League name (e.g. 'Standard')")
     game_version: str | None = Field(None, description="Game version (e.g. '0.1')")
+
+
+class AdminImportRequest(BaseModel):
+    """Request body for batch importing builds by admin."""
+    codes: list[str] = Field(..., description="List of PoB share codes or pobb.in URLs")
+    league: str | None = Field(None, description="League name")
+    game_version: str | None = Field(None, description="Game version")
+
+
+class ChatRequest(BaseModel):
+    """Request body for Q&A (RAG) against a specific build."""
+    build_id: int = Field(..., description="ID of the build to ask questions about")
+    question: str = Field(..., min_length=2, description="User's question")
+
+
+class ChatResponse(BaseModel):
+    """Response body for Q&A."""
+    answer: str
+    context_used: list[str] = []
 
 
 class BuildInfo(BaseModel):

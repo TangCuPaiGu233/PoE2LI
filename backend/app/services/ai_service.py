@@ -7,8 +7,13 @@ Proxy is configured via HTTPS_PROXY/HTTP_PROXY environment variables.
 import os
 import json
 import re
+import logging
 from anthropic import Anthropic
 from app.models.schemas import DecodeResponse
+from app.core.database import SessionLocal
+from app.models.build import ModTranslation
+
+logger = logging.getLogger(__name__)
 
 # mimo-v2.5 API (Anthropic-compatible)
 ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://token-plan-cn.xiaomimimo.com/anthropic")
@@ -19,6 +24,133 @@ client = Anthropic(
     base_url=ANTHROPIC_BASE_URL,
     api_key=ANTHROPIC_AUTH_TOKEN,
 )
+
+
+def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
+    """Use AI to translate unknown English mods and save to database."""
+    if not mods:
+        return {}
+        
+    prompt = "你是一个 Path of Exile 2 的资深翻译专家。请将以下英文装备词缀翻译为准确的中文。保留数值占位符（如果有）。\n\n"
+    for i, mod in enumerate(mods):
+        prompt += f"{i}. {mod}\n"
+    
+    prompt += "\n请严格按以下 JSON 格式输出，键是原英文，值是中文翻译：\n"
+    prompt += '{\n  "英文词缀1": "中文翻译1",\n  "英文词缀2": "中文翻译2"\n}'
+    
+    try:
+        response = client.messages.create(
+            model="mimo-v2.5",
+            max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        
+        content = ""
+        for block in response.content:
+            if block.type == "text":
+                content = block.text
+                break
+                
+        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+        if json_match:
+            translations = json.loads(json_match.group(1))
+        else:
+            brace_start = content.find('{')
+            brace_end = content.rfind('}')
+            if brace_start >= 0 and brace_end > brace_start:
+                translations = json.loads(content[brace_start:brace_end + 1])
+            else:
+                translations = {}
+                
+        # Save to database
+        if translations:
+            db = SessionLocal()
+            try:
+                for en, zh in translations.items():
+                    if isinstance(en, str) and isinstance(zh, str) and en in mods:
+                        # Ensure it doesn't already exist to avoid unique constraint violation
+                        existing = db.query(ModTranslation).filter(ModTranslation.mod_en == en).first()
+                        if not existing:
+                            new_mod = ModTranslation(mod_en=en, mod_zh=zh, source="ai")
+                            db.add(new_mod)
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to save translations to DB: {e}")
+                db.rollback()
+            finally:
+                db.close()
+                
+        return translations
+    except Exception as e:
+        logger.error(f"AI translation failed: {e}")
+        return {}
+
+
+def _translate_item_mods(items: list, db_session) -> list[str]:
+    """Translate item mods using DB cache first, then AI fallback."""
+    item_list = []
+    unknown_mods = set()
+    
+    # 1. Collect all raw lines
+    all_raw_lines = []
+    USELESS_LINES = {"Unique ID", "Item Level", "Quality", "Sockets", "Rune:", "LevelReq:"}
+    
+    for i in items:
+        if not i.name:
+            continue
+        raw_lines = i.raw.split("\n") if i.raw else []
+        filtered = []
+        for line in raw_lines:
+            stripped = line.strip()
+            if not stripped or any(stripped.startswith(prefix) for prefix in USELESS_LINES):
+                continue
+            filtered.append(stripped)
+            
+        if len(filtered) > 3:
+            all_raw_lines.extend(filtered[3:]) # Skip Rarity, Name, BaseName
+            
+    # 2. Query DB for existing translations
+    existing_translations = {}
+    if all_raw_lines:
+        db_mods = db_session.query(ModTranslation).filter(ModTranslation.mod_en.in_(list(set(all_raw_lines)))).all()
+        for m in db_mods:
+            existing_translations[m.mod_en] = m.mod_zh
+            
+    # 3. Find unknown mods
+    for line in set(all_raw_lines):
+        # Only translate actual mod lines, skip simple things like "Armour: 100"
+        if line not in existing_translations and ":" not in line and not line.startswith("Requires"):
+            unknown_mods.add(line)
+            
+    # 4. Use AI to translate unknown mods
+    ai_translations = {}
+    if unknown_mods:
+        ai_translations = _translate_unknown_mods(list(unknown_mods))
+        
+    # Combine translations
+    all_translations = {**existing_translations, **ai_translations}
+    
+    # 5. Format items with translated mods
+    for i in items:
+        if not i.name:
+            continue
+        raw_lines = i.raw.split("\n") if i.raw else []
+        filtered = []
+        for idx, line in enumerate(raw_lines):
+            stripped = line.strip()
+            if not stripped or any(stripped.startswith(prefix) for prefix in USELESS_LINES):
+                continue
+            
+            # Translate mods (usually after line 2)
+            if idx > 2 and stripped in all_translations:
+                filtered.append(f"{stripped} ({all_translations[stripped]})")
+            else:
+                filtered.append(stripped)
+                
+        item_text = "\n  ".join(filtered)
+        item_list.append(f"[{i.rarity}] {i.name}\n  {item_text}")
+        
+    return item_list
 
 
 def _build_prompt(build_data: DecodeResponse) -> str:
@@ -84,25 +216,13 @@ def _build_prompt(build_data: DecodeResponse) -> str:
         gems_str = "未配置"
 
     # Extract items with FULL raw text, filter useless lines
-    USELESS_LINES = {"Unique ID", "Item Level", "Quality", "Sockets", "Rune:", "LevelReq:"}
-    item_list = []
-    for i in items:
-        if not i.name:
-            continue
-        # Get all lines of raw text, filter out noise
-        raw_lines = i.raw.split("\n") if i.raw else []
-        filtered = []
-        for line in raw_lines:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            # Skip useless metadata lines
-            if any(stripped.startswith(prefix) for prefix in USELESS_LINES):
-                continue
-            filtered.append(stripped)
-        item_text = "\n  ".join(filtered)
-        item_list.append(f"[{i.rarity}] {i.name}\n  {item_text}")
-    items_str = "\n\n".join(item_list) or "无装备数据"
+    # And apply translation
+    db = SessionLocal()
+    try:
+        item_list = _translate_item_mods(items, db)
+        items_str = "\n\n".join(item_list) or "无装备数据"
+    finally:
+        db.close()
 
     # Extract tree info
     node_count = sum(len(ts.nodes) for ts in tree)
@@ -246,6 +366,97 @@ def _parse_ai_response(content: str) -> dict:
     raise ValueError(f"Could not parse AI response as JSON: {content[:200]}...")
 
 
+def _validate_ai_homework(homework: dict, build_data: DecodeResponse) -> dict:
+    """Cross-validate AI generated homework against actual build data to reduce hallucinations.
+    
+    If AI mentions items or skills that don't exist in the build, append a warning warning.
+    """
+    # 1. Collect actual names from build
+    actual_item_names = {i.name.lower() for i in build_data.items if i.name}
+    actual_gem_names = set()
+    for ss in build_data.skillSets:
+        for g in ss.gems:
+            if g.nameSpec:
+                actual_gem_names.add(g.nameSpec.lower())
+                
+    # 2. Extract potential entities from AI homework (very basic keyword matching)
+    core_items_text = homework.get("core_items", "").lower()
+    
+    warnings = []
+    
+    # 3. Check for common PoE2 unique items mentioned by AI but missing in build
+    # This is a naive approach, in a real scenario we'd use NLP or a known item DB
+    # Here we just look for specific exact matches if AI mentions them
+    mentioned_items = re.findall(r'【(.*?)】|\[(.*?)\]|"(.*?)"', core_items_text)
+    for match_tuple in mentioned_items:
+        item = next((m for m in match_tuple if m), None)
+        if item and len(item) > 2:
+            item_lower = item.lower()
+            # If the item mentioned doesn't exist in actual items (fuzzy match)
+            if not any(item_lower in actual or actual in item_lower for actual in actual_item_names):
+                warnings.append(f"⚠️ 警告: AI 提到的装备「{item}」在原始 PoB 数据中并未装备。")
+                
+    if warnings:
+        homework["core_items"] += "\n\n" + "\n".join(set(warnings))
+        
+    return homework
+
+
+def chat_about_build(build, question: str) -> str:
+    """Chat with the AI about a specific build. (Basic RAG implementation)"""
+    # 1. Prepare context from build
+    build_data = build.get_build_data()
+    homework = build.get_homework()
+    
+    # 2. Extract key info to feed the AI
+    context_str = f"职业: {build.class_name} / {build.ascendancy}\n"
+    context_str += f"等级: {build.level}\n\n"
+    
+    if homework:
+        context_str += "【已有分析报告】\n"
+        context_str += f"核心思路: {homework.get('core_idea', '无')}\n"
+        context_str += f"核心装备: {homework.get('core_items', '无')}\n"
+        context_str += f"强度评估: {homework.get('strength_review', '无')}\n\n"
+        
+    # Extract some skills
+    skills = []
+    for ss in build_data.get("skillSets", []):
+        for g in ss.get("gems", []):
+            if g.get("nameSpec") and g.get("enabled"):
+                skills.append(g["nameSpec"])
+    if skills:
+        context_str += f"【主要技能】: {', '.join(set(skills))}\n\n"
+        
+    # 3. Build prompt
+    prompt = f"""你是一个专业的 Path of Exile 2 (流放之路2) 游戏助手。
+请根据以下玩家构建(Build)的上下文信息，用中文回答玩家的提问。
+如果问题与构建无关，请友善地引导回游戏话题。
+如果上下文中没有足够信息，可以结合你的游戏知识进行合理推测，但必须声明这是推测。
+
+【构建上下文】
+{context_str}
+
+【玩家提问】
+{question}
+"""
+
+    try:
+        response = client.messages.create(
+            model="mimo-v2.5",
+            max_tokens=1000,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+        )
+        
+        for block in response.content:
+            if block.type == "text":
+                return block.text
+                
+        return "抱歉，我无法回答这个问题。"
+    except Exception as e:
+        logger.error(f"Chat generation failed: {e}")
+        return f"系统繁忙，请稍后再试。(错误: {str(e)})"
 def generate_homework(build_data: DecodeResponse) -> dict:
     """Generate a Chinese playbook from BuildData using mimo-v2.5.
 
@@ -290,6 +501,9 @@ def generate_homework(build_data: DecodeResponse) -> dict:
                 result[key] = desc
             elif not isinstance(result[key], str):
                 result[key] = str(result[key])
+
+        # Cross-validation against hallucination
+        result = _validate_ai_homework(result, build_data)
 
         return result
 

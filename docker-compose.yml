@@ -1,6 +1,38 @@
 version: "3.8"
 
 services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: poe2li-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=poe2li
+      - POSTGRES_PASSWORD=poe2li_secret
+      - POSTGRES_DB=poe2li
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poe2li -d poe2li"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: poe2li-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -14,7 +46,15 @@ services:
       - HTTP_PROXY=http://192.168.110.26:7890
       - ANTHROPIC_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
-      - DB_PATH=/app/data/poe2li.db
+      - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./data:/app/data
     healthcheck:
@@ -23,6 +63,28 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: poe2li-celery-worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    restart: unless-stopped
+    environment:
+      - HTTPS_PROXY=http://192.168.110.26:7890
+      - HTTP_PROXY=http://192.168.110.26:7890
+      - ANTHROPIC_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
+      - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   frontend:
     build:
@@ -36,3 +98,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://192.168.110.26:8000
     depends_on:
       - backend
+
+volumes:
+  pgdata:
+  redisdata:

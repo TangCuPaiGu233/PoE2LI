@@ -3,3 +3,8 @@ uvicorn==0.30.0
 sqlalchemy==2.0.35
 pydantic==2.9.0
 anthropic>=0.40.0
+psycopg2-binary>=2.9.9
+celery>=5.4.0
+redis>=5.0.1
+pgvector>=0.2.1
+beautifulsoup4>=4.12.0
