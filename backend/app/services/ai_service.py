@@ -403,55 +403,84 @@ def _validate_ai_homework(homework: dict, build_data: DecodeResponse) -> dict:
 def chat_about_build(build, question: str, db_session=None) -> str:
     """Chat with the AI about a specific build, enhanced with RAG retrieval.
 
-    1. Gathers direct context from the build (class, skills, homework).
-    2. Retrieves similar knowledge chunks from the vector DB (cross-build RAG).
+    1. Gathers rich context from the build (class, skills, items, tree, homework).
+    2. Retrieves knowledge chunks from the vector DB (current build + similar builds).
     3. Combines both contexts and asks the AI for an answer.
     """
     from app.core.database import SessionLocal
     from app.services.knowledge_service import retrieve_similar
 
-    # 1. Prepare direct context from build
+    # 1. Prepare rich context from build
     build_data = build.get_build_data()
     homework = build.get_homework()
 
     context_str = f"职业: {build.class_name} / {build.ascendancy}\n"
-    context_str += f"等级: {build.level}\n\n"
+    context_str += f"等级: {build.level}\n"
 
-    if homework:
-        context_str += "【已有分析报告】\n"
-        context_str += f"核心思路: {homework.get('core_idea', '无')}\n"
-        context_str += f"核心装备: {homework.get('core_items', '无')}\n"
-        context_str += f"强度评估: {homework.get('strength_review', '无')}\n\n"
+    # Stats
+    stats = build_data.get("playerStats", {})
+    stat_parts = []
+    for label, key in [("生命", "Life"), ("能量护盾", "EnergyShield"), ("DPS", "TotalDPS"), ("EHP", "TotalEHP")]:
+        val = stats.get(key)
+        if val:
+            stat_parts.append(f"{label}: {val}")
+    if stat_parts:
+        context_str += "【面板数据】" + " | ".join(stat_parts) + "\n\n"
 
-    # Extract some skills
+    # Skills
     skills = []
     for ss in build_data.get("skillSets", []):
         for g in ss.get("gems", []):
             if g.get("nameSpec") and g.get("enabled"):
-                skills.append(g["nameSpec"])
+                name = g["nameSpec"]
+                lvl = g.get("level", "")
+                skills.append(f"{name}(Lv{lvl})" if lvl else name)
     if skills:
-        context_str += f"【主要技能】: {', '.join(set(skills))}\n\n"
+        context_str += f"【主要技能】: {', '.join(list(dict.fromkeys(skills)))}\n\n"
 
-    # 2. RAG retrieval — find similar knowledge from other builds
+    # Key items
+    items = build_data.get("items", [])
+    unique_items = [i for i in items if i.get("rarity") == "UNIQUE" and i.get("name")]
+    if unique_items:
+        item_names = [f"{i['name']}({i.get('baseName', '')})" for i in unique_items[:8]]
+        context_str += f"【暗金装备】: {', '.join(item_names)}\n\n"
+
+    # All homework sections
+    if homework:
+        context_str += "【已有分析报告】\n"
+        for key, label in [
+            ("core_idea", "核心思路"),
+            ("core_items", "核心装备"),
+            ("budget_alternatives", "平价替代"),
+            ("talent_highlights", "天赋亮点"),
+            ("strength_review", "强度评估"),
+        ]:
+            val = homework.get(key, "")
+            if val and not val.startswith("AI 未生成") and val != "暂无数据（AI 生成失败）":
+                context_str += f"{label}: {val}\n"
+        context_str += "\n"
+
+    # 2. RAG retrieval — search ALL knowledge including current build
     rag_context = ""
     rag_sources = []
     try:
         db = db_session or SessionLocal()
         try:
-            similar_chunks = retrieve_similar(
+            # First: retrieve current build's own knowledge (most relevant)
+            own_chunks = retrieve_similar(
                 db=db,
                 query=question,
                 league=build.league,
                 game_version=build.game_version,
                 top_k=3,
-                exclude_build_id=build.id,  # Don't retrieve from the same build
+                exclude_build_id=None,  # Include current build
             )
 
-            if similar_chunks:
-                rag_context = "【相关参考（来自知识库中相似BD）】\n"
-                for i, chunk in enumerate(similar_chunks, 1):
+            if own_chunks:
+                rag_context = "【知识库参考】\n"
+                for i, chunk in enumerate(own_chunks, 1):
                     rag_context += f"[{i}] {chunk['content']}\n\n"
-                    if chunk.get("build_id"):
+                    if chunk.get("build_id") and chunk["build_id"] != build.id:
                         rag_sources.append(f"Build#{chunk['build_id']}")
         finally:
             if db_session is None:
@@ -459,16 +488,17 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     except Exception as e:
         logger.warning(f"RAG retrieval failed (falling back to direct context only): {e}")
 
-    # 3. Build combined prompt
-    prompt = f"""你是一个专业的 Path of Exile 2 (流放之路2) 游戏助手。
-请根据以下玩家构建(Build)的上下文信息，用中文回答玩家的提问。
-如果问题与构建无关，请友善地引导回游戏话题。
-如果上下文中没有足够信息，可以结合你的游戏知识进行合理推测，但必须声明这是推测。
-参考信息来自其他相似BD，仅作为补充参考，不要将其他BD的装备/技能套用到当前BD上。
+    # 3. Build combined prompt — strict, PoE2-focused, no guessing
+    prompt = f"""你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
+请严格根据以下玩家构建(Build)的实际数据来回答提问。
 
-【当前构建上下文】
+重要规则：
+1. 你的回答必须基于【当前构建上下文】和【知识库参考】中的实际数据，不要编造信息。
+2. 如果上下文中没有相关信息，请直接说"当前BD数据中没有这方面的信息"，不要用 PoE1 的知识来猜测 PoE2 的内容。
+3. PoE2 和 PoE1 的机制、技能、装备差异很大，不要混用。
+4. 回答要具体、实用，用中文。
+
 {context_str}
-
 {rag_context if rag_context else ''}【玩家提问】
 {question}
 """
