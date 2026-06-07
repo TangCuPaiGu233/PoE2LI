@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # SiliconFlow API (OpenAI-compatible) — shared with embedding service
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
 LLM_API_KEY = os.getenv("EMBEDDING_API_KEY", os.getenv("SILICONFLOW_API_KEY", ""))
-LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V3.2")
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
 
 client = OpenAI(
     base_url=LLM_BASE_URL,
