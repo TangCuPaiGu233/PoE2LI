@@ -2,6 +2,7 @@
 
 from app.tasks.celery_app import celery_app
 from app.services.ai_service import generate_homework
+from app.services.knowledge_service import ingest_build
 from app.models.schemas import DecodeResponse
 from app.core.database import SessionLocal
 from app.models.build import Build
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(bind=True, max_retries=3)
 def generate_homework_task(self, build_id: int, build_data_dict: dict):
-    """Generate Chinese playbook via AI and update the DB record."""
+    """Generate Chinese playbook via AI, update the DB record, and ingest into knowledge base."""
     logger.info(f"Starting homework generation for build_id={build_id}")
     
     db = SessionLocal()
@@ -43,6 +44,16 @@ def generate_homework_task(self, build_id: int, build_data_dict: dict):
         build.set_homework(homework)
         db.commit()
         logger.info(f"Homework generated and saved for build_id={build_id}")
+
+        # ── RAG: Ingest into knowledge base ──
+        try:
+            n_chunks = ingest_build(db, build, homework)
+            if n_chunks > 0:
+                logger.info(f"Knowledge ingestion: {n_chunks} chunks created for build {build_id}")
+        except Exception as e:
+            # Ingestion failure is non-fatal — homework is already saved
+            logger.warning(f"Knowledge ingestion failed for build {build_id}: {e}")
+        
         return True
         
     except Exception as exc:

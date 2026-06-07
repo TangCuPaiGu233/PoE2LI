@@ -57,8 +57,11 @@ class KnowledgeChunk(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1024), nullable=True) # mimo-v2.5 embeddings or bge-m3 etc
+    build_id = Column(Integer, nullable=True)  # FK to builds — links chunk to source build
     league = Column(String(64), nullable=True)
     game_version = Column(String(32), nullable=True)
-    source = Column(String(64), nullable=True) # pob / wiki / poe2db
+    source = Column(String(64), nullable=True) # homework / pob / wiki / poe2db
+    chunk_type = Column(String(32), nullable=True) # build_summary / core_idea / core_items / etc
+    stale = Column(Boolean, default=False) # True = excluded from RAG retrieval (outdated league)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

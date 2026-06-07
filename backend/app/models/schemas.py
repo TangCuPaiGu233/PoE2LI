@@ -24,7 +24,6 @@ class AdminImportRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     """Request body for Q&A (RAG) against a specific build."""
-    build_id: int = Field(..., description="ID of the build to ask questions about")
     question: str = Field(..., min_length=2, description="User's question")
 
 

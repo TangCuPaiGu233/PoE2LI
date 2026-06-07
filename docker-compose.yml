@@ -44,12 +44,20 @@ services:
     environment:
       - HTTPS_PROXY=http://192.168.110.26:7890
       - HTTP_PROXY=http://192.168.110.26:7890
+      - NO_PROXY=api.siliconflow.cn,localhost,127.0.0.1
       - ANTHROPIC_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
       - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      # Embedding — SiliconFlow BGE-M3 API (free tier, no GPU needed)
+      # Get your API key at: https://cloud.siliconflow.cn
+      - EMBEDDING_PROVIDER=api
+      - EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+      - EMBEDDING_API_KEY=${SILICONFLOW_API_KEY}
+      - EMBEDDING_API_MODEL=BAAI/bge-m3
+      - EMBEDDING_DIM=1024
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,12 +82,21 @@ services:
     environment:
       - HTTPS_PROXY=http://192.168.110.26:7890
       - HTTP_PROXY=http://192.168.110.26:7890
+      - NO_PROXY=api.siliconflow.cn,localhost,127.0.0.1
       - ANTHROPIC_BASE_URL=https://token-plan-cn.xiaomimimo.com/anthropic
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
       - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      # Embedding — same SiliconFlow config as backend
+      - EMBEDDING_PROVIDER=api
+      - EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+      - EMBEDDING_API_KEY=${SILICONFLOW_API_KEY}
+      - EMBEDDING_API_MODEL=BAAI/bge-m3
+      - EMBEDDING_DIM=1024
+    volumes:
+      - ./data:/app/data
     depends_on:
       postgres:
         condition: service_healthy

@@ -110,7 +110,7 @@ async def admin_import_builds(req: AdminImportRequest, db: Session = Depends(get
 
 @router.post("/api/builds/{build_id}/chat", response_model=ChatResponse)
 async def chat_with_build(build_id: int, req: ChatRequest, db: Session = Depends(get_db)):
-    """Ask a question about a specific build."""
+    """Ask a question about a specific build (RAG-enhanced)."""
     build = db.query(Build).filter(Build.id == build_id).first()
     if not build:
         raise HTTPException(status_code=404, detail="Build not found")
@@ -118,8 +118,8 @@ async def chat_with_build(build_id: int, req: ChatRequest, db: Session = Depends
     # Import here to avoid circular imports if ai_service imports schemas
     from app.services.ai_service import chat_about_build
     
-    answer = chat_about_build(build, req.question)
-    return ChatResponse(answer=answer, context_used=["Build Data", "Homework"])
+    answer = chat_about_build(build, req.question, db_session=db)
+    return ChatResponse(answer=answer, context_used=["Build Data", "Homework", "RAG Knowledge"])
 
 
 @router.get("/api/builds", response_model=list[BuildSummary])
