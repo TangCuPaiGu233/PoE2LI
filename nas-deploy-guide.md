@@ -7,6 +7,7 @@
 | NAS IP | 192.168.110.26 |
 | SSH 端口 | 2212 |
 | 用户 | skc |
+| 密码 | SKChaidao123 |
 | Docker 路径 | /usr/local/bin/docker |
 
 ```bash
