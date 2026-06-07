@@ -138,7 +138,7 @@ export default function Home() {
       const buildId = data.id;
       let isDone = false;
       let attempts = 0;
-      const maxAttempts = 60; // 60 * 2s = 120s max
+      const maxAttempts = 150; // 150 * 2s = 300s max (DeepSeek V4 Flash can take 2+ min)
 
       while (!isDone && attempts < maxAttempts) {
         attempts++;
