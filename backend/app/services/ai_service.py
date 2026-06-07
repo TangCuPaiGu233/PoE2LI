@@ -1,28 +1,27 @@
 """AI service for generating build playbooks.
 
-Uses mimo-v2.5 (Anthropic-compatible API) to generate Chinese build guides.
-Proxy is configured via HTTPS_PROXY/HTTP_PROXY environment variables.
+Uses DeepSeek V4 Flash (SiliconFlow OpenAI-compatible API) to generate Chinese build guides.
 """
 
 import os
 import json
 import re
 import logging
-from anthropic import Anthropic
+from openai import OpenAI
 from app.models.schemas import DecodeResponse
 from app.core.database import SessionLocal
 from app.models.build import ModTranslation
 
 logger = logging.getLogger(__name__)
 
-# mimo-v2.5 API (Anthropic-compatible)
-ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://token-plan-cn.xiaomimimo.com/anthropic")
-ANTHROPIC_AUTH_TOKEN = os.getenv("ANTHROPIC_AUTH_TOKEN", "tp-c439jd6uhy2mbragl3fwwoa8w2ige8td81ggbsrs86ibsraq")
+# SiliconFlow API (OpenAI-compatible) — shared with embedding service
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
+LLM_API_KEY = os.getenv("EMBEDDING_API_KEY", os.getenv("SILICONFLOW_API_KEY", ""))
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
 
-# Client uses proxy from HTTPS_PROXY/HTTP_PROXY env vars automatically
-client = Anthropic(
-    base_url=ANTHROPIC_BASE_URL,
-    api_key=ANTHROPIC_AUTH_TOKEN,
+client = OpenAI(
+    base_url=LLM_BASE_URL,
+    api_key=LLM_API_KEY,
 )
 
 
@@ -39,17 +38,13 @@ def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
     prompt += '{\n  "英文词缀1": "中文翻译1",\n  "英文词缀2": "中文翻译2"\n}'
     
     try:
-        response = client.messages.create(
-            model="mimo-v2.5",
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
         
-        content = ""
-        for block in response.content:
-            if block.type == "text":
-                content = block.text
-                break
+        content = response.choices[0].message.content or ""
                 
         json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
         if json_match:
@@ -476,31 +471,27 @@ def chat_about_build(build, question: str, db_session=None) -> str:
 """
 
     try:
-        response = client.messages.create(
-            model="mimo-v2.5",
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
             max_tokens=1000,
             messages=[
                 {"role": "user", "content": prompt}
             ],
         )
 
-        for block in response.content:
-            if block.type == "text":
-                answer = block.text
-                # Append RAG source info if used
-                if rag_sources:
-                    sources = ", ".join(set(rag_sources))
-                    answer += f"\n\n（参考了知识库中相似BD: {sources}）"
-                return answer
-
-        return "抱歉，我无法回答这个问题。"
+        answer = response.choices[0].message.content or "抱歉，我无法回答这个问题。"
+        # Append RAG source info if used
+        if rag_sources:
+            sources = ", ".join(set(rag_sources))
+            answer += f"\n\n（参考了知识库中相似BD: {sources}）"
+        return answer
     except Exception as e:
         logger.error(f"Chat generation failed: {e}")
         return f"系统繁忙，请稍后再试。(错误: {str(e)})"
 
 
 def generate_homework(build_data: DecodeResponse) -> dict:
-    """Generate a Chinese playbook from BuildData using mimo-v2.5.
+    """Generate a Chinese playbook from BuildData using DeepSeek V4 Flash.
 
     Returns a dict with five sections:
     - core_idea: Build philosophy and playstyle
@@ -512,20 +503,15 @@ def generate_homework(build_data: DecodeResponse) -> dict:
     prompt = _build_prompt(build_data)
 
     try:
-        response = client.messages.create(
-            model="mimo-v2.5",
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
             max_tokens=4000,
             messages=[
                 {"role": "user", "content": prompt}
             ],
         )
 
-        # Parse response — find text content (skip thinking blocks)
-        content = ""
-        for block in response.content:
-            if block.type == "text":
-                content = block.text
-                break
+        content = response.choices[0].message.content or ""
         if not content:
             raise ValueError("AI response contained no text content")
 
