@@ -1,17 +1,25 @@
 """Database configuration — SQLite for dev/test, PostgreSQL for production."""
 
+import logging
 import os
 import sqlalchemy as sa
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from sqlalchemy.schema import DDL
+
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
     # Use PostgreSQL if DATABASE_URL is provided (e.g. from docker-compose)
     engine = create_engine(DATABASE_URL)
     # Ensure pgvector extension exists on Postgres
-    event.listen(engine, "before_cursor_execute", DDL("CREATE EXTENSION IF NOT EXISTS vector"))
+    # (replaces the old event.listen+DDL approach that broke with newer SQLAlchemy)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+    except Exception as e:
+        logger.warning(f"Could not create pgvector extension (may already exist): {e}")
 else:
     # SQLite fallback — use /app/data in Docker, local file in dev
     DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "poe2li.db")
