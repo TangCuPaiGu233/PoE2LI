@@ -27,6 +27,45 @@ client = OpenAI(
     api_key=LLM_API_KEY,
 )
 
+# ── Static system prompts (cached across all requests) ──
+HOMEWORK_SYSTEM_PROMPT = """你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
+
+重要规则：
+- 这是 Path of Exile 2，不是 PoE1。PoE2 的技能、装备、机制和 PoE1 差异很大，不要混用。
+- 所有分析必须严格基于下方提供的实际数据，不要编造不存在的装备、技能或天赋节点。
+- 如果数据中没有足够信息来回答某个方面，请在该字段写"数据不足，暂无法分析"，不要猜测。
+- Companion（伙伴）是 PoE2 独立战斗实体，有自己的 AI 和技能，与传统 Minion（召唤物）不同
+- 请基于数据自行判断：Companion 是核心输出还是辅助手段，不要预设结论
+- 装备数据包含完整词缀，仔细阅读词缀来判断装备的核心价值
+- 如果 DPS 为 0，请分析伤害可能来自哪里（Companion、Minion、DoT 等）
+
+输出要求：
+1. 用中文回答
+2. 基于实际数据分析，不要编造不存在的装备或技能
+3. 重点分析这个构建的核心输出手段和独特玩法
+4. 如果有 Companion/Minion/Totem，详细说明它们的作用
+5. 平价替代：只推荐你在当前装备数据中看到的更便宜选择，或明确写"当前数据不足以推荐替代品"
+6. 天赋亮点：基于天赋节点数量来分析加点密度和方向，不要编造具体节点名称
+
+请严格按以下 JSON 格式输出，每个字段的值必须是纯字符串：
+{
+  "core_idea": "核心思路：分析这个构建的核心输出手段和玩法特色",
+  "core_items": "核心装备：列出关键装备及其作用",
+  "budget_alternatives": "预算替代：低成本替代方案（无数据则写数据不足）",
+  "talent_highlights": "天赋亮点：基于节点数的分析",
+  "strength_review": "强度评估：优劣势和适用场景"
+}"""
+
+CHAT_SYSTEM_PROMPT = """你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
+
+回答规则：
+1. 优先基于【当前构建上下文】和【知识库参考】中的实际数据来回答。
+2. 对于数据中有的信息（装备、技能、属性等），必须准确引用，不要编造。
+3. 对于数据中没有但需要游戏经验的问题（如"怎么开荒"、"升级路线"、"过渡方案"等），你应该根据当前BD的职业、技能和玩法特点，给出合理的 PoE2 开荒/升级建议，并标注这是建议而非数据分析。
+4. PoE2 和 PoE1 差异很大，不要用 PoE1 的机制来回答 PoE2 的问题。
+5. 回答要具体、实用，用中文。
+6. 如果玩家的问题与构建无关，友善引导回游戏话题。"""
+
 
 def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
     """Use AI to translate unknown English mods and save to database."""
@@ -226,18 +265,8 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     # Extract tree info
     node_count = sum(len(ts.nodes) for ts in tree)
 
-    return f"""你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
-
-重要规则：
-- 这是 Path of Exile 2，不是 PoE1。PoE2 的技能、装备、机制和 PoE1 差异很大，不要混用。
-- 所有分析必须严格基于下方提供的实际数据，不要编造不存在的装备、技能或天赋节点。
-- 如果数据中没有足够信息来回答某个方面，请在该字段写"数据不足，暂无法分析"，不要猜测。
-- Companion（伙伴）是 PoE2 独立战斗实体，有自己的 AI 和技能，与传统 Minion（召唤物）不同
-- 请基于数据自行判断：Companion 是核心输出还是辅助手段，不要预设结论
-- 装备数据包含完整词缀，仔细阅读词缀来判断装备的核心价值
-- 如果 DPS 为 0，请分析伤害可能来自哪里（Companion、Minion、DoT 等）
-
-## 构建信息
+    # Return only build data (instructions are in HOMEWORK_SYSTEM_PROMPT)
+    return f"""## 构建信息
 - 职业: {build.className} / {build.ascendClassName}
 - 等级: {build.level}
 - 天赋节点数: {node_count}
@@ -254,24 +283,7 @@ def _build_prompt(build_data: DecodeResponse) -> str:
 {gems_str}
 
 ## 装备（完整词缀）
-{items_str}
-
-## 输出要求
-1. 用中文回答
-2. 基于实际数据分析，不要编造不存在的装备或技能
-3. 重点分析这个构建的核心输出手段和独特玩法
-4. 如果有 Companion/Minion/Totem，详细说明它们的作用
-5. 平价替代：只推荐你在当前装备数据中看到的更便宜选择，或明确写"当前数据不足以推荐替代品"
-6. 天赋亮点：基于天赋节点数量来分析加点密度和方向，不要编造具体节点名称
-
-请严格按以下 JSON 格式输出，每个字段的值必须是纯字符串：
-{{
-  "core_idea": "核心思路：分析这个构建的核心输出手段和玩法特色",
-  "core_items": "核心装备：列出关键装备及其作用",
-  "budget_alternatives": "预算替代：低成本替代方案（无数据则写数据不足）",
-  "talent_highlights": "天赋亮点：基于节点数的分析",
-  "strength_review": "强度评估：优劣势和适用场景"
-}}"""
+{items_str}"""
 
 
 def _fix_keys(result: dict) -> dict:
@@ -491,24 +503,13 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     except Exception as e:
         logger.warning(f"RAG retrieval failed (falling back to direct context only): {e}")
 
-    # 3. Split into system (cacheable static) + user (dynamic) messages
-    #    System message is identical for all questions on the same build → cache hit
-    #    User message contains RAG + question → varies per request
-    system_prompt = f"""你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
-请根据以下玩家构建(Build)的数据来回答提问。
+    # 3. Split into system (cacheable, same for ALL requests) + user (build-specific)
+    #    System message = pure instructions → always cached
+    #    User message = build context + RAG + question → varies per build/question
 
-回答规则：
-1. 优先基于【当前构建上下文】和【知识库参考】中的实际数据来回答。
-2. 对于数据中有的信息（装备、技能、属性等），必须准确引用，不要编造。
-3. 对于数据中没有但需要游戏经验的问题（如"怎么开荒"、"升级路线"、"过渡方案"等），你应该根据当前BD的职业、技能和玩法特点，给出合理的 PoE2 开荒/升级建议，并标注这是建议而非数据分析。
-4. PoE2 和 PoE1 差异很大，不要用 PoE1 的机制来回答 PoE2 的问题。
-5. 回答要具体、实用，用中文。
-6. 如果玩家的问题与构建无关，友善引导回游戏话题。
-
-【当前构建上下文】
-{context_str}"""
-
-    user_prompt = f"""{rag_context if rag_context else ''}【玩家提问】
+    user_prompt = f"""【当前构建上下文】
+{context_str}
+{rag_context if rag_context else ''}【玩家提问】
 {question}"""
 
     logger.info(f"Chat context for build {build.id}: {context_str[:300]}")
@@ -519,7 +520,7 @@ def chat_about_build(build, question: str, db_session=None) -> str:
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": CHAT_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             extra_body={"thinking": {"type": "enabled"}},
@@ -546,14 +547,15 @@ def generate_homework(build_data: DecodeResponse) -> dict:
     - talent_highlights: Notable passive tree choices
     - strength_review: Build strengths and weaknesses
     """
-    prompt = _build_prompt(build_data)
+    build_data_str = _build_prompt(build_data)
 
     try:
         response = client.chat.completions.create(
             model=LLM_MODEL,
             max_tokens=4000,
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": HOMEWORK_SYSTEM_PROMPT},
+                {"role": "user", "content": build_data_str},
             ],
             extra_body={"thinking": {"type": "enabled"}},
         )
