@@ -470,14 +470,13 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     try:
         db = db_session or SessionLocal()
         try:
-            # First: retrieve current build's own knowledge (most relevant)
             own_chunks = retrieve_similar(
                 db=db,
                 query=question,
                 league=build.league,
                 game_version=build.game_version,
                 top_k=3,
-                exclude_build_id=None,  # Include current build
+                exclude_build_id=None,
             )
 
             if own_chunks:
@@ -492,8 +491,10 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     except Exception as e:
         logger.warning(f"RAG retrieval failed (falling back to direct context only): {e}")
 
-    # 3. Build combined prompt — balanced: data-driven but allows helpful game advice
-    prompt = f"""你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
+    # 3. Split into system (cacheable static) + user (dynamic) messages
+    #    System message is identical for all questions on the same build → cache hit
+    #    User message contains RAG + question → varies per request
+    system_prompt = f"""你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
 请根据以下玩家构建(Build)的数据来回答提问。
 
 回答规则：
@@ -504,12 +505,13 @@ def chat_about_build(build, question: str, db_session=None) -> str:
 5. 回答要具体、实用，用中文。
 6. 如果玩家的问题与构建无关，友善引导回游戏话题。
 
-{context_str}
-{rag_context if rag_context else ''}【玩家提问】
-{question}
-"""
+【当前构建上下文】
+{context_str}"""
 
-    logger.info(f"Chat context for build {build.id}: {context_str[:500]}")
+    user_prompt = f"""{rag_context if rag_context else ''}【玩家提问】
+{question}"""
+
+    logger.info(f"Chat context for build {build.id}: {context_str[:300]}")
     logger.info(f"Chat question: {question}")
 
     try:
@@ -517,7 +519,8 @@ def chat_about_build(build, question: str, db_session=None) -> str:
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
             extra_body={"thinking": {"type": "enabled"}},
         )
