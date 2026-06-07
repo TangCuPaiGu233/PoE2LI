@@ -35,7 +35,7 @@ Background Agent Workers
 - **Cache**: Redis (official data cache + rate-limit token bucket + Celery broker)
 - **Object Storage**: S3-compatible (MinIO / cloud OSS)
 - **AI Models**: DeepSeek V4 Flash or mimo-v2.5 (cost-first, performance sufficient)
-- **Deployment**: Docker + docker-compose (initial) → K8s (scale)
+- **Deployment**: Docker + docker-compose (initial) → K8s (scale). See [nas-deploy-guide.md](nas-deploy-guide.md) for NAS deployment instructions.
 
 ## P0 Core Loop (v1.0 — the only target for initial release)
 
