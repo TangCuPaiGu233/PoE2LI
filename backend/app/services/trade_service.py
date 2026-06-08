@@ -324,7 +324,8 @@ PoE2 中"召唤光环"= 装备自带的 "Allies in your Presence" 词缀。分�
 }}
 
 ### 示例1b："加2召唤技能等级的项链，且至少包含2条召唤光环相关词缀"
-⚠️ "召唤光环"在项链上 = 精魂(Spirit) + 友军攻速 + 友军施法速度。不是附加伤害光环（那些只在武器上）！
+⚠️ "召唤光环"在项链上 = 精魂(Spirit) + 友军攻速 + 友军施法速度。但这些光环词缀很少和+召唤等级共存！
+诀窍：count 组的池子必须够大（至少6-8条），把精魂、友军光环 + 最大生命 + 三抗都放进去，这样 Spirit+生命或 生命+抗性 都能凑出 count_min。
 {{
   "item_type": "accessory.amulet",
   "stat_groups": [
@@ -341,7 +342,6 @@ PoE2 中"召唤光环"= 装备自带的 "Allies in your Presence" 词缀。分�
         {{"desc_zh": "精魂", "desc_en": "# to Spirit", "min": null, "max": null}},
         {{"desc_zh": "友军攻速", "desc_en": "Allies in your Presence have #% increased Attack Speed", "min": null, "max": null}},
         {{"desc_zh": "友军施法速度", "desc_en": "Allies in your Presence have #% increased Cast Speed", "min": null, "max": null}},
-        {{"desc_zh": "友军暴伤", "desc_en": "Allies in your Presence have #% increased Critical Damage Bonus", "min": null, "max": null}},
         {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
         {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
         {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}},

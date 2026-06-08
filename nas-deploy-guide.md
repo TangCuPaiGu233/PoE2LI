@@ -8,6 +8,7 @@
 | SSH 端口 | 2212 |
 | 用户 | skc |
 | 密码 | SKChaidao@123 |
+| 项目路径 | `/volume1/docker/PoE2LI` |
 | Docker 路径 | /usr/local/bin/docker |
 
 ```bash

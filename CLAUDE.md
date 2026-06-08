@@ -114,9 +114,10 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 | M2 Quality + Cold Start | Human review scores pass; operator imports N popular builds |
 | M3 Info DB / Affixes | poe2db base integrated, affix Chinese coverage target met |
 | M4 Q&A RAG | Version-filtered RAG answers, hallucination rate controlled |
-| M5 Trade Search | ✅ Server-side Trade API proxy: intent → stat ID → search URL ([ADR-0002](docs/adr/0002-trade-search-architecture.md)) |
-| M6 Pricing / OAuth | Official API integration, currency exchange |
-| M7 Browser Extension | Trade overlay, pobb.in import, hotkey launch (when user scale demands it) |
+| M5 Trade Search | ✅ Server-side Trade API: intent → stat ID → search URL |
+| M6 AI Chat Trade | ✅ AI-driven trade intent detection in chat |
+| M7 Pricing / OAuth | Official API integration, currency exchange |
+| M8 Browser Extension | Trade overlay, pobb.in import, hotkey launch (when user scale demands it) |
 
 ## Key Gotchas (from spec Appendix A)
 
@@ -131,9 +132,20 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 9. PoE2 is rapidly iterating — parsers/KB must handle format changes with graceful degradation
 10. Don't copy AGPL source (pobb.in) — reference data structures, rewrite in Python
 
-## Trade Search — Implementation Notes
+## NAS Connection & Deployment
 
-Trade search (M5) is fully implemented and deployed. See [docs/HANDOVER.md](docs/HANDOVER.md) for the complete handover document covering architecture, deployment, API pitfalls, and pending work.
+Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
+
+| Target | Detail |
+|------|------|
+| **SSH** | `ssh -p 2212 skc@192.168.110.26` |
+| **Path** | `/volume1/docker/PoE2LI` |
+| **Sync** | `git fetch origin && git reset --hard origin/main` |
+
+## Trade Search & AI Chat — Implementation Notes
+
+- **Trade Search (M5)**: Fully implemented. See [docs/HANDOVER.md](docs/HANDOVER.md) for architecture.
+- **AI Chat Trade (M6)**: AI now automatically detects trade/item search intent in build chat and provides search links.
 
 **Critical PoE2 API differences from PoE1**:
 - `weapon_filters` / `armour_filters` do NOT exist — use `equipment_filters` instead
