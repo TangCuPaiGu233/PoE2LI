@@ -64,7 +64,16 @@ CHAT_SYSTEM_PROMPT = """你是一个专业的 Path of Exile 2（流放之路2，
 3. 对于数据中没有但需要游戏经验的问题（如"怎么开荒"、"升级路线"、"过渡方案"等），你应该根据当前BD的职业、技能和玩法特点，给出合理的 PoE2 开荒/升级建议，并标注这是建议而非数据分析。
 4. PoE2 和 PoE1 差异很大，不要用 PoE1 的机制来回答 PoE2 的问题。
 5. 回答要具体、实用，用中文。
-6. 如果玩家的问题与构建无关，友善引导回游戏话题。"""
+6. 如果玩家的问题与构建无关，友善引导回游戏话题。
+7. 如果玩家在提问中包含明显的"交易"、"搜索装备"、"帮我找"等意图，你必须输出包含 trade_intent 字段的 JSON，以触发交易搜索功能。
+
+当你判定玩家是在寻找某件装备以进行交易时，请**严格**按照以下 JSON 格式返回你的回答（不要有任何 markdown 标记或其他文本）：
+{
+  "trade_intent": "提取出的玩家想搜索的装备描述（比如：加2召唤兽等级的项链）",
+  "response": "你对玩家请求的简短回应（比如：没问题，我来帮你找。）"
+}
+
+如果玩家的问题**不涉及**寻找交易装备，请直接以普通纯文本格式回答问题即可，**不要**返回 JSON。"""
 
 
 def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
@@ -527,6 +536,37 @@ def chat_about_build(build, question: str, db_session=None) -> str:
         )
 
         answer = response.choices[0].message.content or "抱歉，我无法回答这个问题。"
+        
+        # Check if the LLM returned a JSON with trade_intent
+        try:
+            import json
+            # Clean markdown code block if present
+            clean_answer = answer
+            if clean_answer.startswith("```"):
+                clean_answer = clean_answer.split("\n", 1)[-1]
+                if clean_answer.endswith("```"):
+                    clean_answer = clean_answer.rsplit("```", 1)[0]
+            
+            parsed = json.loads(clean_answer.strip())
+            if isinstance(parsed, dict) and "trade_intent" in parsed:
+                trade_intent = parsed["trade_intent"]
+                base_response = parsed.get("response", "我来帮你找：")
+                
+                # Execute trade search
+                from app.services.trade_service import trade_search
+                trade_result = trade_search(trade_intent, build.league)
+                
+                if trade_result and "trade_url" in trade_result:
+                    url = trade_result["trade_url"]
+                    total = trade_result.get("total_results", 0)
+                    answer = f"{base_response}\n\n🔗 [点击前往官方交易站搜索（共 {total} 个结果）]({url})"
+                else:
+                    err = trade_result.get("error", "未知错误") if trade_result else "未能生成搜索链接"
+                    answer = f"{base_response}\n\n⚠️ 搜索失败: {err}"
+        except json.JSONDecodeError:
+            # Normal text response, just proceed
+            pass
+
         # Append RAG source info if used
         if rag_sources:
             sources = ", ".join(set(rag_sources))
