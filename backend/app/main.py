@@ -15,6 +15,7 @@ from app.api.decode import router as decode_router
 from app.api.homework import router as homework_router
 from app.api.builds import router as builds_router
 from app.api.knowledge import router as knowledge_router
+from app.api.trade import router as trade_router
 
 
 @asynccontextmanager
@@ -45,6 +46,7 @@ app.include_router(decode_router)
 app.include_router(homework_router)
 app.include_router(builds_router)
 app.include_router(knowledge_router)
+app.include_router(trade_router)
 
 
 @app.get("/health")
