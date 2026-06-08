@@ -65,3 +65,19 @@ class KnowledgeChunk(Base):
     stale = Column(Boolean, default=False) # True = excluded from RAG retrieval (outdated league)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+
+class TradeStat(Base):
+    """PoE2 Trade stat dictionary entry with vector embedding for semantic search.
+
+    Each row maps a Trade API stat_id to its English ref text and a BGE-M3 embedding.
+    Used for semantic matching: Chinese user query → vector search → stat_id.
+    """
+    __tablename__ = "trade_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stat_id = Column(String(128), unique=True, nullable=False, index=True)  # e.g. explicit.stat_3372524247
+    ref_text = Column(Text, nullable=False)  # English ref, e.g. "+#% to Fire Resistance"
+    stat_type = Column(String(16), nullable=True)  # explicit / implicit / pseudo / enchant / crafted
+    embedding = Column(Vector(1024), nullable=True)  # BGE-M3 embedding (multilingual)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
