@@ -1,36 +1,63 @@
 import paramiko
 import sys
+import io
+import os
 
-hostname = "192.168.110.26"
-port = 2212
-username = "skc"
-password = "SKChaidao@123"
+# Force UTF-8 output to avoid GBK encoding errors with Unicode characters
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")  # Get from env
+NAS_HOST = "192.168.110.26"
+NAS_PORT = 2212
+NAS_USER = "skc"
+NAS_PASS = os.getenv("NAS_PASS", "") # Get from env
 
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 try:
-    print(f"Connecting to {hostname}:{port}...")
-    client.connect(hostname, port, username, password, timeout=10)
+    print(f"Connecting to {NAS_HOST}:{NAS_PORT}...")
+    client.connect(NAS_HOST, NAS_PORT, NAS_USER, NAS_PASS, timeout=10)
     print("Connected successfully!")
     
     commands = [
         "mkdir -p /volume1/docker/PoE2LI",
         "cd /volume1/docker/PoE2LI && if [ -d .git ]; then echo 'Pulling...' && git pull; else echo 'Cloning...' && git clone https://github.com/TangCuPaiGu233/PoE2LI.git .; fi",
-        "cd /volume1/docker/PoE2LI && if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; echo 'Created .env from .env.example'; fi",
-        "cd /volume1/docker/PoE2LI && /usr/local/bin/docker compose up -d --build"
+        # Write .env with all required keys (overwrites to ensure correctness)
+        f"""cd /volume1/docker/PoE2LI && cat > .env << 'ENVEOF'
+# PoE2LI Environment Variables
+
+# OpenRouter API Key
+OPENROUTER_API_KEY={LLM_API_KEY}
+
+# SiliconFlow API Key
+SILICONFLOW_API_KEY={LLM_API_KEY}
+
+# Proxy
+HTTPS_PROXY=http://192.168.110.26:7890
+HTTP_PROXY=http://192.168.110.26:7890
+ENVEOF""",
+        "cd /volume1/docker/PoE2LI && cat .env",
+        "cd /volume1/docker/PoE2LI && /usr/local/bin/docker compose up -d --build --force-recreate"
     ]
     
     for cmd in commands:
         print(f"\nExecuting: {cmd}")
         stdin, stdout, stderr = client.exec_command(cmd)
         
-        while True:
-            line = stdout.readline()
-            if not line:
-                break
-            print(line, end="")
+        # Read raw bytes and decode with UTF-8, replacing errors
+        raw_output = stdout.read()
+        try:
+            output = raw_output.decode('utf-8')
+        except UnicodeDecodeError:
+            output = raw_output.decode('latin-1')
+        print(output)
             
-        err = stderr.read().decode()
+        raw_err = stderr.read()
+        try:
+            err = raw_err.decode('utf-8')
+        except UnicodeDecodeError:
+            err = raw_err.decode('latin-1')
         if err:
             print(f"STDERR:\n{err}")
             

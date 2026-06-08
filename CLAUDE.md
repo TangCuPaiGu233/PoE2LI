@@ -14,8 +14,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Frontend (Next.js + TypeScript + TailwindCSS)
     ↕ REST
 API Gateway (FastAPI)
-    ├── Business Services
+    ├── Business Services (Build, Chat, Trade)
     ├── AI Orchestrator (LangGraph or custom)
+    ├── Trade Service (server-side Trade API proxy)
     └── Data Collectors
          ↕
 Data Layer: PostgreSQL (+pgvector) + Redis + S3
@@ -25,6 +26,8 @@ Background Agent Workers
 ```
 
 **Core design principle**: Anything code can do precisely, never hand to AI. AI only handles fuzzy/inferential tasks. All AI outputs must be structured data with schema validation + cross-checking + retry.
+
+**Trade search**: 服务端直接调 PoE2 Trade API 获取搜索 ID，拼接 URL 返回前端。初期用户量可控，后期视情况迁移到浏览器插件。详见 [ADR-0002](docs/adr/0002-trade-search-architecture.md)。
 
 ## Tech Stack
 
@@ -111,7 +114,9 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 | M2 Quality + Cold Start | Human review scores pass; operator imports N popular builds |
 | M3 Info DB / Affixes | poe2db base integrated, affix Chinese coverage target met |
 | M4 Q&A RAG | Version-filtered RAG answers, hallucination rate controlled |
-| M5 Pricing / OAuth | Official API integration, currency exchange, Trade deep links |
+| M5 Trade Search | ✅ Server-side Trade API proxy: intent → stat ID → search URL ([ADR-0002](docs/adr/0002-trade-search-architecture.md)) |
+| M6 Pricing / OAuth | Official API integration, currency exchange |
+| M7 Browser Extension | Trade overlay, pobb.in import, hotkey launch (when user scale demands it) |
 
 ## Key Gotchas (from spec Appendix A)
 
@@ -125,6 +130,20 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 8. Affix translation: table lookup first, AI only for unknowns, writeback to dictionary
 9. PoE2 is rapidly iterating — parsers/KB must handle format changes with graceful degradation
 10. Don't copy AGPL source (pobb.in) — reference data structures, rewrite in Python
+
+## Trade Search — Implementation Notes
+
+Trade search (M5) is fully implemented and deployed. See [docs/HANDOVER.md](docs/HANDOVER.md) for the complete handover document covering architecture, deployment, API pitfalls, and pending work.
+
+**Critical PoE2 API differences from PoE1**:
+- `weapon_filters` / `armour_filters` do NOT exist — use `equipment_filters` instead
+- `ilvl` and `quality` belong in `type_filters` (not `misc_filters`)
+- Level requirement `lvl` belongs in `req_filters`
+- Trade API only accepts `explicit.*` stat IDs — vector search results must be normalized
+- LLM may return `"stat_groups": null` — always use `parsed.get("key") or []` pattern
+- Weighted sum type is `"weight2"` (not `"weighted_sum"`) and requires authentication
+
+**Docker deployment caveat**: Only `/app/data` is volume-mounted. Code changes require `docker cp` into the running container or a full `docker compose up -d --build`.
 
 ## Agent skills
 

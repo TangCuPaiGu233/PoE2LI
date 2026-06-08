@@ -347,7 +347,7 @@ def _extract_min_max(d: dict | None) -> dict | None:
 
 def _resolve_stat(db, s: dict) -> dict | None:
     """Resolve a single stat via vector search. Returns matched entry or None."""
-    from app.services.trade_stats_index import search_stats
+    from app.services.trade_stat_service import search_stats
 
     desc_zh = s.get("desc_zh", "")
     desc_en = s.get("desc_en", "")

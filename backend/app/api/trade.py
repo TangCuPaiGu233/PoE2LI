@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from app.services.trade_service import trade_search
-from app.services.trade_stats_index import ingest_trade_stats, backfill_embeddings, get_ingest_stats, clear_trade_stats
+from app.services.trade_stat_service import ingest_trade_stats, backfill_embeddings, get_ingest_stats, clear_trade_stats
 from app.core.database import SessionLocal
 
 logger = logging.getLogger(__name__)

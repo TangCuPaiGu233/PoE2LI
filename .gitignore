@@ -22,6 +22,7 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Env
 .env

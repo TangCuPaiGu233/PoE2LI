@@ -258,6 +258,11 @@ export default function Home() {
             流放漓 PoE2LI
           </h1>
           <p className="text-gray-500 mt-1 text-sm">Path of Exile 2 智能构建分析工具</p>
+          <nav className="mt-3 flex justify-center gap-4">
+            <a href="/trade" className="text-emerald-500/70 hover:text-emerald-400 text-xs transition">
+              装备搜索
+            </a>
+          </nav>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
