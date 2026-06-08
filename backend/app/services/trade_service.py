@@ -242,10 +242,19 @@ weight 为正数表示期望（如生命 weight=3），负数表示惩罚（如�
 weight_min 是总分阈值。
 示例：用户说"生命最重要，抗性其次" → type=weight2, 生命 weight=3, 抗性 weight=1
 
-## 中文术语澄清（重要！）
-- "召唤光环" / "召唤相关词缀" / "召唤兽加成" / "召唤方向" → 这些都是泛指召唤物/召唤兽的增益词缀，不是字面意思的"光环技能效果"。
-  ⚠️ 不要用 "effect of Non-Curse Auras" 等光环效果词缀（这些非常稀有，在项链上几乎不存在）。
-  应该使用最常规的召唤物基础词缀：伤害、攻速施法速度、生命、抗性、移动速度等。
+## PoE2 词缀可行性（重要！超重要！）
+不同装备部位能出的词缀完全不同。你必须判断哪些词缀在该装备类型上真实存在：
+- **项链 (Amulet)**: 能出 "+# to Level of all Minion/Spell Skill Gems"、Spirit、最大生命、抗性、属性、施法速度、护盾、稀有度。⚠️ 项链不出 "Minions deal/有/have" 开头的召唤物专用词缀！
+- **戒指 (Ring)**: 能出生命、抗性、属性、护盾、稀有度、魔力回复。
+- **武器 (Weapon)**: 能出 "Minions deal #% increased Damage"、"Minions have #% increased Attack and Cast Speed" 等召唤物词缀，也能出法术技能等级。
+- **头盔/手套/鞋子/衣服 (Armour)**: 能出生命、护甲/闪避/护盾、抗性、属性。
+
+## 中文术语澄清
+- "召唤光环" / "召唤相关词缀" / "召唤兽加成" / "召唤方向" → 泛指召唤相关的有用词缀。
+  具体用哪些词缀取决于装备部位：
+  - **项链上**：用 Spirit、施法速度、最大生命、抗性等通用属性（项链没有直接的召唤伤害/速度词缀）
+  - **武器上**：用 "Minions deal #% increased Damage"、"Minions have #% increased Attack and Cast Speed" 等
+  - **戒指上**：用最大生命、抗性、属性等
 - "至少N条召唤XX词缀" → type=count, count_min=N。列举的 stats 中每个 stat 的 min/max 都设为 null（只要求有这个词缀，不要求具体数值）。
 
 ## 解析要点
@@ -256,12 +265,13 @@ weight_min 是总分阈值。
    - "移动速度" → "#% increased Movement Speed"
    - "法术技能等级" → "+# to Level of all Spell Skill Gems"
    - "攻击速度" → "#% increased Attack Speed"
-   - "召唤伤害" → "Minions deal #% increased Damage"
-   - "召唤攻速和施法速度" → "Minions have #% increased Attack and Cast Speed"
-   - "召唤生命" → "Minions have #% increased maximum Life"
-   - "召唤移动速度" → "Minions have #% increased Movement Speed"
-   - "召唤全抗" → "Minions have +#% to all Elemental Resistances"
+   - "施法速度" → "#% increased Cast Speed"
+   - "召唤伤害" → "Minions deal #% increased Damage"（仅武器上有效）
+   - "召唤攻速和施法速度" → "Minions have #% increased Attack and Cast Speed"（仅武器上有效）
+   - "召唤生命" → "Minions have #% increased maximum Life"（仅防具上有效）
+   - "精魂" / "Spirit" → "+# to maximum Spirit"
    - "护盾" → "+# to maximum Energy Shield"
+   - "稀有度" → "#% increased Rarity of Items found"
 2. 数值："加2" → min=2；"80以上" → min=80；"50到100" → min=50, max=100
 3. 没指定具体数值时 min 和 max 都为 null（count 组的词缀尤其如此——用户只要"有这个词缀"即可）
 4. 只有用户明确提到的筛选条件才填写，未提及的整个对象设为 null
@@ -275,6 +285,7 @@ weight_min 是总分阈值。
 
 ## 关键示例
 ### 示例1："加2召唤等级的项链，其他词条为召唤兽加成，需求等级55以下"
+⚠️ 注意：项链不出 Minions deal/have 开头的召唤物专用词缀！这些词缀只在武器和部分防具上出现。项链的"召唤相关"词缀用精魂、施法速度、生命、抗性等通用属性替代。
 {{
   "item_type": "accessory.amulet",
   "level_requirement": {{"max": 55}},
@@ -289,16 +300,19 @@ weight_min 是总分阈值。
       "type": "count",
       "count_min": 1,
       "stats": [
-        {{"desc_zh": "召唤伤害", "desc_en": "Minions deal #% increased Damage", "min": null, "max": null}},
-        {{"desc_zh": "召唤攻速和施法速度", "desc_en": "Minions have #% increased Attack and Cast Speed", "min": null, "max": null}},
-        {{"desc_zh": "召唤生命", "desc_en": "Minions have #% increased maximum Life", "min": null, "max": null}}
+        {{"desc_zh": "精魂", "desc_en": "+# to maximum Spirit", "min": null, "max": null}},
+        {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
+        {{"desc_zh": "施法速度", "desc_en": "#% increased Cast Speed", "min": null, "max": null}},
+        {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
+        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}},
+        {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}}
       ]
     }}
   ]
 }}
 
 ### 示例1b（重要！）："加2召唤技能等级的项链，且至少包含2条召唤光环相关词缀"
-⚠️ 注意："召唤光环"在这里是中文社区泛称，指的是召唤物增益词缀，不是字面意思的光环技能效果！
+⚠️ 项链上 "召唤光环/方向" = 精魂、施法速度、生命、抗性等通用属性。不要用 Minions deal/have 开头的词缀！
 {{
   "item_type": "accessory.amulet",
   "stat_groups": [
@@ -312,11 +326,13 @@ weight_min 是总分阈值。
       "type": "count",
       "count_min": 2,
       "stats": [
-        {{"desc_zh": "召唤伤害", "desc_en": "Minions deal #% increased Damage", "min": null, "max": null}},
-        {{"desc_zh": "召唤攻速和施法速度", "desc_en": "Minions have #% increased Attack and Cast Speed", "min": null, "max": null}},
-        {{"desc_zh": "召唤生命", "desc_en": "Minions have #% increased maximum Life", "min": null, "max": null}},
-        {{"desc_zh": "召唤移动速度", "desc_en": "Minions have #% increased Movement Speed", "min": null, "max": null}},
-        {{"desc_zh": "召唤全元素抗性", "desc_en": "Minions have +#% to all Elemental Resistances", "min": null, "max": null}}
+        {{"desc_zh": "精魂", "desc_en": "+# to maximum Spirit", "min": null, "max": null}},
+        {{"desc_zh": "施法速度", "desc_en": "#% increased Cast Speed", "min": null, "max": null}},
+        {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
+        {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
+        {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}},
+        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}},
+        {{"desc_zh": "稀有度", "desc_en": "#% increased Rarity of Items found", "min": null, "max": null}}
       ]
     }}
   ]
