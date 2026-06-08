@@ -60,7 +60,7 @@ STAT_AVAILABILITY = {
             r"Minions have",
             r"Minions gain",
             r"Minions (take|Leech|Regenerate|Recover|Convert)",
-            r"Minion",
+            # NOTE: DO NOT use r"Minion" alone — it catches "Level of all Minion Skills"!
             r"Allies in your Presence deal.*added.*Damage",  # damage auras = weapon only
             r"Allies in your Presence deal.*increased Damage",
             r"Allies.*all Elemental Resistances",
@@ -641,20 +641,7 @@ def validate_stats_for_item(item_type: str | None, stat_groups: list) -> list:
                 filtered.append(stat)
                 continue
 
-            # Check exclude rules first
-            excluded = False
-            for pat in excludes:
-                if re.search(pat, ref, re.IGNORECASE):
-                    logger.info(
-                        f"AVAILABILITY: Dropping '{ref[:50]}' ({stat_id}) — "
-                        f"excluded from {item_type} (pattern: {pat})"
-                    )
-                    excluded = True
-                    break
-            if excluded:
-                continue
-
-            # Check include rules (if any are defined)
+            # Check include rules first (if defined): explicit allowlist
             if includes:
                 included = any(re.search(pat, ref, re.IGNORECASE) for pat in includes)
                 if not included:
@@ -662,6 +649,20 @@ def validate_stats_for_item(item_type: str | None, stat_groups: list) -> list:
                         f"AVAILABILITY: Dropping '{ref[:50]}' ({stat_id}) — "
                         f"not in include list for {item_type}"
                     )
+                    continue
+                # If included, skip exclude check — include is explicit permission
+            else:
+                # No include list: use exclude list to block problematic stats
+                excluded = False
+                for pat in excludes:
+                    if re.search(pat, ref, re.IGNORECASE):
+                        logger.info(
+                            f"AVAILABILITY: Dropping '{ref[:50]}' ({stat_id}) — "
+                            f"excluded from {item_type} (pattern: {pat})"
+                        )
+                        excluded = True
+                        break
+                if excluded:
                     continue
 
             filtered.append(stat)
