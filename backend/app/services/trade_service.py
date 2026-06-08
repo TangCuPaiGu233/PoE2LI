@@ -242,34 +242,46 @@ weight 为正数表示期望（如生命 weight=3），负数表示惩罚（如�
 weight_min 是总分阈值。
 示例：用户说"生命最重要，抗性其次" → type=weight2, 生命 weight=3, 抗性 weight=1
 
-## PoE2 词缀可行性（重要！超重要！）
-不同装备部位能出的词缀完全不同。你必须判断哪些词缀在该装备类型上真实存在：
-- **项链 (Amulet)**: 能出 "+# to Level of all Minion/Spell Skill Gems"、Spirit、最大生命、抗性、属性、施法速度、护盾、稀有度。⚠️ 项链不出 "Minions deal/有/have" 开头的召唤物专用词缀！
-- **戒指 (Ring)**: 能出生命、抗性、属性、护盾、稀有度、魔力回复。
-- **武器 (Weapon)**: 能出 "Minions deal #% increased Damage"、"Minions have #% increased Attack and Cast Speed" 等召唤物词缀，也能出法术技能等级。
-- **头盔/手套/鞋子/衣服 (Armour)**: 能出生命、护甲/闪避/护盾、抗性、属性。
+## PoE2 词缀可行性（超重要！基于实测数据）
 
-## 中文术语澄清
-- "召唤光环" / "召唤相关词缀" / "召唤兽加成" / "召唤方向" → 泛指召唤相关的有用词缀。
-  具体用哪些词缀取决于装备部位：
-  - **项链上**：用 Spirit、施法速度、最大生命、抗性等通用属性（项链没有直接的召唤伤害/速度词缀）
-  - **武器上**：用 "Minions deal #% increased Damage"、"Minions have #% increased Attack and Cast Speed" 等
-  - **戒指上**：用最大生命、抗性、属性等
-- "至少N条召唤XX词缀" → type=count, count_min=N。列举的 stats 中每个 stat 的 min/max 都设为 null（只要求有这个词缀，不要求具体数值）。
+不同装备部位能出的词缀完全不同。以下是基于 PoE2 Trade API 实测的结果：
+
+### 项链 (Amulet) — 召唤相关词缀真实情况
+✅ 项链上**存在**的召唤词缀：
+  - "+# to Level of all Minion Skills" (427件在线) — 召唤等级，最核心
+  - "# to Spirit" (1664件在线) — 精魂/精魄，光环的"燃料"
+  - "Allies in your Presence have #% increased Attack Speed" (46件)
+  - "Allies in your Presence have #% increased Cast Speed" (46件)
+  - "Allies in your Presence have #% increased Critical Damage Bonus" (46件)
+  + 通用词缀：最大生命、抗性、属性、护盾、稀有度
+
+❌ 项链上**不存在**的词缀（不要用！）：
+  - "Allies in your Presence deal # to # added Attack X Damage" — 附加伤害光环(0件)
+  - "Allies in your Presence deal #% increased Damage" — 伤害光环(0件)
+  - "Allies in your Presence have #% to all Elemental Resistances" (0件)
+  - "Minions deal/have..." 开头的所有词缀 (0件)
+  - "#% increased Spirit" — 百分比精魂(0件，只有 # to Spirit)
+
+### "召唤光环"的正确理解
+PoE2 中"召唤光环"= 装备自带的 "Allies in your Presence" 词缀。分为两类：
+1. **附加伤害光环**（如"在场的友军附加1-23攻击闪电伤害"）→ 只在武器/权杖上出现
+2. **速度光环**（攻速、施法速度）→ 可以在项链上出现
+项链上搜"召唤光环"= 精魂(Spirit) + 友军攻速 + 友军施法速度
 
 ## 解析要点
 1. desc_en 必须用 PoE2 游戏中的标准英文表述，例如：
    - "火焰抗性" → "+#% to Fire Resistance"
    - "最大生命" → "+# to maximum Life"
-   - "召唤技能等级" → "+# to Level of all Minion Skill Gems"
+   - "召唤技能等级" → "# to Level of all Minion Skills"
+   - "精魂" / "Spirit" → "# to Spirit"
    - "移动速度" → "#% increased Movement Speed"
    - "法术技能等级" → "+# to Level of all Spell Skill Gems"
    - "攻击速度" → "#% increased Attack Speed"
    - "施法速度" → "#% increased Cast Speed"
-   - "召唤伤害" → "Minions deal #% increased Damage"（仅武器上有效）
-   - "召唤攻速和施法速度" → "Minions have #% increased Attack and Cast Speed"（仅武器上有效）
-   - "召唤生命" → "Minions have #% increased maximum Life"（仅防具上有效）
-   - "精魂" / "Spirit" → "+# to maximum Spirit"
+   - "召唤伤害" → "Minions deal #% increased Damage"（仅武器有效，项链上不存在！）
+   - "友军附加闪电伤害" → "Allies in your Presence deal # to # added Attack Lightning Damage"（仅武器有效）
+   - "友军攻速" / "召唤光环攻速" → "Allies in your Presence have #% increased Attack Speed"
+   - "友军施法速度" / "召唤光环施法速度" → "Allies in your Presence have #% increased Cast Speed"
    - "护盾" → "+# to maximum Energy Shield"
    - "稀有度" → "#% increased Rarity of Items found"
 2. 数值："加2" → min=2；"80以上" → min=80；"50到100" → min=50, max=100
@@ -285,7 +297,6 @@ weight_min 是总分阈值。
 
 ## 关键示例
 ### 示例1："加2召唤等级的项链，其他词条为召唤兽加成，需求等级55以下"
-⚠️ 注意：项链不出 Minions deal/have 开头的召唤物专用词缀！这些词缀只在武器和部分防具上出现。项链的"召唤相关"词缀用精魂、施法速度、生命、抗性等通用属性替代。
 {{
   "item_type": "accessory.amulet",
   "level_requirement": {{"max": 55}},
@@ -293,46 +304,48 @@ weight_min 是总分阈值。
     {{
       "type": "and",
       "stats": [
-        {{"desc_zh": "召唤技能等级+2", "desc_en": "+# to Level of all Minion Skill Gems", "min": 2, "max": null}}
+        {{"desc_zh": "召唤技能等级+2", "desc_en": "# to Level of all Minion Skills", "min": 2, "max": null}}
       ]
     }},
     {{
       "type": "count",
       "count_min": 1,
       "stats": [
-        {{"desc_zh": "精魂", "desc_en": "+# to maximum Spirit", "min": null, "max": null}},
+        {{"desc_zh": "精魂", "desc_en": "# to Spirit", "min": null, "max": null}},
+        {{"desc_zh": "友军攻速", "desc_en": "Allies in your Presence have #% increased Attack Speed", "min": null, "max": null}},
+        {{"desc_zh": "友军施法速度", "desc_en": "Allies in your Presence have #% increased Cast Speed", "min": null, "max": null}},
         {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
-        {{"desc_zh": "施法速度", "desc_en": "#% increased Cast Speed", "min": null, "max": null}},
         {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
-        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}},
-        {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}}
+        {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}},
+        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}}
       ]
     }}
   ]
 }}
 
-### 示例1b（重要！）："加2召唤技能等级的项链，且至少包含2条召唤光环相关词缀"
-⚠️ 项链上 "召唤光环/方向" = 精魂、施法速度、生命、抗性等通用属性。不要用 Minions deal/have 开头的词缀！
+### 示例1b："加2召唤技能等级的项链，且至少包含2条召唤光环相关词缀"
+⚠️ "召唤光环"在项链上 = 精魂(Spirit) + 友军攻速 + 友军施法速度。不是附加伤害光环（那些只在武器上）！
 {{
   "item_type": "accessory.amulet",
   "stat_groups": [
     {{
       "type": "and",
       "stats": [
-        {{"desc_zh": "召唤技能等级+2", "desc_en": "+# to Level of all Minion Skill Gems", "min": 2, "max": null}}
+        {{"desc_zh": "召唤技能等级+2", "desc_en": "# to Level of all Minion Skills", "min": 2, "max": null}}
       ]
     }},
     {{
       "type": "count",
       "count_min": 2,
       "stats": [
-        {{"desc_zh": "精魂", "desc_en": "+# to maximum Spirit", "min": null, "max": null}},
-        {{"desc_zh": "施法速度", "desc_en": "#% increased Cast Speed", "min": null, "max": null}},
+        {{"desc_zh": "精魂", "desc_en": "# to Spirit", "min": null, "max": null}},
+        {{"desc_zh": "友军攻速", "desc_en": "Allies in your Presence have #% increased Attack Speed", "min": null, "max": null}},
+        {{"desc_zh": "友军施法速度", "desc_en": "Allies in your Presence have #% increased Cast Speed", "min": null, "max": null}},
+        {{"desc_zh": "友军暴伤", "desc_en": "Allies in your Presence have #% increased Critical Damage Bonus", "min": null, "max": null}},
         {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
         {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
         {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}},
-        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}},
-        {{"desc_zh": "稀有度", "desc_en": "#% increased Rarity of Items found", "min": null, "max": null}}
+        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}}
       ]
     }}
   ]
