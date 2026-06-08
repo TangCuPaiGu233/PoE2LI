@@ -11,7 +11,7 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")  # Get from env
 NAS_HOST = "192.168.110.26"
 NAS_PORT = 2212
 NAS_USER = "skc"
-NAS_PASS = os.getenv("NAS_PASS", "") # Get from env
+NAS_PASS = "SKChaidao@123" 
 
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -22,9 +22,13 @@ try:
     
     commands = [
         "mkdir -p /volume1/docker/PoE2LI",
-        "cd /volume1/docker/PoE2LI && if [ -d .git ]; then echo 'Pulling...' && git pull; else echo 'Cloning...' && git clone https://github.com/TangCuPaiGu233/PoE2LI.git .; fi",
-        # Write .env with all required keys (overwrites to ensure correctness)
-        f"""cd /volume1/docker/PoE2LI && cat > .env << 'ENVEOF'
+        "cd /volume1/docker/PoE2LI && if [ -d .git ]; then echo 'Fetching and resetting...' && git fetch origin && git reset --hard origin/main; else echo 'Cloning...' && git clone https://github.com/TangCuPaiGu233/PoE2LI.git .; fi",
+    ]
+
+    # Only overwrite .env if LLM_API_KEY is provided (avoid blanking existing keys)
+    if LLM_API_KEY:
+        commands.append(
+            f"""cd /volume1/docker/PoE2LI && cat > .env << 'ENVEOF'
 # PoE2LI Environment Variables
 
 # OpenRouter API Key
@@ -36,10 +40,29 @@ SILICONFLOW_API_KEY={LLM_API_KEY}
 # Proxy
 HTTPS_PROXY=http://192.168.110.26:7890
 HTTP_PROXY=http://192.168.110.26:7890
-ENVEOF""",
-        "cd /volume1/docker/PoE2LI && cat .env",
-        "cd /volume1/docker/PoE2LI && /usr/local/bin/docker compose up -d --build --force-recreate"
-    ]
+ENVEOF"""
+        )
+        commands.append("cd /volume1/docker/PoE2LI && cat .env")
+    else:
+        print("⚠️  LLM_API_KEY not set in env — preserving existing .env file")
+        # Ensure .env exists with at least proxy settings
+        commands.append(
+            """cd /volume1/docker/PoE2LI && if [ ! -f .env ]; then
+cat > .env << 'ENVEOF'
+# PoE2LI Environment Variables
+OPENROUTER_API_KEY=
+SILICONFLOW_API_KEY=
+HTTPS_PROXY=http://192.168.110.26:7890
+HTTP_PROXY=http://192.168.110.26:7890
+ENVEOF
+echo 'Created default .env (no API keys)'
+else
+echo 'Preserving existing .env'
+cat .env
+fi"""
+        )
+
+    commands.append("cd /volume1/docker/PoE2LI && /usr/local/bin/docker compose up -d --build --force-recreate")
     
     for cmd in commands:
         print(f"\nExecuting: {cmd}")

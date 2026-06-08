@@ -22,10 +22,14 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
 
-client = OpenAI(
-    base_url=LLM_BASE_URL,
-    api_key=LLM_API_KEY,
-)
+_client = None
+
+def _get_client():
+    """Lazy-initialize OpenAI client (prevents crash on import when API key is missing)."""
+    global _client
+    if _client is None:
+        _client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    return _client
 
 # ── Static system prompts (cached across all requests) ──
 HOMEWORK_SYSTEM_PROMPT = """你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
@@ -89,7 +93,7 @@ def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
     prompt += '{\n  "英文词缀1": "中文翻译1",\n  "英文词缀2": "中文翻译2"\n}'
     
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
@@ -525,7 +529,7 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     logger.info(f"Chat question: {question}")
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[
@@ -590,7 +594,7 @@ def generate_homework(build_data: DecodeResponse) -> dict:
     build_data_str = _build_prompt(build_data)
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model=LLM_MODEL,
             max_tokens=4000,
             messages=[
