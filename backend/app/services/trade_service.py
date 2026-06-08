@@ -242,6 +242,12 @@ weight 为正数表示期望（如生命 weight=3），负数表示惩罚（如�
 weight_min 是总分阈值。
 示例：用户说"生命最重要，抗性其次" → type=weight2, 生命 weight=3, 抗性 weight=1
 
+## 中文术语澄清（重要！）
+- "召唤光环" / "召唤相关词缀" / "召唤兽加成" / "召唤方向" → 这些都是泛指召唤物/召唤兽的增益词缀，不是字面意思的"光环技能效果"。
+  ⚠️ 不要用 "effect of Non-Curse Auras" 等光环效果词缀（这些非常稀有，在项链上几乎不存在）。
+  应该使用最常规的召唤物基础词缀：伤害、攻速施法速度、生命、抗性、移动速度等。
+- "至少N条召唤XX词缀" → type=count, count_min=N。列举的 stats 中每个 stat 的 min/max 都设为 null（只要求有这个词缀，不要求具体数值）。
+
 ## 解析要点
 1. desc_en 必须用 PoE2 游戏中的标准英文表述，例如：
    - "火焰抗性" → "+#% to Fire Resistance"
@@ -253,9 +259,11 @@ weight_min 是总分阈值。
    - "召唤伤害" → "Minions deal #% increased Damage"
    - "召唤攻速和施法速度" → "Minions have #% increased Attack and Cast Speed"
    - "召唤生命" → "Minions have #% increased maximum Life"
+   - "召唤移动速度" → "Minions have #% increased Movement Speed"
+   - "召唤全抗" → "Minions have +#% to all Elemental Resistances"
    - "护盾" → "+# to maximum Energy Shield"
 2. 数值："加2" → min=2；"80以上" → min=80；"50到100" → min=50, max=100
-3. 没指定具体数值时 min 和 max 都为 null
+3. 没指定具体数值时 min 和 max 都为 null（count 组的词缀尤其如此——用户只要"有这个词缀"即可）
 4. 只有用户明确提到的筛选条件才填写，未提及的整个对象设为 null
 5. 价格："50c以内" → price.currency=chaos, price.max=50
 6. 物品等级(ilvl)："ilvl 85以上" → item_level.min=85
@@ -281,9 +289,34 @@ weight_min 是总分阈值。
       "type": "count",
       "count_min": 1,
       "stats": [
-        {{"desc_zh": "召唤伤害", "desc_en": "Minions deal #% increased Damage", "min": 1, "max": null}},
-        {{"desc_zh": "召唤攻速和施法速度", "desc_en": "Minions have #% increased Attack and Cast Speed", "min": 1, "max": null}},
-        {{"desc_zh": "召唤生命", "desc_en": "Minions have #% increased maximum Life", "min": 1, "max": null}}
+        {{"desc_zh": "召唤伤害", "desc_en": "Minions deal #% increased Damage", "min": null, "max": null}},
+        {{"desc_zh": "召唤攻速和施法速度", "desc_en": "Minions have #% increased Attack and Cast Speed", "min": null, "max": null}},
+        {{"desc_zh": "召唤生命", "desc_en": "Minions have #% increased maximum Life", "min": null, "max": null}}
+      ]
+    }}
+  ]
+}}
+
+### 示例1b（重要！）："加2召唤技能等级的项链，且至少包含2条召唤光环相关词缀"
+⚠️ 注意："召唤光环"在这里是中文社区泛称，指的是召唤物增益词缀，不是字面意思的光环技能效果！
+{{
+  "item_type": "accessory.amulet",
+  "stat_groups": [
+    {{
+      "type": "and",
+      "stats": [
+        {{"desc_zh": "召唤技能等级+2", "desc_en": "+# to Level of all Minion Skill Gems", "min": 2, "max": null}}
+      ]
+    }},
+    {{
+      "type": "count",
+      "count_min": 2,
+      "stats": [
+        {{"desc_zh": "召唤伤害", "desc_en": "Minions deal #% increased Damage", "min": null, "max": null}},
+        {{"desc_zh": "召唤攻速和施法速度", "desc_en": "Minions have #% increased Attack and Cast Speed", "min": null, "max": null}},
+        {{"desc_zh": "召唤生命", "desc_en": "Minions have #% increased maximum Life", "min": null, "max": null}},
+        {{"desc_zh": "召唤移动速度", "desc_en": "Minions have #% increased Movement Speed", "min": null, "max": null}},
+        {{"desc_zh": "召唤全元素抗性", "desc_en": "Minions have +#% to all Elemental Resistances", "min": null, "max": null}}
       ]
     }}
   ]
@@ -356,9 +389,10 @@ def _resolve_stat(db, s: dict) -> dict | None:
 
     search_query = desc_en if desc_en else desc_zh
     # Prefer explicit type (Trade API only accepts explicit.* IDs)
-    matches = search_stats(db, search_query, top_k=3, stat_type="explicit", min_similarity=0.50)
+    # Use lower threshold (0.40) to catch edge cases like non-standard terminology
+    matches = search_stats(db, search_query, top_k=5, stat_type="explicit", min_similarity=0.40)
     if not matches:
-        matches = search_stats(db, search_query, top_k=3, min_similarity=0.50)
+        matches = search_stats(db, search_query, top_k=5, min_similarity=0.40)
 
     if not matches:
         logger.warning(f"No vector match for stat: '{search_query}' (zh: {desc_zh})")
@@ -413,6 +447,8 @@ def parse_intent_ai(query: str) -> dict:
     client = _get_llm_client()
 
     # Step 1: LLM extracts structured intent
+    logger.info(f"Step 1: Calling LLM for intent parsing...")
+    t1 = time.time()
     try:
         resp = client.chat.completions.create(
             model=LLM_MODEL,
@@ -424,6 +460,7 @@ def parse_intent_ai(query: str) -> dict:
             max_tokens=1024,
         )
         content = resp.choices[0].message.content.strip()
+        logger.info(f"LLM parsing took {time.time() - t1:.2f}s")
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
         return {"item_type": None, "item_type_name": None, "stat_groups": [], "summary": query}
@@ -434,8 +471,11 @@ def parse_intent_ai(query: str) -> dict:
 
     try:
         parsed = json.loads(content)
+        logger.info(f"LLM raw output parsed successfully. summary={parsed.get('summary', 'N/A')}, "
+                    f"stat_groups={len(parsed.get('stat_groups') or [])}")
+        logger.debug(f"LLM raw JSON: {json.dumps(parsed, ensure_ascii=False)}")
     except json.JSONDecodeError:
-        logger.error(f"LLM returned invalid JSON: {content[:300]}")
+        logger.error(f"LLM returned invalid JSON: {content[:500]}")
         return {"item_type": None, "item_type_name": None, "stat_groups": [], "summary": query}
 
     item_type = parsed.get("item_type")
@@ -501,6 +541,8 @@ def parse_intent_ai(query: str) -> dict:
         price = price_clean if price_clean.get("currency") else None
 
     # Step 2: Vector search for each stat in each stat_group
+    logger.info(f"Step 2: Starting vector search for stats...")
+    t2 = time.time()
     stat_groups = []
     db = SessionLocal()
     try:
@@ -508,23 +550,46 @@ def parse_intent_ai(query: str) -> dict:
         # Backward compatibility: if LLM outputs flat "stats" instead of "stat_groups"
         if not raw_groups and parsed.get("stats"):
             raw_groups = [{"type": "and", "stats": parsed["stats"]}]
-
+        
+        stat_count = 0
         for group in raw_groups:
             group_type = group.get("type", "and")
             resolved_stats = []
+            total_in_group = len(group.get("stats") or [])
 
             for s in (group.get("stats") or []):
                 matched = _resolve_stat(db, s)
                 if matched:
                     resolved_stats.append(matched)
+                    stat_count += 1
+
+            # Warn if stats were dropped from the group
+            if resolved_stats and len(resolved_stats) < total_in_group:
+                logger.warning(
+                    f"Stat group type={group_type}: {len(resolved_stats)}/{total_in_group} stats resolved. "
+                    f"Dropped stats: {[s.get('desc_en', s.get('desc_zh', '?')) for s in (group.get('stats') or []) if not any(m.get('id') for m in resolved_stats if m)]}"
+                )
+            elif not resolved_stats:
+                logger.warning(
+                    f"Stat group type={group_type}: ALL {total_in_group} stats failed to resolve! "
+                    f"Stats: {[s.get('desc_en', s.get('desc_zh', '?')) for s in (group.get('stats') or [])]}"
+                )
 
             if resolved_stats:
                 g = {"type": group_type, "stats": resolved_stats}
                 if group_type == "count" and group.get("count_min") is not None:
                     g["count_min"] = group["count_min"]
+                    # Safety: if count_min > number of resolved stats, adjust it
+                    if g["count_min"] > len(resolved_stats):
+                        logger.warning(
+                            f"count_min ({g['count_min']}) > resolved stats ({len(resolved_stats)}), "
+                            f"adjusting to {len(resolved_stats)}"
+                        )
+                        g["count_min"] = len(resolved_stats)
                 if group_type == "weight2" and group.get("weight_min") is not None:
                     g["weight_min"] = group["weight_min"]
                 stat_groups.append(g)
+        logger.info(f"Vector search for {stat_count} stats took {time.time() - t2:.2f}s")
     finally:
         db.close()
 
@@ -745,14 +810,19 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
         logger.debug(f"Redis cache check failed (non-critical): {e}")
 
     # Call Trade API
+    logger.info(f"Step 3: Calling official Trade API...")
+    t3 = time.time()
     _rate_limit()
     scraper = _get_scraper()
     url = f"{TRADE_API_BASE}/{league}"
 
-    logger.info(f"Trade search POST to {url}: {json.dumps(trade_query, ensure_ascii=False)[:300]}")
+    query_json = json.dumps(trade_query, ensure_ascii=False)
+    logger.info(f"Trade search POST to {url}: {query_json[:500]}")
+    logger.debug(f"Trade search full query: {query_json}")
 
     try:
         resp = scraper.post(url, json=trade_query, timeout=30)
+        logger.info(f"Trade API call took {time.time() - t3:.2f}s (status={resp.status_code})")
     except Exception as e:
         logger.error(f"Trade API request failed: {e}")
         return {"error": f"Trade API 请求失败: {e}"}
