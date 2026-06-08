@@ -450,7 +450,7 @@ def parse_intent_ai(query: str) -> dict:
                 {"role": "user", "content": f"搜索：{query}"}
             ],
             temperature=0.1,
-            max_tokens=1024,
+            max_tokens=2048,
         )
         content = resp.choices[0].message.content.strip()
         logger.info(f"LLM parsing took {time.time() - t1:.2f}s")
@@ -459,8 +459,15 @@ def parse_intent_ai(query: str) -> dict:
         return {"item_type": None, "item_type_name": None, "stat_groups": [], "summary": query}
 
     # Parse JSON
+    # Strip markdown code fences
     if content.startswith("```"):
-        content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+        content = re.sub(r"^```\w*\n?", "", content)
+        content = re.sub(r"\n?```$", "", content)
+
+    # Try to find JSON object in the response
+    json_match = re.search(r'\{.*\}', content, re.DOTALL)
+    if json_match:
+        content = json_match.group(0)
 
     try:
         parsed = json.loads(content)
