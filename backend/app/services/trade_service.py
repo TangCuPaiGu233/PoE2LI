@@ -242,65 +242,60 @@ weight 为正数表示期望（如生命 weight=3），负数表示惩罚（如�
 weight_min 是总分阈值。
 示例：用户说"生命最重要，抗性其次" → type=weight2, 生命 weight=3, 抗性 weight=1
 
-## 解析要点
-0. **不用担心词缀在装备上是否存在**——系统会自动过滤不兼容的词缀、补充通用词缀到 count 组。你只需准确翻译用户的中文描述为英文游戏术语。
-1. desc_en 必须用 PoE2 游戏中的标准英文表述，例如：
-   - "火焰抗性" → "+#% to Fire Resistance"
-   - "最大生命" → "+# to maximum Life"
-   - "召唤技能等级" → "# to Level of all Minion Skills"
-   - "精魂" / "Spirit" → "# to Spirit"
-   - "移动速度" → "#% increased Movement Speed"
-   - "法术技能等级" → "+# to Level of all Spell Skill Gems"
-   - "攻击速度" → "#% increased Attack Speed"
-   - "施法速度" → "#% increased Cast Speed"
-   - "召唤伤害" → "Minions deal #% increased Damage"
-   - "友军附加伤害" → "Allies in your Presence deal # to # added Attack Lightning Damage"
-   - "友军攻速" / "召唤光环攻速" → "Allies in your Presence have #% increased Attack Speed"
-   - "友军施法速度" / "召唤光环施法速度" → "Allies in your Presence have #% increased Cast Speed"
-   - "护盾" → "+# to maximum Energy Shield"
-   - "稀有度" → "#% increased Rarity of Items found"
+## 中文→英文游戏词缀对照表（来源：PoE2 官方交易站数据）
+
+⚠️ desc_en 必须用下表中的标准英文表述。这些是游戏实际使用的文本，不是直译！
+
+### 通用词缀
+| 中文 | desc_en（标准游戏英文） |
+|------|----------------------|
+| 最大生命 | +# to maximum Life |
+| 最大护盾/能量护盾 | +# to maximum Energy Shield |
+| 最大魔力 | +# to maximum Mana |
+| 火焰抗性/火炕 | +#% to Fire Resistance |
+| 冰霜抗性/冰抗 | +#% to Cold Resistance |
+| 闪电抗性/电抗 | +#% to Lightning Resistance |
+| 混沌抗性/混抗 | +#% to Chaos Resistance |
+| 全元素抗性 | +#% to all Elemental Resistances |
+| 移动速度/移速 | #% increased Movement Speed |
+| 攻击速度/攻速 | #% increased Attack Speed |
+| 施法速度 | #% increased Cast Speed |
+| 物品稀有度 | #% increased Rarity of Items found |
+| 力量/敏捷/智慧 | +# to Strength / Dexterity / Intelligence |
+| 全属性 | +# to all Attributes |
+
+### 召唤/光环词缀
+| 中文 | desc_en（标准游戏英文） |
+|------|----------------------|
+| 召唤技能等级 | # to Level of all Minion Skills |
+| 法术技能等级 | # to Level of all Spell Skills |
+| 精魂/精魄/Spirit | # to Spirit |
+| 精魂提高% | #% increased Spirit |
+| 召唤伤害 | Minions deal #% increased Damage |
+| 召唤攻速/施法速度 | Minions have #% increased Attack and Cast Speed |
+| 召唤生命 | Minions have #% increased maximum Life |
+| 召唤全抗 | Minions have +#% to all Elemental Resistances |
+| 召唤移动速度 | Minions have #% increased Movement Speed |
+| 友军附加火焰伤害 | Allies in your Presence deal # to # added Attack Fire Damage |
+| 友军附加冰霜伤害 | Allies in your Presence deal # to # added Attack Cold Damage |
+| 友军附加闪电伤害 | Allies in your Presence deal # to # added Attack Lightning Damage |
+| 友军附加物理伤害 | Allies in your Presence deal # to # added Attack Physical Damage |
+| 友军伤害提高 | Allies in your Presence deal #% increased Damage |
+| 友军攻速 | Allies in your Presence have #% increased Attack Speed |
+| 友军施法速度 | Allies in your Presence have #% increased Cast Speed |
+| 友军暴伤 | Allies in your Presence have #% increased Critical Damage Bonus |
+| 光环效果 | #% increased effect of Non-Curse Auras from your Skills |
+
+### 解析规则
+1. desc_en 从上表中选。如果用户说的词不在表里，找最接近的，用游戏标准英文写。
 2. 数值："加2" → min=2；"80以上" → min=80；"50到100" → min=50, max=100
-3. 没指定具体数值时 min 和 max 都为 null（count 组的词缀尤其如此——用户只要"有这个词缀"即可）
-4. 只有用户明确提到的筛选条件才填写，未提及的整个对象设为 null
-5. 价格："50c以内" → price.currency=chaos, price.max=50
-6. 物品等级(ilvl)："ilvl 85以上" → item_level.min=85
-7. 需求等级："需求等级55以下" → level_requirement.max=55
-8. 品质："满品质" → quality.min=20
-9. 孔和链接："6连" → links.min=6
-10. 武器面板："物理DPS 300以上" → weapon.pdps.min=300
-11. 护甲面板："护盾500以上" → armour.es.min=500
+3. 没指定具体数值时 min 和 max 都为 null
+4. 只有用户明确提到的筛选条件才填写，未提及的对象设为 null
+5. count 组的每个 stat 的 min/max 都设为 null（只要有这个词缀就行）
+6. count 组的池子要大（6-8条），包含多个候选词缀，宁可多列几条让系统去匹配
 
 ## 关键示例
-### 示例1："加2召唤等级的项链，其他词条为召唤兽加成，需求等级55以下"
-{{
-  "item_type": "accessory.amulet",
-  "level_requirement": {{"max": 55}},
-  "stat_groups": [
-    {{
-      "type": "and",
-      "stats": [
-        {{"desc_zh": "召唤技能等级+2", "desc_en": "# to Level of all Minion Skills", "min": 2, "max": null}}
-      ]
-    }},
-    {{
-      "type": "count",
-      "count_min": 1,
-      "stats": [
-        {{"desc_zh": "精魂", "desc_en": "# to Spirit", "min": null, "max": null}},
-        {{"desc_zh": "友军攻速", "desc_en": "Allies in your Presence have #% increased Attack Speed", "min": null, "max": null}},
-        {{"desc_zh": "友军施法速度", "desc_en": "Allies in your Presence have #% increased Cast Speed", "min": null, "max": null}},
-        {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
-        {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
-        {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}},
-        {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}}
-      ]
-    }}
-  ]
-}}
-
-### 示例1b："加2召唤技能等级的项链，且至少包含2条召唤光环相关词缀"
-⚠️ "召唤光环"在项链上 = 精魂(Spirit) + 友军攻速 + 友军施法速度。但这些光环词缀很少和+召唤等级共存！
-诀窍：count 组的池子必须够大（至少6-8条），把精魂、友军光环 + 最大生命 + 三抗都放进去，这样 Spirit+生命或 生命+抗性 都能凑出 count_min。
+### 示例1："加2召唤等级的项链，且至少包含2条召唤光环相关词缀"
 {{
   "item_type": "accessory.amulet",
   "stat_groups": [
@@ -318,6 +313,7 @@ weight_min 是总分阈值。
         {{"desc_zh": "友军攻速", "desc_en": "Allies in your Presence have #% increased Attack Speed", "min": null, "max": null}},
         {{"desc_zh": "友军施法速度", "desc_en": "Allies in your Presence have #% increased Cast Speed", "min": null, "max": null}},
         {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null}},
+        {{"desc_zh": "最大护盾", "desc_en": "+# to maximum Energy Shield", "min": null, "max": null}},
         {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": null, "max": null}},
         {{"desc_zh": "冰霜抗性", "desc_en": "+#% to Cold Resistance", "min": null, "max": null}},
         {{"desc_zh": "闪电抗性", "desc_en": "+#% to Lightning Resistance", "min": null, "max": null}}
@@ -326,7 +322,7 @@ weight_min 是总分阈值。
   ]
 }}
 
-### 示例2："稀有戒指，生命80以上，火抗30以上，不要有诅咒效果"
+### 示例2："稀有戒指，生命80以上，火抗30以上"
 {{
   "item_type": "accessory.ring",
   "rarity": "rare",
@@ -337,26 +333,19 @@ weight_min 是总分阈值。
         {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": 80, "max": null}},
         {{"desc_zh": "火焰抗性", "desc_en": "+#% to Fire Resistance", "min": 30, "max": null}}
       ]
-    }},
-    {{
-      "type": "not",
-      "stats": [
-        {{"desc_zh": "诅咒效果", "desc_en": "#% increased Effect of Curses on you", "min": null, "max": null}}
-      ]
     }}
   ]
 }}
 
-### 示例3："鞋子，生命权重大于移速，综合评分超过50"
+### 示例3："召唤伤害和攻速的权杖"
 {{
-  "item_type": "armour.boots",
+  "item_type": "weapon.sceptre",
   "stat_groups": [
     {{
-      "type": "weight2",
-      "weight_min": 50,
+      "type": "and",
       "stats": [
-        {{"desc_zh": "最大生命", "desc_en": "+# to maximum Life", "min": null, "max": null, "weight": 3}},
-        {{"desc_zh": "移动速度", "desc_en": "#% increased Movement Speed", "min": null, "max": null, "weight": 1}}
+        {{"desc_zh": "召唤伤害", "desc_en": "Minions deal #% increased Damage", "min": null, "max": null}},
+        {{"desc_zh": "友军攻速", "desc_en": "Allies in your Presence have #% increased Attack Speed", "min": null, "max": null}}
       ]
     }}
   ]
@@ -594,21 +583,6 @@ def parse_intent_ai(query: str) -> dict:
                     g["weight_min"] = group["weight_min"]
                 stat_groups.append(g)
         logger.info(f"Vector search for {stat_count} stats took {time.time() - t2:.2f}s")
-
-        # ── Post-resolve: validate stats against item type availability ──
-        from app.services.trade_stat_availability import (
-            validate_stats_for_item,
-            inject_fallback_stats,
-        )
-        before_validation = sum(len(g.get("stats", [])) for g in stat_groups)
-        stat_groups = validate_stats_for_item(item_type, stat_groups)
-        stat_groups = inject_fallback_stats(db, stat_groups, item_type)
-        after_validation = sum(len(g.get("stats", [])) for g in stat_groups)
-        if before_validation != after_validation:
-            logger.info(
-                f"Post-validation: {before_validation} → {after_validation} stats "
-                f"(item_type={item_type})"
-            )
     finally:
         db.close()
 
@@ -812,8 +786,10 @@ def build_trade_query(intent: dict) -> dict:
     }
 
 
-def _execute_trade_query(trade_query: dict, league: str) -> dict:
-    """Execute a single Trade API call. Returns result dict or error dict."""
+def search_trade(intent: dict, league: str = "Standard") -> dict:
+    """Execute a trade search and return the result."""
+    trade_query = build_trade_query(intent)
+
     # Check Redis cache
     cache_key = f"trade:{league}:{hashlib.md5(json.dumps(trade_query, sort_keys=True).encode()).hexdigest()}"
     try:
@@ -826,6 +802,9 @@ def _execute_trade_query(trade_query: dict, league: str) -> dict:
     except Exception as e:
         logger.debug(f"Redis cache check failed (non-critical): {e}")
 
+    # Call Trade API
+    logger.info(f"Step 3: Calling official Trade API...")
+    t3 = time.time()
     _rate_limit()
     scraper = _get_scraper()
     url = f"{TRADE_API_BASE}/{league}"
@@ -836,12 +815,15 @@ def _execute_trade_query(trade_query: dict, league: str) -> dict:
 
     try:
         resp = scraper.post(url, json=trade_query, timeout=30)
+        logger.info(f"Trade API call took {time.time() - t3:.2f}s (status={resp.status_code})")
     except Exception as e:
         logger.error(f"Trade API request failed: {e}")
         return {"error": f"Trade API 请求失败: {e}"}
 
     if resp.status_code == 429:
-        return {"error": "搜索过于频繁，请 60 秒后重试"}
+        wait_time = 60
+        logger.warning(f"Trade API rate limited, waiting {wait_time}s")
+        return {"error": f"搜索过于频繁，请 {wait_time} 秒后重试"}
 
     if resp.status_code != 200:
         logger.error(f"Trade API returned {resp.status_code}: {resp.text[:200]}")
@@ -849,6 +831,7 @@ def _execute_trade_query(trade_query: dict, league: str) -> dict:
 
     data = resp.json()
     search_id = data.get("id", "")
+
     if not search_id:
         return {"error": "Trade API 未返回搜索 ID"}
 
@@ -859,7 +842,7 @@ def _execute_trade_query(trade_query: dict, league: str) -> dict:
         "trade_url": trade_url,
         "search_id": search_id,
         "total_results": total,
-        "intent_summary": "",
+        "intent_summary": intent.get("summary", ""),
         "filters": trade_query,
         "expires_in": 300,
     }
@@ -867,101 +850,11 @@ def _execute_trade_query(trade_query: dict, league: str) -> dict:
     # Cache in Redis (5 min TTL)
     try:
         from app.core.redis_client import get_redis
-        r2 = get_redis()
-        r2.setex(cache_key, 300, json.dumps(result))
+        get_redis().setex(cache_key, 300, json.dumps(result))
     except Exception:
         pass
 
-    return result
-
-
-def _relax_count_min(intent: dict) -> dict:
-    """Reduce count_min by 1 on all count groups (minimum 1). Returns new intent."""
-    relaxed = dict(intent)
-    new_groups = []
-    changed = False
-    for g in (intent.get("stat_groups") or []):
-        g = dict(g)
-        if g.get("type") == "count" and g.get("count_min", 1) > 1:
-            g["count_min"] = g["count_min"] - 1
-            changed = True
-        new_groups.append(g)
-    relaxed["stat_groups"] = new_groups
-    if changed:
-        relaxed["summary"] = (intent.get("summary", "") or "") + "（放宽计数条件）"
-    return relaxed
-
-
-def _drop_restrictive_groups(intent: dict) -> dict:
-    """Remove 'not' and 'weight2' groups; keep only 'and' + 'count' groups."""
-    relaxed = dict(intent)
-    old_groups = intent.get("stat_groups") or []
-    new_groups = [g for g in old_groups if g.get("type") in ("and", "count")]
-    if len(new_groups) < len(old_groups):
-        relaxed["stat_groups"] = new_groups
-        relaxed["summary"] = (intent.get("summary", "") or "") + "（放宽条件）"
-    return relaxed
-
-
-def _core_only(intent: dict) -> dict:
-    """Keep only the primary 'and' group (core requirement)."""
-    relaxed = dict(intent)
-    old_groups = intent.get("stat_groups") or []
-    and_groups = [g for g in old_groups if g.get("type") == "and"]
-    if and_groups and len(and_groups) < len(old_groups):
-        relaxed["stat_groups"] = and_groups
-        relaxed["summary"] = (intent.get("summary", "") or "") + "（仅核心需求）"
-    return relaxed
-
-
-def search_trade(intent: dict, league: str = "Standard") -> dict:
-    """Execute a trade search with auto-retry on 0 results.
-
-    If the initial search returns 0, progressively relaxes the query:
-      1. Reduce count_min by 1 on all count groups
-      2. Drop restrictive groups (not, weight2)
-      3. Keep only the core 'and' group
-    Returns the first result with > 0 items, or the last attempt.
-    """
-    logger.info(f"Step 3: Calling official Trade API...")
-    t3 = time.time()
-
-    # Inject intent_summary into the result
-    summary = intent.get("summary", "")
-
-    # Attempt 0: original query
-    trade_query = build_trade_query(intent)
-    result = _execute_trade_query(trade_query, league)
-    result["intent_summary"] = summary
-    logger.info(f"Trade API search took {time.time() - t3:.2f}s (total={result.get('total_results', 0)})")
-
-    if result.get("error"):
-        return result
-
-    if result.get("total_results", 0) > 0:
-        return result
-
-    # ── Auto-retry on 0 results ──
-    retry_strategies = [
-        ("relax_count", _relax_count_min),
-        ("drop_restrictive", _drop_restrictive_groups),
-        ("core_only", _core_only),
-    ]
-
-    for strategy_name, strategy_fn in retry_strategies:
-        relaxed_intent = strategy_fn(intent)
-        if relaxed_intent == intent:
-            continue  # no change, skip
-
-        logger.info(f"Retry ({strategy_name}): 0 results, relaxing query...")
-        trade_query = build_trade_query(relaxed_intent)
-        result = _execute_trade_query(trade_query, league)
-        result["intent_summary"] = relaxed_intent.get("summary", summary)
-        logger.info(f"Retry ({strategy_name}): total={result.get('total_results', 0)}")
-
-        if result.get("total_results", 0) > 0:
-            return result
-
+    logger.info(f"Trade search success: {trade_url} (total={total})")
     return result
 
 
