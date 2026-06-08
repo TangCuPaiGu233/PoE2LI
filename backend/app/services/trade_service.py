@@ -242,33 +242,8 @@ weight 为正数表示期望（如生命 weight=3），负数表示惩罚（如�
 weight_min 是总分阈值。
 示例：用户说"生命最重要，抗性其次" → type=weight2, 生命 weight=3, 抗性 weight=1
 
-## PoE2 词缀可行性（超重要！基于实测数据）
-
-不同装备部位能出的词缀完全不同。以下是基于 PoE2 Trade API 实测的结果：
-
-### 项链 (Amulet) — 召唤相关词缀真实情况
-✅ 项链上**存在**的召唤词缀：
-  - "+# to Level of all Minion Skills" (427件在线) — 召唤等级，最核心
-  - "# to Spirit" (1664件在线) — 精魂/精魄，光环的"燃料"
-  - "Allies in your Presence have #% increased Attack Speed" (46件)
-  - "Allies in your Presence have #% increased Cast Speed" (46件)
-  - "Allies in your Presence have #% increased Critical Damage Bonus" (46件)
-  + 通用词缀：最大生命、抗性、属性、护盾、稀有度
-
-❌ 项链上**不存在**的词缀（不要用！）：
-  - "Allies in your Presence deal # to # added Attack X Damage" — 附加伤害光环(0件)
-  - "Allies in your Presence deal #% increased Damage" — 伤害光环(0件)
-  - "Allies in your Presence have #% to all Elemental Resistances" (0件)
-  - "Minions deal/have..." 开头的所有词缀 (0件)
-  - "#% increased Spirit" — 百分比精魂(0件，只有 # to Spirit)
-
-### "召唤光环"的正确理解
-PoE2 中"召唤光环"= 装备自带的 "Allies in your Presence" 词缀。分为两类：
-1. **附加伤害光环**（如"在场的友军附加1-23攻击闪电伤害"）→ 只在武器/权杖上出现
-2. **速度光环**（攻速、施法速度）→ 可以在项链上出现
-项链上搜"召唤光环"= 精魂(Spirit) + 友军攻速 + 友军施法速度
-
 ## 解析要点
+0. **不用担心词缀在装备上是否存在**——系统会自动过滤不兼容的词缀、补充通用词缀到 count 组。你只需准确翻译用户的中文描述为英文游戏术语。
 1. desc_en 必须用 PoE2 游戏中的标准英文表述，例如：
    - "火焰抗性" → "+#% to Fire Resistance"
    - "最大生命" → "+# to maximum Life"
@@ -278,8 +253,8 @@ PoE2 中"召唤光环"= 装备自带的 "Allies in your Presence" 词缀。分�
    - "法术技能等级" → "+# to Level of all Spell Skill Gems"
    - "攻击速度" → "#% increased Attack Speed"
    - "施法速度" → "#% increased Cast Speed"
-   - "召唤伤害" → "Minions deal #% increased Damage"（仅武器有效，项链上不存在！）
-   - "友军附加闪电伤害" → "Allies in your Presence deal # to # added Attack Lightning Damage"（仅武器有效）
+   - "召唤伤害" → "Minions deal #% increased Damage"
+   - "友军附加伤害" → "Allies in your Presence deal # to # added Attack Lightning Damage"
    - "友军攻速" / "召唤光环攻速" → "Allies in your Presence have #% increased Attack Speed"
    - "友军施法速度" / "召唤光环施法速度" → "Allies in your Presence have #% increased Cast Speed"
    - "护盾" → "+# to maximum Energy Shield"
@@ -619,6 +594,21 @@ def parse_intent_ai(query: str) -> dict:
                     g["weight_min"] = group["weight_min"]
                 stat_groups.append(g)
         logger.info(f"Vector search for {stat_count} stats took {time.time() - t2:.2f}s")
+
+        # ── Post-resolve: validate stats against item type availability ──
+        from app.services.trade_stat_availability import (
+            validate_stats_for_item,
+            inject_fallback_stats,
+        )
+        before_validation = sum(len(g.get("stats", [])) for g in stat_groups)
+        stat_groups = validate_stats_for_item(item_type, stat_groups)
+        stat_groups = inject_fallback_stats(db, stat_groups, item_type)
+        after_validation = sum(len(g.get("stats", [])) for g in stat_groups)
+        if before_validation != after_validation:
+            logger.info(
+                f"Post-validation: {before_validation} → {after_validation} stats "
+                f"(item_type={item_type})"
+            )
     finally:
         db.close()
 
@@ -822,10 +812,8 @@ def build_trade_query(intent: dict) -> dict:
     }
 
 
-def search_trade(intent: dict, league: str = "Standard") -> dict:
-    """Execute a trade search and return the result."""
-    trade_query = build_trade_query(intent)
-
+def _execute_trade_query(trade_query: dict, league: str) -> dict:
+    """Execute a single Trade API call. Returns result dict or error dict."""
     # Check Redis cache
     cache_key = f"trade:{league}:{hashlib.md5(json.dumps(trade_query, sort_keys=True).encode()).hexdigest()}"
     try:
@@ -838,9 +826,6 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
     except Exception as e:
         logger.debug(f"Redis cache check failed (non-critical): {e}")
 
-    # Call Trade API
-    logger.info(f"Step 3: Calling official Trade API...")
-    t3 = time.time()
     _rate_limit()
     scraper = _get_scraper()
     url = f"{TRADE_API_BASE}/{league}"
@@ -851,15 +836,12 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
 
     try:
         resp = scraper.post(url, json=trade_query, timeout=30)
-        logger.info(f"Trade API call took {time.time() - t3:.2f}s (status={resp.status_code})")
     except Exception as e:
         logger.error(f"Trade API request failed: {e}")
         return {"error": f"Trade API 请求失败: {e}"}
 
     if resp.status_code == 429:
-        wait_time = 60
-        logger.warning(f"Trade API rate limited, waiting {wait_time}s")
-        return {"error": f"搜索过于频繁，请 {wait_time} 秒后重试"}
+        return {"error": "搜索过于频繁，请 60 秒后重试"}
 
     if resp.status_code != 200:
         logger.error(f"Trade API returned {resp.status_code}: {resp.text[:200]}")
@@ -867,7 +849,6 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
 
     data = resp.json()
     search_id = data.get("id", "")
-
     if not search_id:
         return {"error": "Trade API 未返回搜索 ID"}
 
@@ -878,7 +859,7 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
         "trade_url": trade_url,
         "search_id": search_id,
         "total_results": total,
-        "intent_summary": intent.get("summary", ""),
+        "intent_summary": "",
         "filters": trade_query,
         "expires_in": 300,
     }
@@ -886,11 +867,101 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
     # Cache in Redis (5 min TTL)
     try:
         from app.core.redis_client import get_redis
-        get_redis().setex(cache_key, 300, json.dumps(result))
+        r2 = get_redis()
+        r2.setex(cache_key, 300, json.dumps(result))
     except Exception:
         pass
 
-    logger.info(f"Trade search success: {trade_url} (total={total})")
+    return result
+
+
+def _relax_count_min(intent: dict) -> dict:
+    """Reduce count_min by 1 on all count groups (minimum 1). Returns new intent."""
+    relaxed = dict(intent)
+    new_groups = []
+    changed = False
+    for g in (intent.get("stat_groups") or []):
+        g = dict(g)
+        if g.get("type") == "count" and g.get("count_min", 1) > 1:
+            g["count_min"] = g["count_min"] - 1
+            changed = True
+        new_groups.append(g)
+    relaxed["stat_groups"] = new_groups
+    if changed:
+        relaxed["summary"] = (intent.get("summary", "") or "") + "（放宽计数条件）"
+    return relaxed
+
+
+def _drop_restrictive_groups(intent: dict) -> dict:
+    """Remove 'not' and 'weight2' groups; keep only 'and' + 'count' groups."""
+    relaxed = dict(intent)
+    old_groups = intent.get("stat_groups") or []
+    new_groups = [g for g in old_groups if g.get("type") in ("and", "count")]
+    if len(new_groups) < len(old_groups):
+        relaxed["stat_groups"] = new_groups
+        relaxed["summary"] = (intent.get("summary", "") or "") + "（放宽条件）"
+    return relaxed
+
+
+def _core_only(intent: dict) -> dict:
+    """Keep only the primary 'and' group (core requirement)."""
+    relaxed = dict(intent)
+    old_groups = intent.get("stat_groups") or []
+    and_groups = [g for g in old_groups if g.get("type") == "and"]
+    if and_groups and len(and_groups) < len(old_groups):
+        relaxed["stat_groups"] = and_groups
+        relaxed["summary"] = (intent.get("summary", "") or "") + "（仅核心需求）"
+    return relaxed
+
+
+def search_trade(intent: dict, league: str = "Standard") -> dict:
+    """Execute a trade search with auto-retry on 0 results.
+
+    If the initial search returns 0, progressively relaxes the query:
+      1. Reduce count_min by 1 on all count groups
+      2. Drop restrictive groups (not, weight2)
+      3. Keep only the core 'and' group
+    Returns the first result with > 0 items, or the last attempt.
+    """
+    logger.info(f"Step 3: Calling official Trade API...")
+    t3 = time.time()
+
+    # Inject intent_summary into the result
+    summary = intent.get("summary", "")
+
+    # Attempt 0: original query
+    trade_query = build_trade_query(intent)
+    result = _execute_trade_query(trade_query, league)
+    result["intent_summary"] = summary
+    logger.info(f"Trade API search took {time.time() - t3:.2f}s (total={result.get('total_results', 0)})")
+
+    if result.get("error"):
+        return result
+
+    if result.get("total_results", 0) > 0:
+        return result
+
+    # ── Auto-retry on 0 results ──
+    retry_strategies = [
+        ("relax_count", _relax_count_min),
+        ("drop_restrictive", _drop_restrictive_groups),
+        ("core_only", _core_only),
+    ]
+
+    for strategy_name, strategy_fn in retry_strategies:
+        relaxed_intent = strategy_fn(intent)
+        if relaxed_intent == intent:
+            continue  # no change, skip
+
+        logger.info(f"Retry ({strategy_name}): 0 results, relaxing query...")
+        trade_query = build_trade_query(relaxed_intent)
+        result = _execute_trade_query(trade_query, league)
+        result["intent_summary"] = relaxed_intent.get("summary", summary)
+        logger.info(f"Retry ({strategy_name}): total={result.get('total_results', 0)}")
+
+        if result.get("total_results", 0) > 0:
+            return result
+
     return result
 
 
