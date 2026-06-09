@@ -285,7 +285,7 @@ def _tool_final_answer(args: dict, messages: list) -> dict:
 
 # ── Agent loop ──
 
-MAX_TURNS = 8
+MAX_TURNS = 10
 
 
 def run_agent(query: str, league: str = "Standard") -> dict:
@@ -309,7 +309,7 @@ def run_agent(query: str, league: str = "Standard") -> dict:
 
     intent_ctx = {"summary": query}
     stats_call_count = 0
-    MAX_STATS_CALLS = 5
+    MAX_STATS_CALLS = 4
 
     try:
         for turn in range(MAX_TURNS):
