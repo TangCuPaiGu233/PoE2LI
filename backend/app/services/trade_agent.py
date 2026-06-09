@@ -147,43 +147,30 @@ TOOLS = [
     },
 ]
 
-SYSTEM_PROMPT = """你是 PoE2（流放之路2）交易搜索助手。用户用中文描述想找的装备，你通过工具搜索词缀并执行交易站查询。
+SYSTEM_PROMPT = """You are a PoE2 trade search agent. Follow these rules EXACTLY:
 
-## 严格流程（必须按顺序执行！）
+STEP 1: Parse the user's Chinese query. Identify item_type, core requirement (use "and" group), and optional requirements (use "count" group).
 
-### 阶段1：理解需求（1次思考）
-识别装备类型、核心需求词缀、辅助词缀。
+STEP 2: Call search_stats for each requirement. Use the user's original Chinese words and English paraphrases. Max 3 search_stats calls total, then STOP searching and move on.
 
-### 阶段2：搜索核心词缀（1-3次 search_stats）
-对每个需求，调 search_stats 找词缀 ID。
-- 核心需求（如"+2召唤等级"）：搜 1 次就够了
-- 模糊需求（如"召唤光环"）：最多搜 3 次，用不同关键词
-- ⚠️ 搜到足够候选后立刻进入阶段3，不要无限搜！
+STEP 3: Call execute_search with the stat IDs you found. Use the exact IDs from search_stats results. For count groups, include ALL candidate stats you found — do not filter.
 
-### 阶段3：执行搜索 + 抽查验证
-1. 调 execute_search 执行搜索
-2. 如果结果 > 0：**必须调 inspect_results 抽查前 3 条装备**，看看词缀是否真的匹配用户需求
-3. 如果抽查发现词缀不匹配（比如搜"召唤光环"但装备上实际是"召唤伤害"）→ 换词重新搜
-4. 如果抽查通过 → 调 final_answer 返回
-5. 如果结果 = 0：分析原因，调整后重试（最多 2 次）
-   - 降 count_min 到 1
-   - 去掉可能太稀有的词缀
-   - 换更通用的关键词重新 search_stats
+STEP 4: If execute_search returns total_results > 0, you MUST call inspect_results to verify the items actually match. If they don't match, reconsider your stat choices and go back to STEP 2.
 
-### 阶段4：结束（调 final_answer）
-- 有结果 → 返回链接和数量
-- 重试3次仍为0 → 告知用户建议调整方向
+STEP 5: Call final_answer with the trade URL from the LAST successful execute_search. Include in summary: what was searched, how many results, and the URL.
 
-## ⚠️ 重要规则
-- search_stats 最多调 5 次！超过 5 次还没找到，也要强行进入 execute_search
-- 必须在第 8 轮之前调 final_answer
-- count 组里必须加通用词缀（最大生命 + 三种抗性）作为兜底
-- 搜到 0 结果时：先加通用词缀，再降 count_min，不要反复搜词
+CRITICAL RULES:
+- You CANNOT call search_stats more than 3 times.
+- You MUST call execute_search after finding stats.
+- You MUST call inspect_results before final_answer when results > 0.
+- You MUST call final_answer by turn 8.
+- NEVER hallucinate stat IDs — only use IDs returned by search_stats.
+- If execute_search returns 0, try again with count_min lowered to 1. If still 0, call final_answer and tell the user the stats may not exist on that item type.
 
-## 装备类型 ID
-项链: accessory.amulet | 戒指: accessory.ring | 腰带: accessory.belt
-权杖: weapon.sceptre | 魔杖: weapon.wand | 弓: weapon.bow
-胸甲: armour.chest | 头盔: armour.helmet | 手套: armour.gloves | 鞋子: armour.boots
+Item type IDs:
+necklace/amulet=accessory.amulet ring=accessory.ring belt=accessory.belt
+sceptre=weapon.sceptre wand=weapon.wand bow=weapon.bow staff=weapon.staff
+chest=armour.chest helmet=armour.helmet gloves=armour.gloves boots=armour.boots
 """
 
 
@@ -341,7 +328,7 @@ def _tool_final_answer(args: dict, messages: list, intent_ctx: dict) -> dict:
 
 # ── Agent loop ──
 
-MAX_TURNS = 10
+MAX_TURNS = 8
 
 
 def run_agent(query: str, league: str = "Standard") -> dict:
@@ -366,8 +353,8 @@ def run_agent(query: str, league: str = "Standard") -> dict:
     intent_ctx = {"summary": query}
     stats_call_count = 0
     search_call_count = 0  # execute_search count
-    MAX_STATS_CALLS = 4
-    MAX_SEARCH_CALLS = 3
+    MAX_STATS_CALLS = 3
+    MAX_SEARCH_CALLS = 2
 
     try:
         for turn in range(MAX_TURNS):
