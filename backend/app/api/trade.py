@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
-from app.services.trade_service import trade_search
+from app.services.trade_agent import run_agent
 from app.services.trade_stat_service import ingest_trade_stats, backfill_embeddings, get_ingest_stats, clear_trade_stats
 from app.core.database import SessionLocal
 
@@ -37,7 +37,7 @@ class TradeSearchResponse(BaseModel):
 @router.post("/api/trade/search", response_model=TradeSearchResponse)
 async def trade_search_endpoint(req: TradeSearchRequest):
     """Parse natural language query and return PoE2 Trade search URL."""
-    result = trade_search(req.query, req.league)
+    result = run_agent(req.query, req.league)
     return TradeSearchResponse(**result)
 
 
