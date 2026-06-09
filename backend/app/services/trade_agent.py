@@ -197,49 +197,6 @@ def _tool_search_stats(db, args: dict) -> str:
     }, ensure_ascii=False)
 
 
-UNIVERSAL_STAT_QUERIES = [
-    "+# to maximum Life",
-    "+#% to Fire Resistance",
-    "+#% to Cold Resistance",
-    "+#% to Lightning Resistance",
-]
-
-
-def _inject_universal_stats(db, stat_groups: list) -> list:
-    """Always inject universal stats (life + 3 res) into count groups as fallback.
-
-    This ensures count groups never fail just because theme stats are too rare.
-    """
-    from app.services.trade_stat_service import search_stats
-
-    for group in stat_groups:
-        if group.get("type") != "count":
-            continue
-
-        existing_ids = {s.get("id", "") for s in group["stats"]}
-        added = 0
-        for query_text in UNIVERSAL_STAT_QUERIES:
-            if query_text.lower() in " ".join(
-                s.get("matched_ref", s.get("id", "")).lower()
-                for s in group["stats"]
-            ):
-                continue  # already in the group
-            matches = search_stats(db, query_text, top_k=1, stat_type="explicit", min_similarity=0.5)
-            if matches and matches[0]["stat_id"] not in existing_ids:
-                group["stats"].append({
-                    "id": matches[0]["stat_id"],
-                    "min": None, "max": None,
-                })
-                existing_ids.add(matches[0]["stat_id"])
-                added += 1
-                logger.info(f"Agent auto-injected universal stat: {matches[0]['stat_id']} ({matches[0]['ref_text'][:40]})")
-
-        if added > 0:
-            logger.info(f"Agent injected {added} universal stats into count group (now {len(group['stats'])} stats)")
-
-    return stat_groups
-
-
 def _tool_execute_search(db, intent_ctx: dict, args: dict) -> str:
     """Execute execute_search tool and return JSON result."""
     from app.services.trade_service import build_trade_query, search_trade
@@ -249,10 +206,8 @@ def _tool_execute_search(db, intent_ctx: dict, args: dict) -> str:
     rarity = args.get("rarity")
     league = args.get("league", "Standard")
 
-    # Safety: inject universal stats if count groups are too small
-    stat_groups = _inject_universal_stats(db, stat_groups)
-
-    # Build intent from args
+    # No universal injection — let agent handle 0 results by retrying with different stats
+    # Future: inject context-appropriate stats based on user's build/class
     intent = {
         "item_type": item_type,
         "item_type_name": None,
