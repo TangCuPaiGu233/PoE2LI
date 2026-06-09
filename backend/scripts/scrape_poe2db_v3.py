@@ -8,11 +8,20 @@ Output: JSONL ready for embedding + DB ingestion.
 Each chunk covers one game entity with complete tri-language data.
 """
 
-import urllib.request
+import cloudscraper
 from bs4 import BeautifulSoup
 import json, re, time, sys, os, hashlib
 
-HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+# Use cloudscraper to bypass Cloudflare
+_scraper = None
+
+def _get_scraper():
+    global _scraper
+    if _scraper is None:
+        _scraper = cloudscraper.create_scraper(
+            browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
+        )
+    return _scraper
 
 # Index pages to collect URLs from
 INDEX_PAGES = [
@@ -29,9 +38,11 @@ INDEX_PAGES = [
 
 def fetch(url):
     try:
-        req = urllib.request.Request(url, headers=HEADERS)
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            return resp.read().decode('utf-8', errors='replace')
+        s = _get_scraper()
+        resp = s.get(url, timeout=20)
+        if resp.status_code == 200:
+            return resp.text
+        return None
     except Exception as e:
         return None
 
