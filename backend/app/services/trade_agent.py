@@ -202,63 +202,68 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                 "error": "无法解析搜索意图",
             }
 
-        # Step 2: Retrieve stats for ALL requirements, merge into one pool
-        # First requirement (core) → keep only top 3 (most specific)
-        # Subsequent requirements → keep top 10 each (broader pool is fine)
-        all_stats = []
+        # Step 2: Retrieve stats
+        # First requirement = core (goes in AND group — must have)
+        # Remaining requirements = broad (go in COUNT group — at least count_min)
+        core_stats = []
+        broad_stats = []
         seen_ids = set()
+
         for i, req in enumerate(requirements):
-            limit = 1 if i == 0 else 10  # core req: only THE top match; broad reqs: top 10
+            limit = 1 if i == 0 else 10
             logger.info(f"Retrieving stats for '{req.get('raw', '?')}' (keep top {limit})...")
             candidates = _retrieve_stats(db, req)
             kept = 0
             for c in candidates:
                 if c["stat_id"] not in seen_ids:
                     seen_ids.add(c["stat_id"])
-                    all_stats.append(c)
+                    if i == 0:
+                        core_stats.append(c)
+                    else:
+                        broad_stats.append(c)
                     kept += 1
                     if kept >= limit:
                         break
 
-        if not all_stats:
+        if not core_stats:
             return {
                 "trade_url": "",
                 "total_results": 0,
-                "intent_summary": "未找到匹配的词缀",
+                "intent_summary": "未找到匹配的核心词缀",
                 "error": "向量搜索未找到匹配词缀",
             }
 
-        logger.info(f"Merged pool: {len(all_stats)} stats from {len(requirements)} requirements")
+        logger.info(f"Core: {len(core_stats)} stats, Broad: {len(broad_stats)} stats")
 
-        # Step 3: Build intent (single COUNT group)
-        search_intent = _build_intent(intent, all_stats, count_min)
+        # Step 3: Build AND + COUNT groups
+        # AND group: core stats (must match all)
+        # COUNT group: broad stats (match count_min of these)
+        # count_min = total_requirements - 1 (minus the core requirement)
+        broad_count_min = max(1, count_min - len(core_stats))
+        if broad_count_min < 1:
+            broad_count_min = 1
+
+        search_intent = {
+            "item_type": intent.get("item_type"),
+            "item_type_name": None,
+            "rarity": intent.get("rarity"),
+            "stat_groups": [
+                {"type": "and", "stats": [{"id": s["stat_id"]} for s in core_stats]},
+                {"type": "count", "count_min": broad_count_min, "stats": [{"id": s["stat_id"]} for s in broad_stats]},
+            ],
+            "summary": intent.get("summary", ""),
+        }
+        logger.info(f"Built: AND({len(core_stats)}) + COUNT({len(broad_stats)}, min={broad_count_min})")
+
         result = _execute_search(search_intent, league)
-
-        if result.get("error"):
-            return {
-                "trade_url": "",
-                "total_results": 0,
-                "intent_summary": result["error"],
-                "error": result["error"],
-            }
-
         total = result.get("total_results", 0)
         url = result.get("trade_url", "")
 
         # Step 4: If 0 results, retry with count_min=1
         if total == 0:
-            logger.info(f"0 results with count_min={count_min}, retrying with count_min=1...")
-            search_intent = _build_intent(intent, all_stats, 1)
+            logger.info(f"0 results, retrying with count_min=1...")
+            search_intent["stat_groups"][1]["count_min"] = 1
             result = _execute_search(search_intent, league)
-
-            if result.get("error"):
-                return {
-                    "trade_url": url or "",
-                    "total_results": 0,
-                    "intent_summary": "未找到匹配装备，建议调整搜索条件",
-                    "error": None,
-                }
-
             total = result.get("total_results", 0)
             url = result.get("trade_url", url)
             summary = f"放宽条件后找到 {total} 件" if total > 0 else "未找到匹配装备，建议调整搜索条件"
