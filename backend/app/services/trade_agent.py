@@ -224,10 +224,8 @@ def _select_from_candidates(requirement: dict, candidates: list[dict], item_type
 
 # ── Step 4: Build and execute search ──
 
-def _build_search_query(intent: dict, requirements: list[dict]) -> dict:
-    """Build Trade API query from requirements."""
-    from app.services.trade_service import build_trade_query
-
+def _build_intent(intent: dict, requirements: list[dict]) -> dict:
+    """Build a search intent dict (for search_trade) from requirements."""
     stat_groups = []
     for req in requirements:
         kind = req.get("kind", "required")
@@ -250,7 +248,10 @@ def _build_search_query(intent: dict, requirements: list[dict]) -> dict:
             count_min = req.get("count_min", 1)
             stat_groups.append({"type": "count", "count_min": count_min, "stats": stats})
 
-    trade_intent = {
+    logger.info(f"Built intent: {len(stat_groups)} stat groups "
+                f"({sum(len(g['stats']) for g in stat_groups)} total stats)")
+
+    return {
         "item_type": intent.get("item_type"),
         "item_type_name": None,
         "rarity": intent.get("rarity"),
@@ -258,32 +259,10 @@ def _build_search_query(intent: dict, requirements: list[dict]) -> dict:
         "summary": intent.get("summary", ""),
     }
 
-    return build_trade_query(trade_intent)
 
-
-def _execute_search(db, trade_query: dict, league: str) -> dict:
-    """Execute a single trade search."""
+def _execute_search(intent: dict, league: str) -> dict:
+    """Execute a single trade search from intent dict."""
     from app.services.trade_service import search_trade
-
-    intent = {
-        "item_type": None,
-        "stat_groups": [],
-        "summary": "",
-    }
-    # Reconstruct intent from trade_query for search_trade
-    q = trade_query.get("query", {})
-    stats = q.get("stats", [])
-    filters = q.get("filters", {})
-
-    # Extract item_type from type_filters
-    type_f = filters.get("type_filters", {}).get("filters", {})
-    item_type = type_f.get("category", {}).get("option")
-    rarity = type_f.get("rarity", {}).get("option")
-
-    intent["item_type"] = item_type
-    intent["rarity"] = rarity
-    intent["stat_groups"] = stats
-
     return search_trade(intent, league)
 
 
@@ -349,10 +328,10 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                 "error": "向量搜索未找到匹配词缀",
             }
 
-        # Step 4: Build and execute search
-        logger.info("Step 4: Building and executing search...")
-        trade_query = _build_search_query(intent, requirements)
-        result = _execute_search(db, trade_query, league)
+        # Step 4: Build intent and execute search
+        logger.info("Step 4: Building intent and executing search...")
+        search_intent = _build_intent(intent, requirements)
+        result = _execute_search(search_intent, league)
 
         if result.get("error"):
             return {
@@ -373,8 +352,8 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                 if req.get("kind") == "count":
                     req["count_min"] = 1
 
-            trade_query = _build_search_query(intent, requirements)
-            result = _execute_search(db, trade_query, league)
+            search_intent = _build_intent(intent, requirements)
+            result = _execute_search(search_intent, league)
 
             if result.get("error"):
                 return {
