@@ -262,13 +262,19 @@ TRADE_CONCEPTS = {
         "known_ids": [],
     },
     "physical_damage": {
-        "aliases": ["物理伤害", "物伤", "physical damage"],
-        "stat_patterns": [r"#% increased Physical Damage", r"adds # to # Physical Damage"],
+        "aliases": ["物理伤害", "物伤", "physical damage", "物理点伤"],
+        "stat_patterns": [
+            r"#% increased Physical Damage",
+            r"adds # to # Physical Damage to Attacks",
+        ],
         "item_slots": ["weapon.bow", "weapon.claw", "weapon.dagger",
                         "weapon.onesword", "weapon.oneaxe", "weapon.onemace",
                         "weapon.twosword", "weapon.twoaxe", "weapon.twomace",
+                        "weapon.spear", "weapon.crossbow",
                         "accessory.ring"],
-        "known_ids": [],
+        "known_ids": [
+            "explicit.stat_3967918456",  # % increased Physical Damage
+        ],
     },
     "spell_damage": {
         "aliases": ["法术伤害", "法伤", "spell damage"],
@@ -316,11 +322,12 @@ TRADE_CONCEPTS = {
 
     # ═══ Weapon Stats ═══
     "physical_dps": {
-        "aliases": ["物理DPS", "pdps", "物理秒伤", "phys dps"],
+        "aliases": ["物理DPS", "pdps", "物理秒伤", "phys dps", "物理伤害最高",
+                     "最高物理伤害", "高物理伤害", "大物理"],
         "stat_patterns": [],
-        "item_slots": [],  # all weapons
+        "item_slots": [],  # handled by equipment_filters, not stats
         "known_ids": [],
-        "special": "equipment_filter_pdps",
+        "special": "sort_pdps",  # SORT by pdps, NOT a stat filter!
     },
     "elemental_dps": {
         "aliases": ["元素DPS", "edps", "元素秒伤", "ele dps"],

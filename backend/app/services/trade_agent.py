@@ -33,43 +33,42 @@ def _get_llm_client():
 
 PARSE_SYSTEM = """You convert Chinese PoE2 trade queries into a structured search intent.
 
-Available concepts (use these names in the "concept" field):
-{concept_list}
+Available concepts: {concept_list}
 
 Item slot IDs:
-  amulet = accessory.amulet, ring = accessory.ring, belt = accessory.belt
-  sceptre = weapon.sceptre, wand = weapon.wand, staff = weapon.staff, bow = weapon.bow
-  chest = armour.chest, helmet = armour.helmet, gloves = armour.gloves, boots = armour.boots
+  amulet=accessory.amulet ring=accessory.ring belt=accessory.belt
+  sceptre=weapon.sceptre wand=weapon.wand staff=weapon.staff bow=weapon.bow
+  spear=weapon.spear crossbow=weapon.crossbow
+  onesword=weapon.onesword oneaxe=weapon.oneaxe onemace=weapon.onemace
+  twosword=weapon.twosword twoaxe=weapon.twoaxe twomace=weapon.twomace
+  chest=armour.chest helmet=armour.helmet gloves=armour.gloves boots=armour.boots
+  shield=armour.shield quiver=armour.quiver
 
 Output JSON:
 {{
   "item_slot": "accessory.amulet",
-  "must_have": [
-    {{"concept": "minion_skill_level", "operator": ">=", "value": 2}}
-  ],
-  "nice_to_have": [
-    {{"concept": "spirit", "operator": "exists"}},
-    {{"concept": "allies_attack_speed", "operator": "exists"}},
-    {{"concept": "allies_cast_speed", "operator": "exists"}},
-    {{"concept": "maximum_life", "operator": "exists"}},
-    {{"concept": "fire_resistance", "operator": "exists"}},
-    {{"concept": "cold_resistance", "operator": "exists"}},
-    {{"concept": "lightning_resistance", "operator": "exists"}}
-  ],
-  "count_min": 2,
+  "must_have": [],
+  "nice_to_have": [],
+  "count_min": 1,
   "exclude": [],
-  "raw_summary": "short Chinese summary of the search"
+  "sort": null,
+  "sort_dir": "desc",
+  "budget": null,
+  "raw_summary": "short Chinese summary"
 }}
 
-Rules:
-- must_have: concepts the item MUST have. Each becomes part of an AND group.
-- nice_to_have: concepts that are NICE to have. They go into a COUNT group.
-- count_min: how many nice_to_have concepts must match (default 1 if not specified)
-- If user says "at least N 条 XX", set count_min accordingly
-- If you can't match a user term to a concept, add it to "unknown_terms": ["term1", ...]
-- Use "exists" operator when user just wants the mod present (no value requirement)
-- Use ">=" for minimum values
-- Always include general useful stats (life, res) in nice_to_have as fallback"""
+CRITICAL RULES:
+1. "最高/最大/最高伤害" → set sort="pdps" (NOT a stat! This is sorting, not filtering!)
+   "元素伤害最高" → sort="edps"
+   "最便宜/价格最低" → sort="price", sort_dir="asc"
+2. "价格低于 X E/D/神" → budget={{"max": X, "currency": "exalted"/"divine"/"chaos"}}
+   "价格低于 2E" → budget={{"max": 2, "currency": "exalted"}}
+3. Item names (战猫, 猎首, 法血) → set item_slot to best guess, put name in raw_summary
+4. must_have: stats the item MUST have. Use AND group.
+5. nice_to_have: stats that are NICE to have. COUNT group with count_min.
+6. "至少N条XX" → count_min=N
+7. "存在/有XX" operator="exists"; "XX以上/至少XX" operator=">=" with value
+8. If a user term doesn't match any concept, list it in unknown_terms"""
 
 
 def _parse_intent(query: str) -> dict:
@@ -271,7 +270,9 @@ def _build_plans(resolved: dict, item_slot: str | None) -> list[dict]:
 
 # ── Step 4: Execute search ──
 
-def _execute_plan(plan: dict, item_slot: str | None, league: str) -> dict:
+def _execute_plan(plan: dict, item_slot: str | None, league: str,
+                  sort: str | None = None, sort_dir: str = "desc",
+                  budget: dict | None = None) -> dict:
     """Execute a single search plan against the Trade API."""
     from app.services.trade_service import search_trade
 
@@ -280,6 +281,20 @@ def _execute_plan(plan: dict, item_slot: str | None, league: str) -> dict:
         "stat_groups": plan["stat_groups"],
         "summary": "",
     }
+
+    # Apply price filter
+    if budget:
+        intent["price"] = {
+            "currency": budget.get("currency", "chaos"),
+            "max": budget.get("max"),
+        }
+
+    # Apply weapon DPS filter
+    if sort in ("pdps", "edps"):
+        if sort == "pdps":
+            intent["weapon"] = {"pdps": {"min": 1}}
+        else:
+            intent["weapon"] = {"edps": {"min": 1}}
 
     result = search_trade(intent, league)
     return {
@@ -414,6 +429,9 @@ def run_agent(query: str, league: str = "Standard") -> dict:
             }
 
         item_slot = intent.get("item_slot")
+        sort = intent.get("sort")
+        sort_dir = intent.get("sort_dir", "desc")
+        budget = intent.get("budget")
         raw_summary = intent.get("raw_summary", query)
 
         # Step 2: Resolve concepts to stat IDs
@@ -435,7 +453,7 @@ def run_agent(query: str, league: str = "Standard") -> dict:
         logger.info("=== Step 4: Execute + Inspect ===")
         results = []
         for plan in plans:
-            result = _execute_plan(plan, item_slot, league)
+            result = _execute_plan(plan, item_slot, league, sort, sort_dir, budget)
             logger.info(f"  Plan '{plan['name']}': {result['total']} results")
 
             inspection = None
