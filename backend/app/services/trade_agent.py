@@ -101,6 +101,28 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "inspect_results",
+            "description": "抽查搜索结果中的实际装备。拿到 search_id 后，取前几条装备查看它们的词缀，验证是否真的匹配用户需求。如果不匹配，说明词缀选错了，需要换词重新搜。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_id": {
+                        "type": "string",
+                        "description": "execute_search 返回的 search_id",
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "抽查几条，默认 3",
+                        "default": 3,
+                    },
+                },
+                "required": ["search_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "final_answer",
             "description": "搜索完成，返回最终结果给用户。当找到结果或确认无法找到时调用此工具结束搜索。",
             "parameters": {
@@ -138,14 +160,15 @@ SYSTEM_PROMPT = """你是 PoE2（流放之路2）交易搜索助手。用户用�
 - 模糊需求（如"召唤光环"）：最多搜 3 次，用不同关键词
 - ⚠️ 搜到足够候选后立刻进入阶段3，不要无限搜！
 
-### 阶段3：执行搜索（调 execute_search）
-把选好的词缀组成 stat_groups，调 execute_search。
-- 第1次搜索：用最匹配的词缀
-- 如果结果 0：分析原因，调整后重试（最多重试 2 次）
-  - 加通用词缀（最大生命、三种抗性、护盾）到 count 池子
-  - 降 count_min 到 1
-  - 去掉可能太稀有的词缀
-- 如果结果 > 0：立刻调 final_answer
+### 阶段3：执行搜索 + 抽查验证
+1. 调 execute_search 执行搜索
+2. 如果结果 > 0：**必须调 inspect_results 抽查前 3 条装备**，看看词缀是否真的匹配用户需求
+3. 如果抽查发现词缀不匹配（比如搜"召唤光环"但装备上实际是"召唤伤害"）→ 换词重新搜
+4. 如果抽查通过 → 调 final_answer 返回
+5. 如果结果 = 0：分析原因，调整后重试（最多 2 次）
+   - 降 count_min 到 1
+   - 去掉可能太稀有的词缀
+   - 换更通用的关键词重新 search_stats
 
 ### 阶段4：结束（调 final_answer）
 - 有结果 → 返回链接和数量
@@ -194,6 +217,70 @@ def _tool_search_stats(db, args: dict) -> str:
         "query": query,
         "count": len(results),
         "results": results,
+    }, ensure_ascii=False)
+
+
+def _tool_inspect_results(db, args: dict, intent_ctx: dict) -> str:
+    """Fetch actual items from a search result and show their mods."""
+    import cloudscraper
+
+    search_id = args.get("search_id", "")
+    count = min(args.get("count", 3), 5)
+    league = intent_ctx.get("league", "Standard")
+
+    if not search_id:
+        return json.dumps({"error": "缺少 search_id，请先调 execute_search"})
+
+    # Step 1: fetch item IDs from the search
+    scraper = cloudscraper.create_scraper(
+        browser={"browser": "chrome", "platform": "windows", "mobile": False}
+    )
+    fetch_url = f"https://www.pathofexile.com/api/trade2/fetch/{','.join([search_id])}?query={search_id}&limit={count}"
+    # Actually the correct endpoint is:
+    # GET /api/trade2/search/<league>/<search_id> first to get item IDs
+    # Then POST /api/trade2/fetch/<item_ids>
+    search_url = f"https://www.pathofexile.com/api/trade2/search/{league}/{search_id}"
+    try:
+        resp = scraper.get(search_url, timeout=15)
+        if resp.status_code != 200:
+            return json.dumps({"error": f"获取搜索结果失败 (HTTP {resp.status_code})"})
+        search_data = resp.json()
+        item_ids = search_data.get("result", [])[:count]
+        if not item_ids:
+            return json.dumps({"error": "搜索结果中没有装备"})
+    except Exception as e:
+        return json.dumps({"error": f"获取搜索结果失败: {e}"})
+
+    # Step 2: fetch item details
+    fetch_detail_url = f"https://www.pathofexile.com/api/trade2/fetch/{','.join(item_ids)}?query={search_id}"
+    try:
+        resp2 = scraper.get(fetch_detail_url, timeout=15)
+        if resp2.status_code != 200:
+            return json.dumps({"error": f"获取装备详情失败 (HTTP {resp2.status_code})"})
+        items = resp2.json().get("result", [])
+    except Exception as e:
+        return json.dumps({"error": f"获取装备详情失败: {e}"})
+
+    # Step 3: extract mods from each item
+    samples = []
+    for item in items[:count]:
+        name = item.get("name", "?")
+        item_type = item.get("typeLine", "?")
+        # Extract explicit mods
+        mods = []
+        for mod in item.get("explicitMods", []):
+            mods.append(mod)
+        samples.append({
+            "name": name,
+            "type": item_type,
+            "mods": mods[:10],  # first 10 explicit mods
+        })
+
+    intent_ctx["last_search_id"] = search_id
+    return json.dumps({
+        "search_id": search_id,
+        "samples": samples,
+        "hint": "检查这些装备的词缀是否匹配用户需求。如果不匹配，需要重新 search_stats 换词，或调整 stat_groups 去掉错误的词缀 ID。",
     }, ensure_ascii=False)
 
 
@@ -367,6 +454,8 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                     else:
                         result_str = json.dumps({**d, "hint": "多次搜索均为0结果。现在必须调 final_answer 告知用户建议调整条件。"})
                 result_str = _tool_execute_search(db, intent_ctx, tool_args)
+            elif tool_name == "inspect_results":
+                result_str = _tool_inspect_results(db, tool_args, intent_ctx)
             elif tool_name == "final_answer":
                 final = _tool_final_answer(tool_args, messages, intent_ctx)
                 db.close()
