@@ -206,24 +206,24 @@ UNIVERSAL_STAT_QUERIES = [
 
 
 def _inject_universal_stats(db, stat_groups: list) -> list:
-    """If count groups have too few stats, inject universal ones (life, res)."""
+    """Always inject universal stats (life + 3 res) into count groups as fallback.
+
+    This ensures count groups never fail just because theme stats are too rare.
+    """
     from app.services.trade_stat_service import search_stats
 
     for group in stat_groups:
         if group.get("type") != "count":
             continue
-        current = len(group.get("stats", []))
-        count_min = group.get("count_min", 1)
-        target = max(count_min + 3, 6)  # always have extra margin
-        if current >= target:
-            continue
 
-        needed = target - current
         existing_ids = {s.get("id", "") for s in group["stats"]}
         added = 0
         for query_text in UNIVERSAL_STAT_QUERIES:
-            if added >= needed:
-                break
+            if query_text.lower() in " ".join(
+                s.get("matched_ref", s.get("id", "")).lower()
+                for s in group["stats"]
+            ):
+                continue  # already in the group
             matches = search_stats(db, query_text, top_k=1, stat_type="explicit", min_similarity=0.5)
             if matches and matches[0]["stat_id"] not in existing_ids:
                 group["stats"].append({
