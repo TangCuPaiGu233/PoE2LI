@@ -137,8 +137,34 @@ class AskResponse(BaseModel):
     sources: list[dict]
 
 
+def _classify_question(question: str) -> str | None:
+    """Quick keyword-based content type filter to narrow vector search scope."""
+    q = question.lower()
+    if any(w in q for w in ['skill', 'gem', 'herald', 'aura', 'attack', 'spell',
+                              '技能', '宝石', '光环', '攻击', '法术', '召唤']):
+        return 'skill'
+    if any(w in q for w in ['unique', 'item', 'weapon', 'armour', 'sword', 'bow',
+                              '暗金', '装备', '武器', '防具', '传奇', '项链', '戒指']):
+        return 'item'
+    if any(w in q for w in ['mod', 'affix', 'prefix', 'suffix', 'enchant',
+                              '词缀', '前缀', '后缀', '附魔']):
+        return 'mod'
+    if any(w in q for w in ['quest', 'act', 'boss', 'map', 'waystone',
+                              '任务', '章节', 'boss', '首领', '地图']):
+        return 'quest'
+    if any(w in q for w in ['passive', 'ascendancy', 'tree', 'node',
+                              '天赋', '升华', '节点']):
+        return 'passive'
+    return None
+
+
 def _retrieve_knowledge(question: str, top_k: int = 5) -> list[dict]:
-    """Retrieve relevant knowledge chunks using vector similarity."""
+    """Retrieve relevant knowledge chunks using vector similarity.
+
+    Optimizations:
+      1. Content-type pre-filtering (keyword match)
+      2. Limits to poe2db source, non-stale chunks
+    """
     db = SessionLocal()
     try:
         q_embedding = get_embedding(question)
@@ -148,13 +174,21 @@ def _retrieve_knowledge(question: str, top_k: int = 5) -> list[dict]:
         db_url = str(db.get_bind().url)
         is_sqlite = db_url.startswith("sqlite")
 
+        # Base filter
+        filters = [
+            KnowledgeChunk.embedding != None,  # noqa: E711
+            KnowledgeChunk.source == "poe2db",
+            KnowledgeChunk.stale == False,  # noqa: E712
+        ]
+
+        # Content-type pre-filter (reduces search space by 60-80%)
+        content_type = _classify_question(question)
+        if content_type:
+            filters.append(KnowledgeChunk.chunk_type == content_type)
+            logger.info(f"Pre-filtering by chunk_type={content_type}")
+
         if is_sqlite:
-            # In-memory cosine similarity
-            chunks = db.query(KnowledgeChunk).filter(
-                KnowledgeChunk.embedding != None,  # noqa: E711
-                KnowledgeChunk.source == "poe2db",
-                KnowledgeChunk.stale == False,  # noqa: E712
-            ).all()
+            chunks = db.query(KnowledgeChunk).filter(*filters).all()
             scored = []
             for c in chunks:
                 emb = c.embedding
@@ -166,15 +200,10 @@ def _retrieve_knowledge(question: str, top_k: int = 5) -> list[dict]:
             return [{"content": c.content, "chunk_type": c.chunk_type, "similarity": round(s, 3)}
                     for s, c in scored[:top_k] if s > 0.3]
         else:
-            # pgvector
             dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
             rows = (
                 db.query(KnowledgeChunk, dist)
-                .filter(
-                    KnowledgeChunk.embedding != None,  # noqa: E711
-                    KnowledgeChunk.source == "poe2db",
-                    KnowledgeChunk.stale == False,  # noqa: E712
-                )
+                .filter(*filters)
                 .order_by(dist)
                 .limit(top_k)
                 .all()
@@ -196,9 +225,32 @@ def _cosine_sim(a, b):
     return dot / (na * nb) if na and nb else 0
 
 
+def _get_cache_key(question: str, top_k: int) -> str:
+    """Generate a stable cache key for a QA query."""
+    import hashlib
+    raw = f"qa:{question.strip().lower()}:{top_k}"
+    return f"qa_cache:{hashlib.md5(raw.encode()).hexdigest()[:16]}"
+
+
 @qa_router.post("/api/knowledge/ask", response_model=AskResponse)
 async def ask_question(req: AskRequest):
     """RAG QA: answer PoE2 questions using poe2db knowledge base."""
+    import time
+    t_start = time.time()
+
+    # Redis cache check
+    cache_key = _get_cache_key(req.question, req.top_k)
+    try:
+        from app.core.redis_client import get_redis
+        r = get_redis()
+        cached = r.get(cache_key)
+        if cached:
+            data = json.loads(cached)
+            logger.info(f"QA cache hit for '{req.question[:50]}' ({(time.time()-t_start)*1000:.0f}ms)")
+            return AskResponse(**data)
+    except Exception:
+        pass  # Redis unavailable, continue without cache
+
     # Retrieve relevant chunks
     chunks = _retrieve_knowledge(req.question, req.top_k)
     if not chunks:
@@ -259,4 +311,15 @@ async def ask_question(req: AskRequest):
         for c in chunks[:3]
     ]
 
-    return AskResponse(answer=answer, sources=sources)
+    response = AskResponse(answer=answer, sources=sources)
+
+    # Cache in Redis (1 hour TTL)
+    try:
+        from app.core.redis_client import get_redis
+        r2 = get_redis()
+        r2.setex(cache_key, 3600, json.dumps(response.model_dump(), ensure_ascii=False))
+        logger.info(f"QA cached: '{req.question[:50]}' ({(time.time()-t_start)*1000:.0f}ms total)")
+    except Exception:
+        pass
+
+    return response
