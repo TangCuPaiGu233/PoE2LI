@@ -51,27 +51,24 @@ def scrape_unique_item(path, lang_code):
     if props:
         result["item_type"] = [p.get_text(strip=True) for p in props]
 
-    # Implicit mods (dedup)
-    seen_imp = set()
-    implicits = []
-    for i in soup.find_all(class_="implicitMod"):
-        text = i.get_text(strip=True)
-        if text and text not in seen_imp:
-            seen_imp.add(text)
-            implicits.append(text)
-    if implicits:
-        result["implicit_mods"] = implicits
+    # Only scrape the first item tab (avoid duplicates from SkillGem/Unique tabs)
+    first_tab = soup.find(class_="tab-pane") or soup
+    if not first_tab:
+        first_tab = soup
 
-    # Explicit mods (dedup — same mod appears in multiple page tabs)
-    seen_texts = set()
-    explicits = []
-    for e in soup.find_all(class_="explicitMod"):
-        text = e.get_text(strip=True)
-        if text and text not in seen_texts:
-            seen_texts.add(text)
-            explicits.append(text)
+    # Implicit mods
+    implicits = first_tab.find_all(class_="implicitMod")
+    if implicits:
+        result["implicit_mods"] = list(dict.fromkeys(
+            i.get_text(strip=True) for i in implicits if i.get_text(strip=True)
+        ))
+
+    # Explicit mods
+    explicits = first_tab.find_all(class_="explicitMod")
     if explicits:
-        result["explicit_mods"] = explicits
+        result["explicit_mods"] = list(dict.fromkeys(
+            e.get_text(strip=True) for e in explicits if e.get_text(strip=True)
+        ))
 
     # Full stats line
     stats = soup.find(class_="Stats")
@@ -100,22 +97,20 @@ def collect_unique_urls():
     entries = []
     seen = set()
 
-    for td in soup.find_all('td'):
-        for a in td.find_all('a', href=True):
-            href = a['href']
-            text = a.get_text(strip=True)
-            if not (href.startswith('/us/') and text and len(text) >= 3):
-                continue
-            path = href.replace('/us/', '')
-            if not path or path in seen or path in ('Unique_item',):
-                continue
-            seen.add(path)
-
-            # Extract level if present
-            lv_match = re.search(r'\((\d+)\)', td.get_text(strip=True))
-            level = int(lv_match.group(1)) if lv_match else 0
-
-            entries.append({"path": path, "name_en": text, "level": level})
+    # Find all detail page links directly (not nested in td)
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        text = a.get_text(strip=True)
+        if not (href.startswith('/us/') and text and len(text) >= 3):
+            continue
+        path = href.replace('/us/', '')
+        # Skip nav links and paths with sub-paths
+        if not path or path in seen or '/' in path:
+            continue
+        if path in ('Unique_item', 'Items', 'Gem', 'Modifiers', 'Passive_Skill_Tree'):
+            continue
+        seen.add(path)
+        entries.append({"path": path, "name_en": text, "level": 0})
 
     return entries
 
