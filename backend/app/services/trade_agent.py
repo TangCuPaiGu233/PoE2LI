@@ -127,47 +127,40 @@ TOOLS = [
 
 SYSTEM_PROMPT = """你是 PoE2（流放之路2）交易搜索助手。用户用中文描述想找的装备，你通过工具搜索词缀并执行交易站查询。
 
-## 工作流程
+## 严格流程（必须按顺序执行！）
 
-1. 理解用户需求：识别装备类型、核心需求词缀、辅助词缀（count 组）
-2. 调用 search_stats 找每个需求的候选词缀 ID
-3. 如果有疑问，多调几次 search_stats 用不同关键词，确认选对了
-4. 调用 execute_search 执行搜索
-5. 如果结果 > 0：调 final_answer 返回链接
-6. 如果结果 = 0：分析原因，调整策略重试（最多 3 次）：
-   - count 组池子太小？加更多候选词缀（生命、抗性等通用词缀）
-   - count_min 太高？降到 1
-   - 某些词缀在该装备上可能极稀有？去掉它们，换通用词缀
-7. 如果 3 次重试都是 0：调 final_answer，告知用户哪些词缀可能不存在于该装备上，建议怎么改
+### 阶段1：理解需求（1次思考）
+识别装备类型、核心需求词缀、辅助词缀。
 
-## 装备类型 ID 对照
-- 项链: accessory.amulet
-- 戒指: accessory.ring
-- 腰带: accessory.belt
-- 权杖: weapon.sceptre
-- 魔杖: weapon.wand
-- 长杖: weapon.staff
-- 弓: weapon.bow
-- 弩: weapon.crossbow
-- 单手剑/斧/锤: weapon.onesword / weapon.oneaxe / weapon.onemace
-- 双手剑/斧/锤: weapon.twosword / weapon.twoaxe / weapon.twomace
-- 胸甲: armour.chest
-- 头盔: armour.helmet
-- 手套: armour.gloves
-- 鞋子: armour.boots
-- 盾牌: armour.shield
+### 阶段2：搜索核心词缀（1-3次 search_stats）
+对每个需求，调 search_stats 找词缀 ID。
+- 核心需求（如"+2召唤等级"）：搜 1 次就够了
+- 模糊需求（如"召唤光环"）：最多搜 3 次，用不同关键词
+- ⚠️ 搜到足够候选后立刻进入阶段3，不要无限搜！
 
-## 搜索技巧
-- count 组的池子要大（8-12 条），既包含主题词缀也包含通用词缀（最大生命、三种抗性、护盾）
-- 「召唤光环」类的需求，用多个关键词搜索：raw 中文 + English paraphrase
-- 执行 execute_search 之前，count 组里至少有 count_min + 2 条候选词缀
-- 不要把明显属于其他装备的词缀放进池子（如武器上的附加伤害不在项链上）
-- 如果搜索结果 0：先检查是不是 count_min 太高，再检查是不是有词缀太稀有
+### 阶段3：执行搜索（调 execute_search）
+把选好的词缀组成 stat_groups，调 execute_search。
+- 第1次搜索：用最匹配的词缀
+- 如果结果 0：分析原因，调整后重试（最多重试 2 次）
+  - 加通用词缀（最大生命、三种抗性、护盾）到 count 池子
+  - 降 count_min 到 1
+  - 去掉可能太稀有的词缀
+- 如果结果 > 0：立刻调 final_answer
 
-## 输出要求
-- 每次只调用一个工具
-- 收到工具结果后，分析并决定下一步
-- 完成搜索后调 final_answer
+### 阶段4：结束（调 final_answer）
+- 有结果 → 返回链接和数量
+- 重试3次仍为0 → 告知用户建议调整方向
+
+## ⚠️ 重要规则
+- search_stats 最多调 5 次！超过 5 次还没找到，也要强行进入 execute_search
+- 必须在第 8 轮之前调 final_answer
+- count 组里必须加通用词缀（最大生命 + 三种抗性）作为兜底
+- 搜到 0 结果时：先加通用词缀，再降 count_min，不要反复搜词
+
+## 装备类型 ID
+项链: accessory.amulet | 戒指: accessory.ring | 腰带: accessory.belt
+权杖: weapon.sceptre | 魔杖: weapon.wand | 弓: weapon.bow
+胸甲: armour.chest | 头盔: armour.helmet | 手套: armour.gloves | 鞋子: armour.boots
 """
 
 
@@ -269,10 +262,20 @@ def run_agent(query: str, league: str = "Standard") -> dict:
     ]
 
     intent_ctx = {"summary": query}
+    stats_call_count = 0
+    MAX_STATS_CALLS = 5
 
     try:
         for turn in range(MAX_TURNS):
-            logger.info(f"Agent turn {turn + 1}/{MAX_TURNS}")
+            logger.info(f"Agent turn {turn + 1}/{MAX_TURNS} (stats_calls={stats_call_count})")
+
+            # Force progression: if too many search_stats calls, inject a reminder
+            if stats_call_count >= MAX_STATS_CALLS:
+                messages.append({
+                    "role": "system",
+                    "content": "⚠️ 你已经调了太多次 search_stats。现在必须调 execute_search 执行搜索！不要再搜词缀了，直接用已有的结果构建查询。如果没有足够的词缀，就用通用词缀（最大生命、三种抗性）填充 count 组。",
+                })
+                stats_call_count = 0  # reset to avoid repeated reminders
 
             try:
                 resp = client.chat.completions.create(
@@ -326,6 +329,7 @@ def run_agent(query: str, league: str = "Standard") -> dict:
 
             # Execute tool
             if tool_name == "search_stats":
+                stats_call_count += 1
                 result_str = _tool_search_stats(db, tool_args)
             elif tool_name == "execute_search":
                 result_str = _tool_execute_search(db, intent_ctx, tool_args)
