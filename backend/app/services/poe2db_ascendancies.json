@@ -1,0 +1,346 @@
+[
+  {
+    "name": "工艺",
+    "slug": "/cn/Crafting"
+  },
+  {
+    "name": "使命",
+    "slug": "/cn/Quest"
+  },
+  {
+    "name": "引路石",
+    "slug": "/cn/Waystones"
+  },
+  {
+    "name": "赞助",
+    "slug": "/cn/patreon"
+  },
+  {
+    "name": "游侠",
+    "slug": "/cn/Ranger"
+  },
+  {
+    "name": "锐眼",
+    "slug": "/cn/Deadeye"
+  },
+  {
+    "name": "追猎者",
+    "slug": "/cn/Pathfinder"
+  },
+  {
+    "name": "女猎手",
+    "slug": "/cn/Huntress"
+  },
+  {
+    "name": "亚马逊",
+    "slug": "/cn/Amazon"
+  },
+  {
+    "name": "灵魂行者",
+    "slug": "/cn/Spirit_Walker"
+  },
+  {
+    "name": "仪祭师",
+    "slug": "/cn/Ritualist"
+  },
+  {
+    "name": "暗影",
+    "slug": "/cn/Shadow"
+  },
+  {
+    "name": "行者",
+    "slug": "/cn/Monk"
+  },
+  {
+    "name": "武圣",
+    "slug": "/cn/Martial_Artist"
+  },
+  {
+    "name": "祈求者",
+    "slug": "/cn/Invoker"
+  },
+  {
+    "name": "夏乌拉追随者",
+    "slug": "/cn/Acolyte_of_Chayula"
+  },
+  {
+    "name": "女巫",
+    "slug": "/cn/Witch"
+  },
+  {
+    "name": "驱炎使",
+    "slug": "/cn/Infernalist"
+  },
+  {
+    "name": "命源法师",
+    "slug": "/cn/Blood_Mage"
+  },
+  {
+    "name": "巫妖",
+    "slug": "/cn/Lich"
+  },
+  {
+    "name": "深渊巫妖",
+    "slug": "/cn/Abyssal_Lich"
+  },
+  {
+    "name": "魔巫",
+    "slug": "/cn/Sorceress"
+  },
+  {
+    "name": "风暴编织者",
+    "slug": "/cn/Stormweaver"
+  },
+  {
+    "name": "塑时术师",
+    "slug": "/cn/Chronomancer"
+  },
+  {
+    "name": "瓦拉煞的门徒",
+    "slug": "/cn/Disciple_of_Varashta"
+  },
+  {
+    "name": "野蛮人",
+    "slug": "/cn/Marauder"
+  },
+  {
+    "name": "战士",
+    "slug": "/cn/Warrior"
+  },
+  {
+    "name": "泰坦",
+    "slug": "/cn/Titan"
+  },
+  {
+    "name": "战争使者",
+    "slug": "/cn/Warbringer"
+  },
+  {
+    "name": "奇塔弗匠师",
+    "slug": "/cn/Smith_of_Kitava"
+  },
+  {
+    "name": "决斗者",
+    "slug": "/cn/Duelist"
+  },
+  {
+    "name": "佣兵",
+    "slug": "/cn/Mercenary"
+  },
+  {
+    "name": "战术家",
+    "slug": "/cn/Tactician"
+  },
+  {
+    "name": "猎巫人",
+    "slug": "/cn/Witchhunter"
+  },
+  {
+    "name": "古灵使徒斗士",
+    "slug": "/cn/Gemling_Legionnaire"
+  },
+  {
+    "name": "圣堂武僧",
+    "slug": "/cn/Templar"
+  },
+  {
+    "name": "德鲁伊",
+    "slug": "/cn/Druid"
+  },
+  {
+    "name": "神谕者",
+    "slug": "/cn/Oracle"
+  },
+  {
+    "name": "萨满",
+    "slug": "/cn/Shaman"
+  },
+  {
+    "name": "青玉囚笼",
+    "slug": "/cn/Encase_in_Jade"
+  },
+  {
+    "name": "先祖之灵",
+    "slug": "/cn/Ancestral_Spirits"
+  },
+  {
+    "name": "显化武器",
+    "slug": "/cn/Manifest_Weapon"
+  },
+  {
+    "name": "淬炼武器",
+    "slug": "/cn/Temper_Weapon"
+  },
+  {
+    "name": "蜃影神射",
+    "slug": "/cn/Mirage_Deadeye"
+  },
+  {
+    "name": "言出箭随",
+    "slug": "/cn/Called_Shots"
+  },
+  {
+    "name": "元素涌动",
+    "slug": "/cn/Elemental_Surge"
+  },
+  {
+    "name": "雄鹿践踏",
+    "slug": "/cn/Vivid_Stampede"
+  },
+  {
+    "name": "野性守护",
+    "slug": "/cn/Wild_Protector"
+  },
+  {
+    "name": "枭羽馈赠",
+    "slug": "/cn/Primal_Bounty"
+  },
+  {
+    "name": "血沸",
+    "slug": "/cn/Blood_Boil"
+  },
+  {
+    "name": "秘法奉献",
+    "slug": "/cn/Ritual_Sacrifice"
+  },
+  {
+    "name": "走火入魔",
+    "slug": "/cn/Demon_Form"
+  },
+  {
+    "name": "召唤炽焰猎犬",
+    "slug": "/cn/Summon_Infernal_Hound"
+  },
+  {
+    "name": "生命残片",
+    "slug": "/cn/Life_Remnants"
+  },
+  {
+    "name": "元素风暴",
+    "slug": "/cn/Elemental_Storm"
+  },
+  {
+    "name": "时空裂隙",
+    "slug": "/cn/Temporal_Rift"
+  },
+  {
+    "name": "时间冻结",
+    "slug": "/cn/Time_Freeze"
+  },
+  {
+    "name": "命定苦痛",
+    "slug": "/cn/Inevitable_Agony"
+  },
+  {
+    "name": "时间捕捉",
+    "slug": "/cn/Time_Snap"
+  },
+  {
+    "name": "纳薇拉之裂",
+    "slug": "/cn/Naviras_Fracturing"
+  },
+  {
+    "name": "纳薇拉之井",
+    "slug": "/cn/Naviras_Well"
+  },
+  {
+    "name": "纳薇拉之绿洲",
+    "slug": "/cn/Naviras_Oasis"
+  },
+  {
+    "name": "凯拉里之诡计",
+    "slug": "/cn/Kelaris_Deception"
+  },
+  {
+    "name": "凯拉里之审判",
+    "slug": "/cn/Kelaris_Judgment"
+  },
+  {
+    "name": "凯拉里之诅咒",
+    "slug": "/cn/Kelaris_Malediction"
+  },
+  {
+    "name": "鲁詹之陷阱",
+    "slug": "/cn/Ruzhans_Trap"
+  },
+  {
+    "name": "鲁詹之清算",
+    "slug": "/cn/Ruzhans_Reckoning"
+  },
+  {
+    "name": "鲁詹之怒火",
+    "slug": "/cn/Ruzhans_Fury"
+  },
+  {
+    "name": "支援火力",
+    "slug": "/cn/Supporting_Fire"
+  },
+  {
+    "name": "元素结界",
+    "slug": "/cn/Sorcery_Ward"
+  },
+  {
+    "name": "美德壁垒",
+    "slug": "/cn/Virtuous_Barrier"
+  },
+  {
+    "name": "脆弱瞬间",
+    "slug": "/cn/Moment_of_Vulnerability"
+  },
+  {
+    "name": "命运同调",
+    "slug": "/cn/Align_Fate"
+  },
+  {
+    "name": "天灾",
+    "slug": "/cn/Apocalypse"
+  },
+  {
+    "name": "虚空钟灵",
+    "slug": "/cn/Hollow_Focus"
+  },
+  {
+    "name": "虚空和鸣",
+    "slug": "/cn/Hollow_Resonance"
+  },
+  {
+    "name": "虚空魅影",
+    "slug": "/cn/Hollow_Form"
+  },
+  {
+    "name": "不羁化身",
+    "slug": "/cn/Unbound_Avatar"
+  },
+  {
+    "name": "元素表现",
+    "slug": "/cn/Elemental_Expression"
+  },
+  {
+    "name": "凝神思",
+    "slug": "/cn/Meditate"
+  },
+  {
+    "name": "投身裂隙",
+    "slug": "/cn/Into_the_Breach"
+  },
+  {
+    "name": "虚空幻影",
+    "slug": "/cn/Void_Illusion"
+  },
+  {
+    "name": "夏乌拉执政官",
+    "slug": "/cn/Archon_of_Chayula"
+  },
+  {
+    "name": "叛徒之路",
+    "slug": "/cn/Traitors_Passage"
+  },
+  {
+    "name": "叛徒芭芭拉",
+    "slug": "/cn/Balbala%2C_the_Traitor"
+  },
+  {
+    "name": "龙蜥湿地",
+    "slug": "/cn/Chimeral_Wetlands"
+  }
+]
