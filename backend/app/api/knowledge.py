@@ -1,18 +1,19 @@
-"""Admin endpoints for knowledge base management (RAG)."""
+"""Knowledge base management + RAG QA endpoints."""
 
+import os, json, logging, re
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from app.core.database import get_db
-from app.models.build import Build
+from app.core.database import get_db, SessionLocal
+from app.models.build import Build, KnowledgeChunk
 from app.services.knowledge_service import (
-    ingest_build,
-    bulk_ingest,
-    mark_stale,
-    clear_stale,
-    get_stats,
+    ingest_build, bulk_ingest, mark_stale, clear_stale, get_stats,
 )
+from app.services.embedding_service import get_embedding
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin/knowledge", tags=["knowledge"])
 
@@ -119,3 +120,143 @@ async def clear_all_stale(db: Session = Depends(get_db)):
 async def knowledge_stats(db: Session = Depends(get_db)):
     """Get knowledge base statistics."""
     return KnowledgeStatsResponse(**get_stats(db))
+
+
+# ── Public RAG QA endpoint ──
+
+qa_router = APIRouter(tags=["qa"])
+
+
+class AskRequest(BaseModel):
+    question: str = Field(..., min_length=2, description="Question about PoE2 mechanics")
+    top_k: int = Field(5, ge=1, le=10, description="Number of knowledge chunks to retrieve")
+
+
+class AskResponse(BaseModel):
+    answer: str
+    sources: list[dict]
+
+
+def _retrieve_knowledge(question: str, top_k: int = 5) -> list[dict]:
+    """Retrieve relevant knowledge chunks using vector similarity."""
+    db = SessionLocal()
+    try:
+        q_embedding = get_embedding(question)
+        if not q_embedding:
+            return []
+
+        db_url = str(db.get_bind().url)
+        is_sqlite = db_url.startswith("sqlite")
+
+        if is_sqlite:
+            # In-memory cosine similarity
+            chunks = db.query(KnowledgeChunk).filter(
+                KnowledgeChunk.embedding != None,  # noqa: E711
+                KnowledgeChunk.source == "poe2db",
+                KnowledgeChunk.stale == False,  # noqa: E712
+            ).all()
+            scored = []
+            for c in chunks:
+                emb = c.embedding
+                if isinstance(emb, str):
+                    emb = json.loads(emb)
+                sim = _cosine_sim(q_embedding, emb)
+                scored.append((sim, c))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return [{"content": c.content, "chunk_type": c.chunk_type, "similarity": round(s, 3)}
+                    for s, c in scored[:top_k] if s > 0.3]
+        else:
+            # pgvector
+            dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
+            rows = (
+                db.query(KnowledgeChunk, dist)
+                .filter(
+                    KnowledgeChunk.embedding != None,  # noqa: E711
+                    KnowledgeChunk.source == "poe2db",
+                    KnowledgeChunk.stale == False,  # noqa: E712
+                )
+                .order_by(dist)
+                .limit(top_k)
+                .all()
+            )
+            return [
+                {"content": c.content, "chunk_type": c.chunk_type, "similarity": round(1.0 - d, 3)}
+                for c, d in rows if (1.0 - d) > 0.3
+            ]
+    finally:
+        db.close()
+
+
+def _cosine_sim(a, b):
+    if not a or not b:
+        return 0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(x * x for x in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0
+
+
+@qa_router.post("/api/knowledge/ask", response_model=AskResponse)
+async def ask_question(req: AskRequest):
+    """RAG QA: answer PoE2 questions using poe2db knowledge base."""
+    # Retrieve relevant chunks
+    chunks = _retrieve_knowledge(req.question, req.top_k)
+    if not chunks:
+        return AskResponse(
+            answer="未找到相关知识。poe2db 知识库中暂无与此问题匹配的内容。",
+            sources=[],
+        )
+
+    # Build context from retrieved chunks
+    context_parts = []
+    for i, c in enumerate(chunks):
+        try:
+            data = json.loads(c["content"])
+            search = data.get("search_text", "")[:800]
+        except Exception:
+            search = c["content"][:800]
+        context_parts.append(f"[{i+1}] {search}")
+
+    context = "\n\n".join(context_parts)
+
+    # Ask LLM to answer
+    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
+    llm_key = os.getenv("LLM_API_KEY", "")
+    llm_model = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+
+    from openai import OpenAI
+    client = OpenAI(base_url=llm_url, api_key=llm_key)
+
+    sys_prompt = f"""你是流放之路2 (Path of Exile 2) 知识助手。基于以下来自 poe2db 百科的数据回答用户问题。
+
+规则：
+-只基于提供的资料回答，不要编造
+- 如果资料不足以回答，明确说明
+- 回答尽量简洁准确
+- 如果资料包含中文和英文，优先用中文回答
+
+参考资料：
+{context}"""
+
+    try:
+        resp = client.chat.completions.create(
+            model=llm_model,
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": req.question},
+            ],
+            temperature=0.3,
+            max_tokens=1024,
+        )
+        answer = resp.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"LLM QA failed: {e}")
+        answer = f"回答生成失败: {e}"
+
+    # Build source list
+    sources = [
+        {"type": c["chunk_type"], "similarity": c["similarity"], "preview": c["content"][:100]}
+        for c in chunks[:3]
+    ]
+
+    return AskResponse(answer=answer, sources=sources)
