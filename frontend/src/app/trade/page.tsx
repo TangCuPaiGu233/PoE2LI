@@ -12,14 +12,18 @@ function getApiUrl(): string {
   return "http://localhost:8000";
 }
 
+interface SearchMatch {
+  label: string;
+  url: string | null;
+  count: number;
+  reason: string;
+}
+
 interface TradeResult {
-  trade_url?: string;
-  search_id?: string;
-  total_results?: number;
-  intent_summary?: string;
-  filters?: Record<string, unknown>;
-  expires_in?: number;
-  error?: string;
+  best_match: SearchMatch | null;
+  alternatives: SearchMatch[];
+  explanation: string;
+  need_user_input: boolean;
 }
 
 const EXAMPLE_QUERIES = [
@@ -60,11 +64,6 @@ export default function TradePage() {
       }
 
       const data: TradeResult = await res.json();
-      if (data.error) {
-        setError(data.error);
-        return;
-      }
-
       setResults((prev) => [data, ...prev].slice(0, 10));
     } catch (err) {
       setError(`网络错误: ${err instanceof Error ? err.message : "未知"}`);
@@ -141,39 +140,63 @@ export default function TradePage() {
         {/* Results */}
         {results.length > 0 && (
           <div className="space-y-3">
-            <p className="text-xs text-gray-600 mb-2">搜索结果（最新在前）</p>
             {results.map((r, i) => (
-              <div
-                key={i}
-                className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 hover:border-emerald-600/30 transition"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-300 text-sm mb-1">
-                      {r.intent_summary}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      {r.total_results !== undefined && (
-                        <span>
-                          找到 <span className="text-emerald-400 font-medium">{r.total_results}</span> 个结果
-                        </span>
-                      )}
-                      {r.expires_in && (
-                        <span>链接有效期 ~{Math.floor(r.expires_in / 60)} 分钟</span>
+              <div key={i} className="space-y-3">
+                {/* Best Match */}
+                {r.best_match && (
+                  <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs bg-emerald-700/40 text-emerald-300 px-2 py-0.5 rounded">
+                            {r.best_match.label}
+                          </span>
+                          <span className="text-emerald-400 font-medium">
+                            {r.best_match.count} 件
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-xs">{r.best_match.reason}</p>
+                      </div>
+                      {r.best_match.url && (
+                        <a href={r.best_match.url} target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/40 text-emerald-400 px-4 py-2 rounded-lg text-sm font-medium transition">
+                          打开交易站 →
+                        </a>
                       )}
                     </div>
                   </div>
-                  {r.trade_url && (
-                    <a
-                      href={r.trade_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/40 text-emerald-400 px-4 py-2 rounded-lg text-sm font-medium transition"
-                    >
-                      打开交易站 →
-                    </a>
-                  )}
-                </div>
+                )}
+
+                {/* Alternatives */}
+                {r.alternatives.map((alt, j) => (
+                  <div key={j}
+                    className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4 hover:border-emerald-600/30 transition">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
+                            {alt.label}
+                          </span>
+                          <span className="text-emerald-400 font-medium">
+                            {alt.count} 件
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-xs">{alt.reason}</p>
+                      </div>
+                      {alt.url && (
+                        <a href={alt.url} target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 bg-gray-700/40 hover:bg-gray-700/60 border border-gray-600/40 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition">
+                          打开交易站 →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Explanation */}
+                {r.explanation && (
+                  <p className="text-gray-500 text-xs px-1">{r.explanation}</p>
+                )}
               </div>
             ))}
           </div>

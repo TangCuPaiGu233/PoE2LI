@@ -23,22 +23,32 @@ class TradeSearchRequest(BaseModel):
     league: str = Field("Standard", description="赛季名称")
 
 
+class SearchMatch(BaseModel):
+    """A single search result entry."""
+    label: str = ""
+    url: str | None = None
+    count: int = 0
+    reason: str = ""
+
+
 class TradeSearchResponse(BaseModel):
-    """Trade search result with clickable URL."""
-    trade_url: str | None = None
-    search_id: str | None = None
-    total_results: int | None = None
-    intent_summary: str = ""
-    filters: dict | None = None
-    expires_in: int | None = None
-    error: str | None = None
+    """Rich trade search result with best match + alternatives."""
+    best_match: SearchMatch | None = None
+    alternatives: list[SearchMatch] = []
+    explanation: str = ""
+    need_user_input: bool = False
 
 
 @router.post("/api/trade/search", response_model=TradeSearchResponse)
 async def trade_search_endpoint(req: TradeSearchRequest):
     """Parse natural language query and return PoE2 Trade search URL."""
     result = run_agent(req.query, req.league)
-    return TradeSearchResponse(**result)
+    return TradeSearchResponse(
+        best_match=SearchMatch(**result["best_match"]) if result.get("best_match") else None,
+        alternatives=[SearchMatch(**a) for a in result.get("alternatives", [])],
+        explanation=result.get("explanation", ""),
+        need_user_input=result.get("need_user_input", False),
+    )
 
 
 def _run_ingest_background(json_path: str):
