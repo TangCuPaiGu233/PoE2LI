@@ -152,17 +152,21 @@ Output ONLY JSON:
   "reason": "Brief reasoning in Chinese"
 }}
 
-Rules:
-- Select ALL stats that match the user's intent, not just the top one
-- For a "count" requirement, select 5-10 stats to create a large pool
-- For a "required" requirement, select 1-3 stats
-- Do NOT select stats that are clearly unrelated"""
+CRITICAL — You MUST follow these rules exactly:
+- "{user_raw}" is a "{kind}" requirement ({kind_desc})
+- For "required": pick ONLY the 1 stat that EXACTLY matches. If user says "Minion Skills", do NOT select "Melee Skills", "All Skills", or "Attack Skills" — they are WRONG.
+- For "count": pick 5-10 stats that are reasonable candidates
+- A single wrong stat in a "required" group makes the search IMPOSSIBLE. Be PRECISE."""
 
 
 def _select_from_candidates(requirement: dict, candidates: list[dict], item_type: str | None) -> list[dict]:
     """LLM selects the best stat IDs from candidate list."""
-    if len(candidates) <= 3:
-        return candidates  # few enough, just use all
+    if len(candidates) <= 2:
+        return candidates  # few enough to trust
+
+    # For "required" kind, only show top 5 — avoid confusion
+    if requirement.get("kind") == "required":
+        candidates = candidates[:5]
 
     # Build candidate text for LLM
     lines = []
@@ -172,9 +176,17 @@ def _select_from_candidates(requirement: dict, candidates: list[dict], item_type
         id_to_candidate[c["stat_id"]] = c
     candidates_text = "\n".join(lines)
 
+    kind = requirement.get("kind", "required")
+    kind_desc = {
+        "required": "装备必须拥有此词缀，选错=搜索失败",
+        "count": f"装备至少匹配其中{requirement.get('count_min', 1)}条即可",
+    }.get(kind, "")
+
     prompt = SELECT_SYSTEM_PROMPT.format(
         user_raw=requirement.get("raw", ""),
         meaning_hint=requirement.get("meaning_hint", ""),
+        kind=kind,
+        kind_desc=kind_desc,
         item_type=item_type or "unknown",
         candidates_text=candidates_text,
     )
@@ -214,9 +226,14 @@ def _select_from_candidates(requirement: dict, candidates: list[dict], item_type
                         result.append(c)
                         break
 
+        # For "required" kind, only keep the top 1 (the exact match)
+        if kind == "required" and len(result) > 1:
+            logger.info(f"Required kind: limiting LLM selection from {len(result)} to top 1")
+            result = result[:1]
+
         logger.info(f"LLM selected {len(result)}/{len(candidates)} candidates for "
                     f"'{requirement.get('raw', '?')}': {reason[:80]}")
-        return result if result else candidates[:5]
+        return result if result else candidates[:1]
     except Exception as e:
         logger.error(f"Candidate selection failed: {e}, using top-5")
         return candidates[:5]
@@ -311,8 +328,14 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                 continue
 
             # For count groups with many candidates, use LLM to select
-            # For required (single stat) groups, just use top match
-            if req.get("kind") == "count" and len(candidates) > 3:
+            # For required (single stat) groups, use LLM to pick the ONE exact match
+            if req.get("kind") == "required":
+                if len(candidates) > 1:
+                    logger.info(f"Step 3: LLM selecting exact match from {len(candidates)} candidates...")
+                    selected = _select_from_candidates(req, candidates, item_type)
+                else:
+                    selected = candidates[:1]
+            elif req.get("kind") == "count" and len(candidates) > 3:
                 logger.info(f"Step 3: LLM selecting from {len(candidates)} candidates...")
                 selected = _select_from_candidates(req, candidates, item_type)
             else:
