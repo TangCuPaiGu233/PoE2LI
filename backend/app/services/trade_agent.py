@@ -266,19 +266,33 @@ def _tool_execute_search(db, intent_ctx: dict, args: dict) -> str:
     if result.get("error"):
         return json.dumps({"error": result["error"]}, ensure_ascii=False)
 
+    url = result.get("trade_url", "")
+    total = result.get("total_results", 0)
+
+    # Store for fallback if LLM forgets to pass url to final_answer
+    if url:
+        intent_ctx["last_url"] = url
+        intent_ctx["last_total"] = total
+
     return json.dumps({
-        "total_results": result.get("total_results", 0),
-        "url": result.get("trade_url", ""),
+        "total_results": total,
+        "url": url,
         "search_id": result.get("search_id", ""),
+        "hint": f"搜索完成，{total} 条结果。如果结果 > 0，立即调 final_answer 并把 url 参数设为 '{url}'！",
     }, ensure_ascii=False)
 
 
-def _tool_final_answer(args: dict, messages: list) -> dict:
-    """Complete the agent loop and return final result."""
+def _tool_final_answer(args: dict, messages: list, intent_ctx: dict) -> dict:
+    """Complete the agent loop and return final result.
+
+    Falls back to intent_ctx['last_url'] if LLM doesn't pass url.
+    """
+    url = args.get("url", "") or intent_ctx.get("last_url", "")
+    total = args.get("total_results", 0) or intent_ctx.get("last_total", 0)
     return {
         "done": True,
-        "trade_url": args.get("url", ""),
-        "total_results": args.get("total_results", 0),
+        "trade_url": url,
+        "total_results": total,
         "intent_summary": args.get("summary", ""),
     }
 
@@ -399,7 +413,7 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                         result_str = json.dumps({**d, "hint": "多次搜索均为0结果。现在必须调 final_answer 告知用户建议调整条件。"})
                 result_str = _tool_execute_search(db, intent_ctx, tool_args)
             elif tool_name == "final_answer":
-                final = _tool_final_answer(tool_args, messages)
+                final = _tool_final_answer(tool_args, messages, intent_ctx)
                 db.close()
                 return final
             else:
