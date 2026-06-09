@@ -84,6 +84,7 @@ def route_intent(question: str, has_candidates: bool) -> str:
 
 # ─────────────────────── Adapter functions ───────────────────────
 import os
+import asyncio
 from openai import OpenAI
 
 _llm_client = None
