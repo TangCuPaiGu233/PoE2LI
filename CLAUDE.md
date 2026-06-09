@@ -107,17 +107,37 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 
 ## Milestones
 
-| Phase | Goal |
-|-------|------|
-| M0 Tech PoC | PoB decoder works on real builds across major classes |
-| M1 Core Loop | PoB → async playbook generation → frontend display |
-| M2 Quality + Cold Start | Human review scores pass; operator imports N popular builds |
-| M3 Info DB / Affixes | poe2db base integrated, affix Chinese coverage target met |
-| M4 Q&A RAG | Version-filtered RAG answers, hallucination rate controlled |
-| M5 Trade Search | ✅ Server-side Trade API: intent → stat ID → search URL |
-| M6 AI Chat Trade | ✅ AI-driven trade intent detection in chat |
-| M7 Pricing / OAuth | Official API integration, currency exchange |
-| M8 Browser Extension | Trade overlay, pobb.in import, hotkey launch (when user scale demands it) |
+| Phase | Goal | Status |
+|-------|------|--------|
+| M0 Tech PoC | PoB decoder works on real builds across major classes | ✅ |
+| M1 Core Loop | PoB → async playbook generation → frontend display | ✅ |
+| M2 Quality + Cold Start | Human review scores pass; operator imports N popular builds | ⚠️ CRUD exists, no import/score |
+| M3 Info DB / Affixes | poe2db base integrated, affix Chinese coverage target met | ✅ v2 ingested (1249 chunks), v3 scraping |
+| M4 Q&A RAG | Version-filtered RAG answers, hallucination rate controlled | ✅ POST /api/knowledge/ask, Redis cached |
+| M5 Trade Search | Server-side Trade API: intent → stat ID → search URL | ✅ Agent + TradeConcept dict + multi-plan |
+| M6 AI Chat Trade | AI-driven trade intent detection in chat | ✅ |
+| M7 Pricing / OAuth | Official API integration, currency exchange | ❌ |
+| M8 Browser Extension | Trade overlay, pobb.in import, hotkey launch | ❌ |
+
+### M3 Details (Knowledge Base)
+- **poe2db scraper**: v2 (index pages) complete, v3 (detail pages) running background
+- **Data**: 1249 tri-language chunks (EN/CN/TW), 1238 with BGE-M3 embeddings
+- **QA Endpoint**: `POST /api/knowledge/ask` — vector search + LLM RAG
+- **Caching**: Redis cache for repeated questions (1h TTL)
+- **Pre-filter**: Keyword classifier narrows search by content type
+
+### M5 Details (Trade Search)
+- **Agent**: `trade_agent.py` — parse_intent → resolve_concepts → build_plans → execute → inspect
+- **Concepts**: 60 curated TradeConcept entries with CN aliases, item slot allowlists, known IDs
+- **Plans**: Core/Full/Relaxed search tiers with AND+COUNT stat groups
+- **Budget/Sort**: Supports price filter and pdps/edps sorting
+- **Inspection**: Fetches actual items to verify mods match intent
+- **Frontend**: `/trade` page shows best match + alternatives + explanation
+
+### Ongoing Work
+- **v3 Scraper**: ~978 detail pages being scraped (est. 4 hours), will add full skill/item descriptions
+- **Multi-hop QA**: Not yet supported — v1 is single-hop encyclopedia lookup
+- **M2 Content**: No build import system or pre-seeded popular builds
 
 ## Key Gotchas (from spec Appendix A)
 
