@@ -227,13 +227,33 @@ class RecommendAgent:
         return scores
 
     async def _score_one(self, name, p, user_ctx, league, game_version) -> CandidateScore:
-        # 召回该候选的 poe2db 资料
-        vec = await self.embed(f"{name} 属性 词缀 效果")
-        chunks = await self.retrieve(
-            vec, top_k=3,
-            filters=_league_filter(league, game_version),
-        )
-        context = "\n".join(c.get("content", "") for c in chunks)
+        # Priority 1: Use JSON data if this is a known unique item
+        json_data = entity_data.load_uniques()
+        item_info = next((u for u in json_data if u["name"] == name), None)
+
+        if item_info:
+            # Build context from JSON data directly
+            parts = [f"传奇物品：{item_info['name']}"]
+            if item_info.get("base_type"):
+                parts.append(f"基底：{item_info['base_type']}")
+            if item_info.get("archetypes"):
+                parts.append(f"流派标签：{', '.join(item_info['archetypes'])}")
+            context = "\n".join(parts)
+        else:
+            # Fallback: vector retrieval
+            vec = await self.embed(f"{name} 属性 词缀 效果")
+            chunks = await self.retrieve(
+                vec, top_k=3,
+                filters=_league_filter(league, game_version),
+            )
+            context = "\n".join(c.get("content", "") for c in chunks)
+            if not context:
+                return CandidateScore(
+                    name=name, fit_score=0,
+                    pros=[], cons=["资料不足，无法评估"],
+                    synergy="", verdict="可选",
+                )
+
         arche = p.archetype_info["matched"] if p.archetype_info else "通用"
 
         prompt = (
@@ -246,10 +266,7 @@ class RecommendAgent:
         )
         raw = await self.llm([{"role": "user", "content": prompt}])
         data = _safe_parse_score(raw, name)
-        data["sources"] = [
-            {"chunk_type": c.get("chunk_type"), "similarity": c.get("similarity")}
-            for c in chunks
-        ]
+        data["sources"] = [{"source": "entity_data" if item_info else "vector"}]
         return CandidateScore(**data)
 
     # ── 6. 排序 + 总结（reduce） ──
