@@ -203,15 +203,22 @@ def run_agent(query: str, league: str = "Standard") -> dict:
             }
 
         # Step 2: Retrieve stats for ALL requirements, merge into one pool
+        # First requirement (core) → keep only top 3 (most specific)
+        # Subsequent requirements → keep top 10 each (broader pool is fine)
         all_stats = []
         seen_ids = set()
-        for req in requirements:
-            logger.info(f"Retrieving stats for '{req.get('raw', '?')}'...")
+        for i, req in enumerate(requirements):
+            limit = 1 if i == 0 else 10  # core req: only THE top match; broad reqs: top 10
+            logger.info(f"Retrieving stats for '{req.get('raw', '?')}' (keep top {limit})...")
             candidates = _retrieve_stats(db, req)
+            kept = 0
             for c in candidates:
                 if c["stat_id"] not in seen_ids:
                     seen_ids.add(c["stat_id"])
                     all_stats.append(c)
+                    kept += 1
+                    if kept >= limit:
+                        break
 
         if not all_stats:
             return {
@@ -221,7 +228,7 @@ def run_agent(query: str, league: str = "Standard") -> dict:
                 "error": "向量搜索未找到匹配词缀",
             }
 
-        logger.info(f"Merged pool: {len(all_stats)} unique stats from {len(requirements)} requirements")
+        logger.info(f"Merged pool: {len(all_stats)} stats from {len(requirements)} requirements")
 
         # Step 3: Build intent (single COUNT group)
         search_intent = _build_intent(intent, all_stats, count_min)
