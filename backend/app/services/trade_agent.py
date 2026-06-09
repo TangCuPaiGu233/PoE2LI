@@ -309,19 +309,27 @@ def run_agent(query: str, league: str = "Standard") -> dict:
 
     intent_ctx = {"summary": query}
     stats_call_count = 0
+    search_call_count = 0  # execute_search count
     MAX_STATS_CALLS = 4
+    MAX_SEARCH_CALLS = 3
 
     try:
         for turn in range(MAX_TURNS):
-            logger.info(f"Agent turn {turn + 1}/{MAX_TURNS} (stats_calls={stats_call_count})")
+            logger.info(f"Agent turn {turn + 1}/{MAX_TURNS} (stats={stats_call_count}, search={search_call_count})")
 
-            # Force progression: if too many search_stats calls, inject a reminder
+            # Force progression: if too many search_stats, block further calls
             if stats_call_count >= MAX_STATS_CALLS:
                 messages.append({
                     "role": "system",
-                    "content": "⚠️ 你已经调了太多次 search_stats。现在必须调 execute_search 执行搜索！不要再搜词缀了，直接用已有的结果构建查询。如果没有足够的词缀，就用通用词缀（最大生命、三种抗性）填充 count 组。",
+                    "content": "⚠️ 已经搜了足够多次词缀。现在必须调 execute_search 执行实际搜索！不要再搜词缀了。",
                 })
-                stats_call_count = 0  # reset to avoid repeated reminders
+
+            # Force final_answer after enough search attempts
+            if search_call_count >= MAX_SEARCH_CALLS:
+                messages.append({
+                    "role": "system",
+                    "content": "⚠️ 已经搜了多次，现在必须调 final_answer 结束。告知用户找到了多少结果，或建议调整搜索条件。不要再调其他工具了。",
+                })
 
             try:
                 resp = client.chat.completions.create(
@@ -371,13 +379,24 @@ def run_agent(query: str, league: str = "Standard") -> dict:
             tool_name = tool_call.function.name
             tool_args = json.loads(tool_call.function.arguments)
 
-            logger.info(f"Agent calls {tool_name}: {json.dumps(tool_args, ensure_ascii=False)[:200]}")
-
-            # Execute tool
-            if tool_name == "search_stats":
+            # Block search_stats if limit reached
+            if tool_name == "search_stats" and stats_call_count >= MAX_STATS_CALLS:
+                result_str = json.dumps({"error": "已超过 search_stats 调用上限，请直接调 execute_search"})
+            elif tool_name == "search_stats":
                 stats_call_count += 1
                 result_str = _tool_search_stats(db, tool_args)
+            elif tool_name == "execute_search" and search_call_count >= MAX_SEARCH_CALLS:
+                result_str = json.dumps({"error": "已超过 execute_search 调用上限，请调 final_answer 结束"})
             elif tool_name == "execute_search":
+                search_call_count += 1
+                result_str = _tool_execute_search(db, intent_ctx, tool_args)
+                # Auto-transition to final_answer after last search attempt
+                if search_call_count >= MAX_SEARCH_CALLS:
+                    d = json.loads(result_str)
+                    if d.get("total_results", 0) > 0:
+                        result_str = json.dumps({**d, "hint": "找到结果了！现在必须调 final_answer 返回给用户。"})
+                    else:
+                        result_str = json.dumps({**d, "hint": "多次搜索均为0结果。现在必须调 final_answer 告知用户建议调整条件。"})
                 result_str = _tool_execute_search(db, intent_ctx, tool_args)
             elif tool_name == "final_answer":
                 final = _tool_final_answer(tool_args, messages)
