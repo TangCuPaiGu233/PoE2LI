@@ -183,10 +183,44 @@ async def recommend(req: RecommendRequest):
     intent = route_intent(req.question, has_cand)
 
     if intent == "encyclopedia":
-        # 非推荐问题 → 提示走现有 /ask（或在此内部转发）
-        raise HTTPException(
-            status_code=400,
-            detail="该问题更像百科查询，请使用 /api/knowledge/ask 接口。",
+        # Forward to RAG QA logic
+        from app.api.knowledge import _retrieve_knowledge
+        import os as _os
+
+        chunks = _retrieve_knowledge(req.question, 5)
+        if not chunks:
+            return RecommendResponse(
+                intent="encyclopedia", resolved={"source": "rag"},
+                ranking=[], best_pick=None,
+                summary="未找到相关知识。",
+                disclaimer="基于 poe2db 当前赛季数据。",
+            )
+
+        ctx_parts = []
+        for c in chunks:
+            try:
+                data = json.loads(c["content"])
+                ctx_parts.append(data.get("search_text", c["content"])[:800])
+            except Exception:
+                ctx_parts.append(c["content"][:800])
+        context = "\n\n".join(ctx_parts)
+
+        client = _get_llm()
+        resp = client.chat.completions.create(
+            model=_os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
+            messages=[
+                {"role": "system", "content": f"你是流放之路2知识助手。基于以下资料回答问题。\n\n资料：\n{context}"},
+                {"role": "user", "content": req.question},
+            ],
+            temperature=0.3, max_tokens=1024,
+        )
+        answer = resp.choices[0].message.content.strip()
+
+        return RecommendResponse(
+            intent="encyclopedia", resolved={"source": "rag"},
+            ranking=[], best_pick=None,
+            summary=answer,
+            disclaimer="基于 poe2db 当前赛季数据。",
         )
 
     # Redis 缓存（复用现有 redis_client）
