@@ -98,7 +98,7 @@ class RecommendAgent:
                 parsed, league, game_version
             )
 
-        # map: 每个候选独立召回 + 打分（并行）
+        logger.info(f"Scoring {len(parsed.candidates)} candidates: {parsed.candidates}")
         scores = await self._score_all(
             parsed, user_ctx, league, game_version
         )
@@ -232,7 +232,6 @@ class RecommendAgent:
         item_info = next((u for u in json_data if u["name"] == name), None)
 
         if item_info:
-            # Build context from JSON data directly
             parts = [f"传奇物品：{item_info['name']}"]
             if item_info.get("base_type"):
                 parts.append(f"基底：{item_info['base_type']}")
@@ -240,34 +239,32 @@ class RecommendAgent:
                 parts.append(f"流派标签：{', '.join(item_info['archetypes'])}")
             context = "\n".join(parts)
         else:
-            # Fallback: vector retrieval
             vec = await self.embed(f"{name} 属性 词缀 效果")
-            chunks = await self.retrieve(
-                vec, top_k=3,
-                filters=_league_filter(league, game_version),
-            )
+            chunks = await self.retrieve(vec, top_k=3, filters=_league_filter(league, game_version))
             context = "\n".join(c.get("content", "") for c in chunks)
-            if not context:
-                return CandidateScore(
-                    name=name, fit_score=0,
-                    pros=[], cons=["资料不足，无法评估"],
-                    synergy="", verdict="可选",
-                )
+
+        if not context:
+            logger.warning(f"_score_one: no context for '{name}'")
+            return CandidateScore(name=name, fit_score=0, pros=[], cons=["资料不足"], synergy="", verdict="可选")
 
         arche = p.archetype_info["matched"] if p.archetype_info else "通用"
-
         prompt = (
             f"{user_ctx}\n"
-            f"评估传奇/物品「{name}」对「{arche}」流派的适配性。\n"
-            f"只能基于以下 poe2db 资料，禁止编造词条或数值：\n---\n{context}\n---\n"
-            f"严格输出 JSON（不要多余文字）：\n"
+            f"评估物品「{name}」对「{arche}」流派的适配性。\n"
+            f"只能基于以下资料，禁止编造：\n---\n{context}\n---\n"
+            f"严格输出 JSON："
             '{"name":"","fit_score":0-100整数,"pros":[],"cons":[],'
             f'"synergy":"","verdict":"{"/".join(VERDICT_ENUM)}其一"}}'
         )
-        raw = await self.llm([{"role": "user", "content": prompt}])
-        data = _safe_parse_score(raw, name)
-        data["sources"] = [{"source": "entity_data" if item_info else "vector"}]
-        return CandidateScore(**data)
+        try:
+            raw = await self.llm([{"role": "user", "content": prompt}])
+            data = _safe_parse_score(raw, name)
+            data["sources"] = [{"source": "entity_data" if item_info else "vector"}]
+            logger.info(f"_score_one: {name} → {data.get('fit_score',0)}分")
+            return CandidateScore(**data)
+        except Exception as e:
+            logger.error(f"_score_one failed for '{name}': {e}")
+            return CandidateScore(name=name, fit_score=0, pros=[], cons=[f"评分失败: {e}"], synergy="", verdict="可选")
 
     # ── 6. 排序 + 总结（reduce） ──
     def _rank_and_explain(self, p: ParsedIntent, scores: list[CandidateScore]) -> RecommendResult:
