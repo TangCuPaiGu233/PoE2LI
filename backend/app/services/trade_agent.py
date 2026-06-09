@@ -226,6 +226,14 @@ def _build_plans(resolved: dict, item_slot: str | None) -> list[dict]:
 
     plans = []
 
+    # If no stat filters at all, create minimal plan (just item_type + sort/budget)
+    if not must and not nice:
+        return [{
+            "name": "core",
+            "stat_groups": [{"type": "and", "filters": []}],
+            "count_min": 0,
+        }]
+
     # Plan 1: Core only
     if must:
         plans.append({
@@ -434,16 +442,20 @@ def run_agent(query: str, league: str = "Standard") -> dict:
         budget = intent.get("budget")
         raw_summary = intent.get("raw_summary", query)
 
-        # Step 2: Resolve concepts to stat IDs
+        # Step 2: Resolve concepts to stat IDs (or handle sort-only searches)
         logger.info("=== Step 2: Resolve concepts ===")
         resolved = _resolve_all_concepts(db, intent)
-        if not resolved["must_have"]:
-            return {
-                "best_match": None,
-                "alternatives": [],
-                "explanation": f"未找到核心词缀的匹配项",
-                "need_user_input": False,
-            }
+
+        # Allow sort/budget-only searches (no stat filters needed)
+        if not resolved["must_have"] and not resolved["nice_to_have"]:
+            if not item_slot:
+                return {
+                    "best_match": None,
+                    "alternatives": [],
+                    "explanation": "请指定装备类型（如'矛'、'权杖'、'项链'）",
+                    "need_user_input": True,
+                }
+            resolved["must_have"] = []  # empty = just sort/budget on item type
 
         # Step 3: Build plans
         logger.info("=== Step 3: Build plans ===")
