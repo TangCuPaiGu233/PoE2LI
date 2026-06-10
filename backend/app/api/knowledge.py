@@ -291,6 +291,16 @@ def _cosine_sim(a, b):
     return dot / (na * nb) if na and nb else 0
 
 
+def _chunk_to_dict(c: KnowledgeChunk) -> dict:
+    """Convert an ORM KnowledgeChunk to the dict format expected by _stream_chat."""
+    return {
+        "content": c.content,
+        "chunk_type": c.chunk_type,
+        "source": c.source or "db",
+        "similarity": 1.0,  # direct lookup, not vector match
+    }
+
+
 def _get_cache_key(question: str, top_k: int) -> str:
     """Generate a stable cache key for a QA query."""
     import hashlib
@@ -467,6 +477,26 @@ async def _stream_chat(messages: list[dict]):
         chunks = _retrieve_knowledge(search_query, 8, classify_text=user_msg, q_embedding=q_embedding)
     else:
         chunks = _retrieve_knowledge(search_query, 5, classify_text=user_msg, q_embedding=q_embedding)
+
+    # ── Structured lookup: if user asks about a specific ascendancy, direct DB fetch ──
+    direct_chunk = None
+    if resolved_asc_en:
+        db_lookup = SessionLocal()
+        try:
+            direct_chunk = (
+                db_lookup.query(KnowledgeChunk)
+                .filter(
+                    KnowledgeChunk.chunk_type == "asc_nodes",
+                    KnowledgeChunk.content.ilike(f"%{resolved_asc_en}%")
+                )
+                .first()
+            )
+            if direct_chunk:
+                chunks = [_chunk_to_dict(direct_chunk)] + [
+                    c for c in chunks if c.get("chunk_type") != "asc_nodes"
+                ]
+        finally:
+            db_lookup.close()
 
     if not chunks:
         yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
