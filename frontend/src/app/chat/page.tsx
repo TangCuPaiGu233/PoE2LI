@@ -97,9 +97,9 @@ export default function ChatPage() {
             <h1 className="text-sm font-medium text-zinc-200">流放知识库</h1>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/trade" className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">装备搜索</a>
+            <a href="/trade" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">装备搜索</a>
             {streaming && skill !== "idle" && (
-              <span className="text-[10px] text-amber-500/60 border border-amber-700/30 bg-amber-950/20 rounded-full px-2 py-0.5">
+              <span className="text-xs text-amber-500/60 border border-amber-700/30 bg-amber-950/20 rounded-full px-2 py-0.5">
                 {SKILL_LABELS[skill] || skill}
               </span>
             )}
@@ -111,14 +111,14 @@ export default function ChatPage() {
           {showWelcome && messages.length === 0 && (
             <div className="pt-12 pb-8">
               <p className="text-xs text-zinc-600 mb-1 tracking-widest uppercase">Ask anything</p>
-              <p className="text-xl text-zinc-300 font-medium mb-8 leading-snug">
+              <p className="text-2xl text-zinc-200 font-medium mb-8 leading-snug">
                 PoE2 知识助手<br />
                 <span className="text-zinc-500 text-base font-normal">BD 设计 · 装备搜索 · 机制百科</span>
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {CHIPS.map((c, i) => (
                   <button key={i} onClick={() => send(c)} disabled={streaming}
-                    className="text-[11px] px-3 py-1.5 rounded-full border border-zinc-800 text-zinc-500 hover:border-amber-700/40 hover:text-amber-400/80 hover:bg-amber-950/20 transition-all duration-300 disabled:opacity-30">
+                    className="text-xs px-3 py-1.5 rounded-full border border-zinc-800 text-zinc-500 hover:border-amber-700/40 hover:text-amber-400/80 hover:bg-amber-950/20 transition-all duration-300 disabled:opacity-30">
                     {c}
                   </button>
                 ))}
@@ -129,7 +129,7 @@ export default function ChatPage() {
           {messages.map((m, i) => (
             <article key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
               style={{ animation: `msgIn 0.3s ease-out ${i * 0.02}s both` }}>
-              <div className={`shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-medium mt-0.5 ${
+              <div className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-xs font-medium mt-0.5 ${
                 m.role === "user" ? "bg-zinc-800 text-zinc-400 border border-zinc-700" : "bg-amber-950/30 text-amber-400/80 border border-amber-800/30"
               }`}>
                 {m.role === "user" ? "你" : "AI"}
@@ -138,12 +138,12 @@ export default function ChatPage() {
               <div className={`min-w-0 max-w-[78%] ${m.role === "user" ? "text-right" : ""}`}>
                 {m.reasoning && (
                   <details className="mb-2">
-                    <summary className="text-[10px] text-zinc-500 cursor-pointer hover:text-zinc-400 transition-colors tracking-wider uppercase select-none">思考过程</summary>
-                    <div className="mt-2 p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] text-zinc-500 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">{m.reasoning}</div>
+                    <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400 transition-colors tracking-wider uppercase select-none">思考过程</summary>
+                    <div className="mt-2 p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-500 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">{m.reasoning}</div>
                   </details>
                 )}
 
-                <div className={`text-[13px] leading-relaxed rounded-xl px-3.5 py-2.5 ${
+                <div className={`text-sm leading-relaxed rounded-xl px-3.5 py-2.5 ${
                   m.role === "user"
                     ? "bg-amber-950/15 border border-amber-800/20 text-amber-50/80"
                     : "bg-zinc-900/50 border border-zinc-800/40 text-zinc-300"
@@ -152,19 +152,19 @@ export default function ChatPage() {
 
                   {m.trade && (
                     <div className="mt-3 pt-3 border-t border-zinc-800">
-                      <p className="text-[10px] text-emerald-500/50 tracking-wider uppercase mb-2">交易结果</p>
+                      <p className="text-xs text-emerald-500/50 tracking-wider uppercase mb-2">交易结果</p>
                       {m.trade.best_match && (
                         <a href={m.trade.best_match.url} target="_blank" rel="noreferrer"
                           className="block p-2.5 bg-emerald-950/15 border border-emerald-800/25 rounded-lg mb-2 hover:bg-emerald-950/25 transition-colors">
                           <div className="text-xs text-emerald-300/80">{m.trade.best_match.label}</div>
-                          <div className="text-[10px] text-zinc-500 mt-0.5">{m.trade.best_match.count} 件</div>
+                          <div className="text-xs text-zinc-500 mt-0.5">{m.trade.best_match.count} 件</div>
                         </a>
                       )}
                       {m.trade.alternatives.map((a, j) => (
                         <a key={j} href={a.url} target="_blank" rel="noreferrer"
                           className="block p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg mb-1.5 hover:bg-zinc-900/50 transition-colors">
                           <div className="text-xs text-zinc-400">{a.label}</div>
-                          <div className="text-[10px] text-zinc-600 mt-0.5">{a.count} 件</div>
+                          <div className="text-xs text-zinc-600 mt-0.5">{a.count} 件</div>
                         </a>
                       ))}
                     </div>
@@ -172,9 +172,9 @@ export default function ChatPage() {
 
                   {m.sources && m.sources.length > 0 && (
                     <details className="mt-3 pt-2 border-t border-zinc-800">
-                      <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-500 transition-colors">来源 ({m.sources.length})</summary>
+                      <summary className="text-xs text-zinc-600 cursor-pointer hover:text-zinc-500 transition-colors">来源 ({m.sources.length})</summary>
                       <div className="mt-2 space-y-1">
-                        {m.sources.map((s, j) => <div key={j} className="text-[10px] text-zinc-600 bg-zinc-900/40 rounded px-2 py-1"><span className="text-zinc-500">[{s.type}]</span> {s.preview}</div>)}
+                        {m.sources.map((s, j) => <div key={j} className="text-xs text-zinc-600 bg-zinc-900/40 rounded px-2 py-1"><span className="text-zinc-500">[{s.type}]</span> {s.preview}</div>)}
                       </div>
                     </details>
                   )}
@@ -185,27 +185,27 @@ export default function ChatPage() {
 
           {reasoning && (
             <article className="flex gap-3">
-              <div className="shrink-0 w-7 h-7 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-[10px] font-medium text-amber-400/80 mt-0.5">AI</div>
+              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-xs font-medium text-amber-400/80 mt-0.5">AI</div>
               <details open className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 bg-zinc-900/50 border border-amber-800/15">
-                <summary className="text-[10px] text-amber-500/50 animate-pulse tracking-wider uppercase cursor-pointer">思考中</summary>
-                <div className="mt-2 text-[10px] text-amber-500/30 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">{reasoning}</div>
+                <summary className="text-xs text-amber-500/50 animate-pulse tracking-wider uppercase cursor-pointer">思考中</summary>
+                <div className="mt-2 text-xs text-amber-500/30 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">{reasoning}</div>
               </details>
             </article>
           )}
 
           {thinking.length > 0 && (
             <article className="flex gap-3">
-              <div className="shrink-0 w-7 h-7 rounded-md bg-zinc-900 border border-zinc-700/50 flex items-center justify-center text-[10px] font-medium text-zinc-500 mt-0.5">...</div>
+              <div className="shrink-0 w-8 h-8 rounded-md bg-zinc-900 border border-zinc-700/50 flex items-center justify-center text-xs font-medium text-zinc-500 mt-0.5">...</div>
               <div className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 bg-zinc-900/30 border border-zinc-800/30">
-                <div className="text-[10px] text-zinc-600 mb-1.5 tracking-wider uppercase">检索</div>
-                {thinking.map((t, i) => <p key={i} className="text-[10px] text-zinc-600 leading-relaxed">{t}</p>)}
+                <div className="text-xs text-zinc-600 mb-1.5 tracking-wider uppercase">检索</div>
+                {thinking.map((t, i) => <p key={i} className="text-xs text-zinc-600 leading-relaxed">{t}</p>)}
               </div>
             </article>
           )}
 
           {streaming && !reasoning && thinking.length === 0 && (
             <article className="flex gap-3">
-              <div className="shrink-0 w-7 h-7 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-[10px] font-medium text-amber-400/80 mt-0.5">AI</div>
+              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-xs font-medium text-amber-400/80 mt-0.5">AI</div>
               <div className="rounded-xl px-3.5 py-2.5 bg-zinc-900/30 border border-zinc-800/30 flex gap-1 items-center">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500/30 animate-bounce" />
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500/30 animate-bounce [animation-delay:150ms]" />
@@ -223,9 +223,9 @@ export default function ChatPage() {
             <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey}
               placeholder={streaming ? "回复中..." : "输入问题，Enter 发送"}
               disabled={streaming}
-              className="flex-1 bg-transparent border border-zinc-800 rounded-lg px-3 py-2.5 text-[13px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-700/40 transition-colors disabled:opacity-40" />
+              className="flex-1 bg-transparent border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-700/40 transition-colors disabled:opacity-40" />
             <button onClick={() => send(input)} disabled={streaming || !input.trim()}
-              className="shrink-0 px-4 py-2.5 rounded-lg bg-amber-950/20 border border-amber-800/25 text-amber-400/60 text-[13px] font-medium hover:bg-amber-950/30 hover:text-amber-300/80 disabled:bg-transparent disabled:border-zinc-800 disabled:text-zinc-700 transition-all duration-200">
+              className="shrink-0 px-4 py-2.5 rounded-lg bg-amber-950/20 border border-amber-800/25 text-amber-400/60 text-sm font-medium hover:bg-amber-950/30 hover:text-amber-300/80 disabled:bg-transparent disabled:border-zinc-800 disabled:text-zinc-700 transition-all duration-200">
               {streaming ? "..." : "发送"}
             </button>
           </div>
