@@ -40,7 +40,14 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
             for s in json.load(f):
                 _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill")
 
-    # 2. game_aliases.json (poe2db items/mods)
+    # 2. Caimogu items (Tencent-aligned CN, loaded BEFORE poe2db)
+    items_path = os.path.join(data_dir, "caimogu_items.json")
+    if os.path.exists(items_path):
+        with open(items_path, "r", encoding="utf-8") as f:
+            for s in json.load(f):
+                _add(s.get("cn", "").strip(), s.get("en", "").strip(), "item")
+
+    # 3. game_aliases.json (poe2db items/mods — fallback)
     aliases_path = os.path.join(data_dir, "game_aliases.json")
     if os.path.exists(aliases_path):
         with open(aliases_path, "r", encoding="utf-8") as f:
@@ -48,7 +55,7 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
         for cn, info in aliases.get("cn_to_en", {}).items():
             _add(cn, info.get("en", ""), info.get("type", "item"))
 
-    # 3. Ascendancy names
+    # 4. Ascendancy names
     from app.services.entity_dict import ASCENDANCY_CN_TO_EN as asc_en_map
     for cn, en in asc_en_map.items():
         _add(cn, en, "ascendancy")
