@@ -2,11 +2,24 @@
 
 import { useState, useRef, useEffect } from "react";
 
+interface TradeMatch {
+  label: string;
+  url: string;
+  count: number;
+}
+
+interface TradeResult {
+  best_match: TradeMatch | null;
+  alternatives: TradeMatch[];
+  explanation: string;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: { type: string; preview: string }[];
   reasoning?: string;
+  trade?: TradeResult;
 }
 
 function getApiUrl(): string {
@@ -102,6 +115,14 @@ export default function ChatPage() {
                 }
                 return prev;
               });
+            } else if (event.type === "trade_result") {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return [...prev.slice(0, -1), { ...last, trade: event.content }];
+                }
+                return [...prev, { role: "assistant", content: "", trade: event.content }];
+              });
             } else if (event.type === "done") {
               if (reasoning) {
                 setMessages((prev) => {
@@ -152,7 +173,7 @@ export default function ChatPage() {
           {messages.length === 0 && (
             <div className="text-center py-16 text-gray-600">
               <p className="text-4xl mb-4">🗡️</p>
-              <p className="text-sm">问任何 PoE2 问题：装备推荐、技能机制、BD 建议…</p>
+              <p className="text-sm">问任何 PoE2 问题：装备推荐、技能机制、BD 建议、装备搜索…</p>
             </div>
           )}
 
@@ -180,6 +201,25 @@ export default function ChatPage() {
                       </details>
                     )}
                     {m.content}
+                    {m.trade && (
+                      <div className="mt-2 p-3 bg-emerald-900/20 border border-emerald-700/30 rounded-lg">
+                        <div className="text-xs text-emerald-400 font-medium mb-2">🔍 交易搜索结果</div>
+                        {m.trade.best_match && (
+                          <a href={m.trade.best_match.url} target="_blank" rel="noreferrer"
+                             className="block p-2 bg-emerald-900/30 border border-emerald-600/30 rounded mb-2 hover:bg-emerald-900/40 transition-colors">
+                            <div className="text-xs text-emerald-300 font-medium">{m.trade.best_match.label}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">{m.trade.best_match.count} 件物品</div>
+                          </a>
+                        )}
+                        {m.trade.alternatives.map((alt: TradeMatch, j: number) => (
+                          <a key={j} href={alt.url} target="_blank" rel="noreferrer"
+                             className="block p-2 bg-gray-800/50 border border-gray-700/30 rounded mb-1 hover:bg-gray-700/50 transition-colors">
+                            <div className="text-xs text-gray-300">{alt.label}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{alt.count} 件物品</div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     {m.sources && m.sources.length > 0 && (
                       <details className="mt-2 pt-2 border-t border-gray-700/30">
                         <summary className="text-xs text-gray-500 cursor-pointer">

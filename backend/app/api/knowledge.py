@@ -487,6 +487,56 @@ async def _stream_chat(messages: list[dict]):
     intent = _classify_intent(user_msg)
     logger.info(f"[CHAT] intent={intent} | query={user_msg[:80]}")
 
+    # ── Trade Search Skill ──
+    if intent == "trade":
+        yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在搜索交易市场...'})}\n\n"
+        try:
+            from app.services.trade_agent import run_agent as trade_run_agent
+            trade_result = trade_run_agent(user_msg)
+            best = trade_result.get("best_match")
+            alts = trade_result.get("alternatives", [])
+            explanation = trade_result.get("explanation", "")
+
+            # Build trade result event for frontend
+            trade_data = {
+                "best_match": {"label": best["label"], "url": best["url"], "count": best["count"]} if best else None,
+                "alternatives": [{"label": a["label"], "url": a["url"], "count": a["count"]} for a in alts[:3]],
+                "explanation": explanation,
+            }
+            yield f"data: {json.dumps({'type': 'trade_result', 'content': trade_data})}\n\n"
+
+            # Have LLM explain the results
+            trade_prompt = (
+                "你是 PoE2 交易助手。用户搜索了装备，以下是搜索结果。"
+                "用中文简要解释搜索结果，说明找到了什么、价格范围、推荐哪个。\n\n"
+                f"用户查询: {user_msg}\n\n"
+                f"最佳匹配: {json.dumps(best, ensure_ascii=False) if best else '无'}\n"
+                f"其他选择: {json.dumps(alts[:3], ensure_ascii=False)}\n"
+                f"搜索说明: {explanation}\n"
+            )
+            llm_msgs = [{"role": "system", "content": trade_prompt},
+                         {"role": "user", "content": "帮我解释这些搜索结果"}]
+            stream = llm_client.chat.completions.create(
+                model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
+                messages=llm_msgs, temperature=0.3, max_tokens=1024, stream=True,
+                extra_body={'thinking': {'type': 'enabled'}},
+            )
+            reasoning_buf = ""
+            answer_buf = ""
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                r = getattr(delta, 'reasoning_content', None) or (
+                    delta.model_extra.get('reasoning_content') if hasattr(delta, 'model_extra') and delta.model_extra else None
+                )
+                if r: reasoning_buf += r; yield f"data: {json.dumps({'type': 'reasoning', 'content': r})}\n\n"
+                if delta.content: answer_buf += delta.content; yield f"data: {json.dumps({'type': 'answer', 'content': delta.content})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            logger.error(f"Trade search failed: {e}")
+            yield f"data: {json.dumps({'type': 'answer', 'content': f'装备搜索失败: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return
+
     # ── Alias resolution: exact-match CN entity names before vector search ──
     from app.services.entity_dict import (
         normalize_class, normalize_ascendancy,
