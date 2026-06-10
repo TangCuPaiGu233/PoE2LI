@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // Auto-detect API URL: same host, port 8000
 function getApiUrl(): string {
@@ -46,11 +46,6 @@ interface BuildSummary {
   created_at?: string;
 }
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
 export default function Home() {
   const [pobCode, setPobCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,17 +56,6 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(true);
   const [pobValid, setPobValid] = useState<boolean | null>(null);
   
-  // Chat state
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-
-  // Reset chat when switching builds
-  useEffect(() => {
-    setChatMessages([]);
-    setChatInput("");
-  }, [result?.id]);
-
   const loadHistory = useCallback(async () => {
     try {
       const res = await fetch(`${getApiUrl()}/api/builds`);
@@ -209,36 +193,6 @@ export default function Home() {
     }
   };
 
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || chatLoading || !result?.id) return;
-
-    const userMessage = chatInput.trim();
-    setChatInput("");
-    setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setChatLoading(true);
-
-    try {
-      const res = await fetch(`${getApiUrl()}/api/builds/${result.id}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ build_id: result.id, question: userMessage }),
-      });
-
-      if (!res.ok) throw new Error("请求失败");
-      
-      const data = await res.json();
-      setChatMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
-    } catch (err) {
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "抱歉，网络似乎出了点问题，请稍后再试。" },
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
   const copyShareLink = () => {
     if (result?.id) {
       const url = `${window.location.origin}?build=${result.id}`;
@@ -259,6 +213,9 @@ export default function Home() {
           </h1>
           <p className="text-gray-500 mt-1 text-sm">Path of Exile 2 智能构建分析工具</p>
           <nav className="mt-3 flex justify-center gap-4">
+            <a href="/chat" className="text-cyan-500/70 hover:text-cyan-400 text-xs transition">
+              AI 问答
+            </a>
             <a href="/trade" className="text-emerald-500/70 hover:text-emerald-400 text-xs transition">
               装备搜索
             </a>
@@ -383,85 +340,35 @@ export default function Home() {
                 {result.homework && (
                   <div className="p-5 bg-gray-900/80 border border-gray-800 rounded-xl">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-semibold text-gray-400">AI 攻略</h3>
-                      <button
-                        onClick={copyShareLink}
-                        className="text-xs text-gray-500 hover:text-amber-400 transition-colors"
-                      >
-                        复制分享链接
-                      </button>
+                      <h3 className="text-sm font-semibold text-gray-400">🤖 AI 攻略</h3>
+                      <div className="flex gap-3">
+                        <a href={`/trade`} className="text-xs text-emerald-500/70 hover:text-emerald-400 transition-colors">
+                          🔍 搜装备
+                        </a>
+                        <button onClick={copyShareLink} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">
+                          复制链接
+                        </button>
+                      </div>
                     </div>
-                    <div className="space-y-4">
-                      <HomeworkBlock title="核心思路" content={result.homework.core_idea} icon="💡" />
-                      <HomeworkBlock title="核心装备" content={result.homework.core_items} icon="🛡" />
-                      <HomeworkBlock title="平价替代" content={result.homework.budget_alternatives} icon="💰" />
-                      <HomeworkBlock title="天赋亮点" content={result.homework.talent_highlights} icon="🌳" />
-                      <HomeworkBlock title="强度评价" content={result.homework.strength_review} icon="📊" />
+                    <div className="space-y-3">
+                      <CollapsibleBlock title="💡 核心思路" content={result.homework.core_idea} defaultOpen />
+                      <CollapsibleBlock title="🛡 核心装备" content={result.homework.core_items} />
+                      <CollapsibleBlock title="💰 平价替代" content={result.homework.budget_alternatives} />
+                      <CollapsibleBlock title="🌳 天赋亮点" content={result.homework.talent_highlights} />
+                      <CollapsibleBlock title="📊 强度评价" content={result.homework.strength_review} />
                     </div>
                   </div>
                 )}
 
-                {/* AI Chat / Q&A */}
+                {/* Q&A Link */}
                 {result.homework && (
-                  <div className="p-5 bg-gray-900/80 border border-gray-800 rounded-xl flex flex-col h-[400px]">
-                    <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2">
-                      <span>🤖</span> 针对此 Build 向 AI 提问
-                    </h3>
-                    
-                    <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                      {chatMessages.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-gray-600">
-                          你可以问：“这套 BD 前期怎么开荒？” 或 “缺蓝怎么解决？”
-                        </div>
-                      ) : (
-                        chatMessages.map((msg, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                          >
-                            <div
-                              className={`max-w-[85%] p-3 rounded-2xl text-sm ${
-                                msg.role === "user"
-                                  ? "bg-amber-500/20 text-amber-100 rounded-tr-sm"
-                                  : "bg-gray-800 text-gray-300 rounded-tl-sm whitespace-pre-line"
-                              }`}
-                            >
-                              {msg.content}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      {chatLoading && (
-                        <div className="flex justify-start">
-                          <div className="bg-gray-800 text-gray-400 p-3 rounded-2xl rounded-tl-sm text-xs flex gap-1">
-                            <span className="animate-bounce">.</span>
-                            <span className="animate-bounce delay-100">.</span>
-                            <span className="animate-bounce delay-200">.</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <form onSubmit={handleChatSubmit} className="relative mt-auto">
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="向 AI 提问..."
-                        className="w-full bg-gray-950 border border-gray-700 rounded-lg py-2.5 pl-4 pr-12 text-sm focus:outline-none focus:border-amber-500/50 transition-colors"
-                        disabled={chatLoading}
-                      />
-                      <button
-                        type="submit"
-                        disabled={!chatInput.trim() || chatLoading}
-                        className="absolute right-2 top-1.5 p-1.5 text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                      </button>
-                    </form>
-                  </div>
+                  <a
+                    href={`/chat`}
+                    className=”block p-4 bg-cyan-900/20 border border-cyan-700/30 rounded-xl text-center hover:bg-cyan-900/30 transition-colors”
+                  >
+                    <span className=”text-cyan-400 text-sm”>🤖 在 AI 问答中深入讨论这个 Build →</span>
+                    <p className=”text-gray-500 text-xs mt-1”>多轮对话、装备推荐、技能搭配</p>
+                  </a>
                 )}
               </div>
             )}
@@ -522,14 +429,23 @@ function Stat({ label, value, color = "text-white" }: { label: string; value: st
   );
 }
 
-function HomeworkBlock({ title, content, icon }: { title: string; content: string; icon: string }) {
+function CollapsibleBlock({ title, content, defaultOpen = false }: { title: string; content: string; defaultOpen?: boolean }) {
   if (!content) return null;
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div>
-      <h4 className="text-xs font-semibold text-gray-400 mb-1.5">
-        {icon} {title}
-      </h4>
-      <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{content}</p>
+    <div className="border border-gray-800 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-800/50 transition-colors"
+      >
+        <span className="text-xs font-semibold text-gray-400">{title}</span>
+        <span className="text-gray-600 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3">
+          <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{content}</p>
+        </div>
+      )}
     </div>
   );
 }
