@@ -115,9 +115,13 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
 
     # Strategy 2: if no exact match, try CJK bigram matching
     if not found:
-        import re as _re
         def _bigrams(s):
-            return {s[i:i+2] for i in range(len(s)-1) if _re.match(r'[一-鿿]{2}', s[i:i+2])}
+            result = set()
+            for i in range(len(s) - 1):
+                c1, c2 = s[i], s[i+1]
+                if '一' <= c1 <= '鿿' and '一' <= c2 <= '鿿':
+                    result.add(c1 + c2)
+            return result
         user_bigrams = _bigrams(text)
         if user_bigrams:
             for cn_name in sorted_cn:
