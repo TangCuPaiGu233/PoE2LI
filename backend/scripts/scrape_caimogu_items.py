@@ -62,24 +62,45 @@ def scrape_item_page(slug: str) -> dict | None:
             return None
         text = resp.text
 
-        # Extract CN name from <title>: "CN名 物品类型 - ..."
+        # Check for "page not found" pattern
+        if "页面不存在" in text or len(text) < 5000:
+            return None
+
+        # Extract CN name from <title>: "CN名 物品类型 - 流放之路：降临资料站 ..."
         title_match = re.search(r"<title>([^<]+)</title>", text)
         if not title_match:
             return None
         title = title_match.group(1)
+
+        # Skip pages where the title starts with site name (invalid/missing item)
+        if title.startswith("流放之路") or title.startswith("踩蘑菇"):
+            return None
+
         # Split: "猎首 重革腰带 - 流放之路：降临资料站 ..."
         parts = title.split(" - ")
         name_part = parts[0].strip() if parts else title
-        # First part is "CN名 物品类型" — take first word group
-        # Actually split by space to get just the CN name
+
+        # "猎首 重革腰带" → CN name = "猎首", base type = "重革腰带"
         name_words = name_part.split()
         if len(name_words) >= 2:
-            cn_name = name_words[0]  # First word is the CN name
+            cn_name = name_words[0]
+            base_type = name_words[1]
         else:
             cn_name = name_part
+            base_type = ""
 
-        return {"cn": cn_name, "en": slug, "source": "caimogu", "type": "item"}
-    except Exception as e:
+        # Validate: CN name should contain CJK characters
+        if not re.search(r'[一-鿿]', cn_name):
+            return None
+
+        return {
+            "cn": cn_name,
+            "en": slug,
+            "base_type": base_type,
+            "source": "caimogu",
+            "type": "item",
+        }
+    except Exception:
         return None
 
 
