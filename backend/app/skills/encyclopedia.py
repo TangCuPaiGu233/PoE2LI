@@ -20,6 +20,7 @@ class EncyclopediaSkill(BaseSkill):
         asc_en = kwargs.get("asc_en", "")
         asc_cn = kwargs.get("asc_cn", "")
         context = kwargs.get("context", "")
+        user_msg = kwargs.get("user_msg", "")
 
         parts = ["你是 PoE2 百科助手。基于资料回答, 不要编造。\n"]
         if asc_en:
@@ -30,9 +31,11 @@ class EncyclopediaSkill(BaseSkill):
         parts.extend([
             "规则:\n",
             "1. 先一句话直接回答\n",
-            "2. 有详细数据就列表展开\n",
-            "3. 资料不足就诚实说明\n",
-            "4. 保持简洁\n\n",
+            "2. 如果用户用的名字和资料中的正式名不同, 说明'没有叫X的物品, 但有以下相关物品:'然后列出\n",
+            "3. 有详细数据就列表展开\n",
+            "4. 资料不足就诚实说明\n",
+            "5. 保持简洁\n\n",
+            "用户问题: ", user_msg, "\n\n",
             "资料:\n", context,
         ])
         return "".join(parts)
