@@ -1,46 +1,112 @@
-"""entity_dict.py — PoE2 职业 / 升华 / 流派别名词典。
+"""entity_dict.py — PoE2 国服（腾讯）官方中文译名词典。
 
-用于推荐 Agent 的实体解析阶段：把玩家的口语化称呼（"死灵法师""召唤流"）
-映射到标准实体，缩小向量检索范围、消除歧义。
+数据来源：
+  - poe2.qq.com 官方页面
+  - poe2cn.caimogu.cc 社区资料站（对齐国服译名）
+  - poe2db 三语数据交叉验证
 
-数据可后续从 poe2db 抓取自动扩充，这里先内置高频项作为种子。
+覆盖：基础职业 → 升华职业 → 流派别名，用于检索前精确匹配，避免向量跨语对齐偏差。
 """
 
-# ── 基础职业（Class） ──
-# 玩家口语别名 → 标准英文 Class
+# ═══════════════════════════════════════════════════════════════════
+# 基础职业（Class）：国服官方名 + 社区别名 → 英文标准名
+# ═══════════════════════════════════════════════════════════════════
 CLASS_ALIASES: dict[str, str] = {
+    # Witch
     "女巫": "Witch", "法师": "Witch", "巫师": "Witch",
+    # Sorceress
+    "魔巫": "Sorceress", "术士": "Sorceress",
+    # Warrior
     "战士": "Warrior", "野蛮人": "Warrior",
+    # Ranger
     "游侠": "Ranger", "弓手": "Ranger",
+    # Mercenary
     "佣兵": "Mercenary", "枪手": "Mercenary",
-    "僧侣": "Monk", "武僧": "Monk",
+    # Monk
+    "行者": "Monk", "武僧": "Monk", "僧侣": "Monk",
+    # Huntress
+    "女猎手": "Huntress", "女猎": "Huntress",
+    # Druid
     "德鲁伊": "Druid",
 }
 
-# ── 升华职业（Ascendancy） ──
-# poe2db 中文升华名 → 所属 Class
+# ═══════════════════════════════════════════════════════════════════
+# 升华职业（Ascendancy）：国服官方中文名 → 所属 Class
+# ═══════════════════════════════════════════════════════════════════
 ASCENDANCY_TO_CLASS: dict[str, str] = {
-    # Witch
-    "驱炎使": "Witch", "命源法师": "Witch", "巫妖": "Witch",
-    "深渊巫妖": "Witch", "魔巫": "Witch",
-    # Sorceress（poe2db 部分按法系细分）
-    "风暴编织者": "Sorceress", "塑时术师": "Sorceress",
-    # Warrior / Titan
-    "泰坦": "Warrior", "战争使者": "Warrior", "奇塔弗匠师": "Warrior",
-    # Ranger
-    "锐眼": "Ranger", "追猎者": "Ranger",
-    # Huntress
-    "女猎手": "Huntress", "亚马逊": "Huntress",
-    # Monk
-    "灵魂行者": "Monk", "仪祭师": "Monk",
-    # Mercenary
-    "战术家": "Mercenary", "猎巫人": "Mercenary",
-    # Druid
-    "神谕者": "Druid", "萨满": "Druid", "行者": "Druid",
+    # ── Witch 女巫 ──
+    "驱炎使": "Witch",
+    "命源法师": "Witch",
+    "巫妖": "Witch",
+    "深渊巫妖": "Witch",
+    # ── Sorceress 魔巫 ──
+    "风暴编织者": "Sorceress",
+    "塑时术师": "Sorceress",
+    "瓦拉煞的门徒": "Sorceress",
+    # ── Warrior 战士 ──
+    "泰坦": "Warrior",
+    "战争使者": "Warrior",
+    "奇塔弗匠师": "Warrior",
+    # ── Ranger 游侠 ──
+    "锐眼": "Ranger",
+    "追猎者": "Ranger",
+    # ── Monk 行者 ──
+    "祈求者": "Monk",
+    "灵魂行者": "Monk",
+    "夏乌拉追随者": "Monk",
+    # ── Mercenary 佣兵 ──
+    "猎巫人": "Mercenary",
+    "古灵使徒斗士": "Mercenary",
+    "战术家": "Mercenary",
+    # ── Huntress 女猎手 ──
+    "亚马逊": "Huntress",
+    "仪祭师": "Huntress",
+    # ── Druid 德鲁伊 ──
+    "神谕者": "Druid",
+    "萨满": "Druid",
 }
 
-# ── 流派原型（Archetype） ──
-# 玩家口语 → 内部 archetype 标签 + 检索增强关键词
+# 升华中文名 → 英文标准名（用于拼入检索 query）
+ASCENDANCY_CN_TO_EN: dict[str, str] = {
+    "驱炎使": "Infernalist",
+    "命源法师": "Blood Mage",
+    "巫妖": "Lich",
+    "深渊巫妖": "Abyssal Lich",
+    "风暴编织者": "Stormweaver",
+    "塑时术师": "Chronomancer",
+    "瓦拉煞的门徒": "Disciple of Varakath",
+    "泰坦": "Titan",
+    "战争使者": "Warbringer",
+    "奇塔弗匠师": "Smith of Kitava",
+    "锐眼": "Deadeye",
+    "追猎者": "Pathfinder",
+    "祈求者": "Invoker",
+    "灵魂行者": "Spirit Walker",
+    "夏乌拉追随者": "Acolyte of Chayula",
+    "猎巫人": "Witchhunter",
+    "古灵使徒斗士": "Gemling Legionnaire",
+    "战术家": "Tactician",
+    "亚马逊": "Amazon",
+    "仪祭师": "Ritualist",
+    "神谕者": "Oracle",
+    "萨满": "Shaman",
+}
+
+# 基础职业中文名 → 英文标准名
+CLASS_CN_TO_EN: dict[str, str] = {
+    "女巫": "Witch", "法师": "Witch", "巫师": "Witch",
+    "魔巫": "Sorceress", "术士": "Sorceress",
+    "战士": "Warrior", "野蛮人": "Warrior",
+    "游侠": "Ranger", "弓手": "Ranger",
+    "佣兵": "Mercenary", "枪手": "Mercenary",
+    "行者": "Monk", "武僧": "Monk", "僧侣": "Monk",
+    "女猎手": "Huntress", "女猎": "Huntress",
+    "德鲁伊": "Druid",
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 流派原型（Archetype）
+# ═══════════════════════════════════════════════════════════════════
 ARCHETYPE_HINTS: dict[str, dict] = {
     "死灵": {
         "archetype": "minion",
@@ -71,12 +137,15 @@ ARCHETYPE_HINTS: dict[str, dict] = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 查找函数
+# ═══════════════════════════════════════════════════════════════════
+
 def normalize_class(text: str) -> str | None:
-    """从一段文本中识别基础职业，返回标准英文名。"""
+    """从文本中识别基础职业，返回标准英文名。"""
     for alias, std in CLASS_ALIASES.items():
         if alias in text:
             return std
-    # 也尝试直接匹配升华名反推职业
     for asc, cls in ASCENDANCY_TO_CLASS.items():
         if asc in text:
             return cls
@@ -84,11 +153,21 @@ def normalize_class(text: str) -> str | None:
 
 
 def normalize_ascendancy(text: str) -> str | None:
-    """从文本中识别升华职业（中文标准名）。"""
+    """从文本中识别升华职业（国服中文标准名）。"""
     for asc in ASCENDANCY_TO_CLASS:
         if asc in text:
             return asc
     return None
+
+
+def resolve_ascendancy_en(cn_name: str) -> str | None:
+    """国服中文升华名 → 英文标准名。"""
+    return ASCENDANCY_CN_TO_EN.get(cn_name)
+
+
+def resolve_class_en(cn_name: str) -> str | None:
+    """国服中文职业名 → 英文标准名。"""
+    return CLASS_CN_TO_EN.get(cn_name)
 
 
 def detect_archetype(text: str) -> dict | None:
@@ -100,7 +179,7 @@ def detect_archetype(text: str) -> dict | None:
 
 
 def build_retrieval_keywords(parsed: dict) -> list[str]:
-    """根据解析结果，拼出用于向量检索的增强关键词列表。"""
+    """根据解析结果，拼出向量检索增强关键词。"""
     kws: list[str] = []
     arche = parsed.get("archetype_info")
     if arche:
@@ -109,4 +188,4 @@ def build_retrieval_keywords(parsed: dict) -> list[str]:
         kws.append(parsed["class"])
     if parsed.get("ascendancy"):
         kws.append(parsed["ascendancy"])
-    return list(dict.fromkeys(kws))  # 去重保序
+    return list(dict.fromkeys(kws))

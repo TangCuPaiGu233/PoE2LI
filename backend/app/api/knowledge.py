@@ -399,6 +399,22 @@ async def _stream_chat(messages: list[dict]):
     user_msg = messages[-1]["content"] if messages else ""
     intent = _classify_intent(user_msg)
 
+    # ── Alias resolution: exact-match CN entity names before vector search ──
+    from app.services.entity_dict import (
+        normalize_class, normalize_ascendancy,
+        resolve_ascendancy_en, resolve_class_en,
+    )
+    resolved_class_en = normalize_class(user_msg)
+    resolved_asc_cn = normalize_ascendancy(user_msg)
+    resolved_asc_en = resolve_ascendancy_en(resolved_asc_cn) if resolved_asc_cn else None
+    alias_keywords = []
+    if resolved_class_en:
+        alias_keywords.append(resolved_class_en)
+    if resolved_asc_en:
+        alias_keywords.append(resolved_asc_en)
+    if resolved_asc_cn:
+        alias_keywords.append(resolved_asc_cn)
+
     llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
     llm_key = os.getenv("LLM_API_KEY", "")
     from openai import OpenAI as OAI
@@ -419,8 +435,6 @@ async def _stream_chat(messages: list[dict]):
             temperature=0.1, max_tokens=200,
             extra_body={'thinking': {'type': 'enabled'}},
         )
-        # Stream the planning reasoning
-        # (planning is a non-streaming call for speed, but we can show the keywords)
         search_keywords = resp.choices[0].message.content.strip().split('\n')
         search_keywords = [k.strip() for k in search_keywords if k.strip()][:5]
         yield f"data: {json.dumps({'type': 'thinking', 'content': '搜索关键词: ' + ', '.join(search_keywords[:5])})}\n\n"
@@ -430,8 +444,8 @@ async def _stream_chat(messages: list[dict]):
     # ── Phase 2: Multi-source retrieval using model's keywords + original query ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
 
-    # Combine: model's English keywords + user's original Chinese for cross-lingual match
-    search_query = user_msg + " " + " ".join(search_keywords)
+    # Combine: alias-resolved names + model's English keywords + user's original Chinese
+    search_query = user_msg + " " + " ".join(alias_keywords + search_keywords)
 
     # Embed once; surface embedding-service failures instead of pretending "no results"
     q_embedding = get_embedding(search_query)
@@ -486,7 +500,14 @@ async def _stream_chat(messages: list[dict]):
     elif intent == "recommend":
         sys_prompt = "你是 PoE2 装备推荐专家。对比分析资料，给出推荐。\n\n资料：\n" + context
     else:
-        sys_prompt = "你是 PoE2 知识助手。基于资料回答，不要编造。\n\n资料：\n" + context
+        asc_constraint = ""
+        if resolved_asc_en:
+            asc_constraint = (
+                f"\n⚠️ 用户询问的升华是 **{resolved_asc_cn}（{resolved_asc_en}）**。"
+                f"如果资料中没有该升华的信息，直接说「未找到{resolved_asc_cn}的相关资料」，"
+                f"**绝对不要**用其他升华（如 Invoker、祈求者）的资料替代回答。\n"
+            )
+        sys_prompt = "你是 PoE2 知识助手。基于资料回答，不要编造。" + asc_constraint + "\n\n资料：\n" + context
 
     llm_msgs = [{"role": "system", "content": sys_prompt}]
     for m in messages[-5:]:
