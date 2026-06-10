@@ -1,7 +1,8 @@
 """Knowledge base management + RAG QA endpoints."""
 
-import os, json, logging, re
+import os, json, logging, re, time, hashlib
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -323,3 +324,83 @@ async def ask_question(req: AskRequest):
         pass
 
     return response
+
+
+# ── SSE Streaming Chat endpoint ──
+
+class ChatRequest(BaseModel):
+    messages: list[dict]  # [{"role":"user"/"assistant","content":"..."}]
+    stream: bool = True
+
+
+async def _stream_chat(messages: list[dict]):
+    """SSE generator: stream thinking → answer → sources."""
+    user_msg = messages[-1]["content"] if messages else ""
+
+    # Phase 1: thinking
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '正在搜索知识库...'})}\n\n"
+
+    # Retrieve
+    chunks = _retrieve_knowledge(user_msg, 5)
+    if not chunks:
+        yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return
+
+    yield f"data: {json.dumps({'type': 'thinking', 'content': f'找到 {len(chunks)} 条相关资料，正在分析...'})}\n\n"
+
+    # Build context from history + retrieved chunks
+    ctx_parts = []
+    for c in chunks:
+        try:
+            data = json.loads(c["content"])
+            ctx_parts.append(data.get("search_text", c["content"])[:800])
+        except Exception:
+            ctx_parts.append(c["content"][:800])
+    context = "\n\n".join(ctx_parts)
+
+    # Build LLM messages with history
+    llm_msgs = [{"role": "system", "content": f"你是流放之路2(PoE2)知识助手。基于以下资料回答，不要编造。如果用户问推荐类问题，请给出对比分析。\n\n资料：\n{context}"}]
+    # Add last 5 messages for context
+    for m in messages[-5:]:
+        llm_msgs.append(m)
+
+    # Phase 2: stream answer
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '正在生成回答...'})}\n\n"
+
+    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
+    llm_key = os.getenv("LLM_API_KEY", "")
+    from openai import OpenAI as OAI
+    llm_client = OAI(base_url=llm_url, api_key=llm_key)
+    try:
+        stream = llm_client.chat.completions.create(
+            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
+            messages=llm_msgs,
+            temperature=0.3,
+            max_tokens=1024,
+            stream=True,
+        )
+        full_answer = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                text = chunk.choices[0].delta.content
+                full_answer += text
+                yield f"data: {json.dumps({'type': 'answer', 'content': text})}\n\n"
+    except Exception as e:
+        logger.error(f"LLM stream error: {e}")
+        yield f"data: {json.dumps({'type': 'answer', 'content': f'生成失败: {e}'})}\n\n"
+
+    # Phase 3: sources
+    sources = [{"type": c["chunk_type"], "preview": c["content"][:100]} for c in chunks[:3]]
+    yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
+    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+
+@qa_router.post("/api/chat")
+async def chat_endpoint(req: ChatRequest):
+    """Multi-turn SSE streaming chat."""
+    return StreamingResponse(
+        _stream_chat(req.messages),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
