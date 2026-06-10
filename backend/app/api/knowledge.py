@@ -505,7 +505,7 @@ async def _stream_chat(messages: list[dict]):
             }
             yield f"data: {json.dumps({'type': 'trade_result', 'content': trade_data})}\n\n"
 
-            trade_prompt = skill.build_prompt("", user_msg, trade_result=trade_result)
+            trade_prompt = skill.system_prompt(user_msg=user_msg, trade_result=trade_result)
             llm_msgs = [{"role": "system", "content": trade_prompt},
                          {"role": "user", "content": "帮我解释这些搜索结果"}]
             stream = llm_client.chat.completions.create(
@@ -668,8 +668,8 @@ async def _stream_chat(messages: list[dict]):
     yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析回答...'})}\n\n"
 
     # Skill-based prompt dispatch
-    sys_prompt = skill.build_prompt(context, user_msg,
-                                    asc_en=resolved_asc_en, asc_cn=resolved_asc_cn)
+    sys_prompt = skill.system_prompt(context=context, user_msg=user_msg,
+                                      asc_en=resolved_asc_en, asc_cn=resolved_asc_cn)
 
     llm_msgs = [{"role": "system", "content": sys_prompt}]
     for m in messages[-5:]:
