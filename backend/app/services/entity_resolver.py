@@ -102,13 +102,13 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
     return list(found.values())
 
 
-def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
+def correct_keywords(keywords: list[str], cutoff: float = 0.7) -> list[str]:
     """Fuzzy-match LLM keywords against known EN entity names.
 
-    Two strategies:
-    1. If keyword is a full sentence, look for known entity names as substrings
-    2. If keyword is short, try fuzzy match to correct spelling
-    This fixes LLM spelling mistakes like 'Moriigan' → 'Morrigan'.
+    Three strategies:
+    1. Substring: does a known entity name appear within the keyword?
+    2. Token fuzzy: split keyword into words, fuzzy-match each against known names
+    3. Full fuzzy: for short keywords, fuzzy-match the whole thing
     """
     _load_aliases()
     if not _all_en_names:
@@ -119,13 +119,11 @@ def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
         matched = None
 
         # Strategy 1: substring match with accent normalization
-        # (e.g. "morrigan's guidance" should match "The Mórrigan's Guidance")
         kw_lower = _normalize(kw.lower())
         for name in _all_en_names:
             if len(name) < 5:
                 continue
             name_lower = _normalize(name.lower())
-            # Check if known name (or its "The "-less version) is in keyword
             if name_lower in kw_lower:
                 matched = name
                 break
@@ -133,7 +131,29 @@ def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
                 matched = name
                 break
 
-        # Strategy 2: fuzzy match for short keywords
+        # Strategy 2: token-level fuzzy match
+        # Extract significant words from keyword, fuzzy-match against words from known names
+        if not matched:
+            # Build word → full name index from known entities
+            known_word_to_names: dict[str, list[str]] = {}
+            for name in _all_en_names:
+                for w in re.findall(r"[a-zA-Z']{4,}", _normalize(name)):
+                    w_lower = w.lower()
+                    if w_lower not in known_word_to_names:
+                        known_word_to_names[w_lower] = []
+                    known_word_to_names[w_lower].append(name)
+
+            words = re.findall(r"[a-zA-Z']{4,}", _normalize(kw))
+            for word in words:
+                matches = get_close_matches(word, list(known_word_to_names.keys()), n=1, cutoff=cutoff)
+                if matches:
+                    # Found matching word → find which full entity names contain it
+                    candidates = known_word_to_names.get(matches[0].lower(), [])
+                    if candidates:
+                        matched = candidates[0]  # Take first match
+                        break
+
+        # Strategy 3: full fuzzy for short keywords
         if not matched and len(kw) < 60:
             matches = get_close_matches(kw, _all_en_names, n=1, cutoff=cutoff)
             if matches and matches[0].lower() != kw.lower():
@@ -141,16 +161,9 @@ def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
 
         if matched:
             corrected.append(matched)
-        corrected.append(kw)  # Always keep original too
+        corrected.append(kw)
 
     # Deduplicate while preserving order
-    seen = set()
-    result = []
-    for k in corrected:
-        if k.lower() not in seen:
-            seen.add(k.lower())
-            result.append(k)
-    return result
     seen = set()
     result = []
     for k in corrected:
