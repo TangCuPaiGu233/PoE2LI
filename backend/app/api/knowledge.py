@@ -408,45 +408,49 @@ class ChatRequest(BaseModel):
     stream: bool = True
 
 
-def _build_design_prompt(context: str, asc_en: str | None, asc_cn: str | None) -> str:
+def _build_design_prompt(context: str, asc_en, asc_cn) -> str:
     """Progressive BD design prompt — forces deep analysis of retrieved mechanics."""
     anchor = ""
     if asc_en and asc_cn:
         anchor = (
-            f"用户询问的升华是 **{asc_cn}（{asc_en}）**。"
-            f"必须先深入分析该升华的核心机制，再基于机制推导技能和装备选择。\n"
+            "用户询问的升华是 " + str(asc_cn) + "(" + str(asc_en) + ")。"
+            "必须先深入分析该升华的核心机制, 再基于机制推导技能和装备选择。\n"
         )
-    return (
-        "你是 PoE2 BD 架构师。基于检索到的游戏数据设计可行的 Build 方案。\n\n"
-        + anchor +
-        "## 分析要求\n"
-        "1. **读懂核心机制**：仔细阅读升华节点、技能描述中的具体数值和联动关系\n"
-        "2. **确定核心技能**：基于机制选出 1-2 个核心主动技能，说明为什么它们与机制配合\n"
-        "3. **构建辅助链路**：为核心技能搭配辅助宝石，解释联动逻辑\n"
-        "4. **寻找装备支撑**：推荐能强化核心机制的暗金或黄装词缀\n"
-        "5. **完善防御**：根据职业特性推荐防御层\n\n"
-        "## 输出格式\n"
-        "### 核心机制\n"
-        "（2-3 句话解释这个 BD 的核心运作方式，引用资料中的具体数值）\n\n"
-        "### 核心技能\n"
-        "- 主动技能（名称 + 为什么选它）\n"
-        "- 辅助宝石链接（联动关系）\n\n"
-        "### 关键装备\n"
-        "- 暗金推荐（具体名称 + 作用）\n"
-        "- 黄装词缀优先级（按重要性排序）\n\n"
-        "### 防御与天赋\n"
-        "- 关键天赋圈\n"
-        "- 防御机制\n\n"
-        "### 开荒/过渡建议\n"
-        "- 哪些装备可以降配\n"
-        "- 前期替代技能\n\n"
-        "## 规则\n"
-        "- 每个推荐必须关联资料中的具体数据，引用数值\n"
-        "- 不编造不存在的装备/技能，不确定的标注[推测]\n"
-        "- 如果资料不足，诚实说明"缺什么信息"，不要凑答案\n"
-        "- 回答末尾列出来源（如[pob/asc_nodes]、[poe2db/skill]）\n\n"
-        "资料：\n" + context
-    )
+    parts = [
+        "你是 PoE2 BD 架构师。基于检索到的游戏数据设计可行的 Build 方案。\n\n",
+    ]
+    if anchor:
+        parts.append(anchor)
+    parts.extend([
+        "## 分析要求\n",
+        "1. 读懂核心机制: 仔细阅读升华节点、技能描述中的具体数值和联动关系\n",
+        "2. 确定核心技能: 基于机制选出1-2个核心主动技能, 说明为什么它们与机制配合\n",
+        "3. 构建辅助链路: 为核心技能搭配辅助宝石, 解释联动逻辑\n",
+        "4. 寻找装备支撑: 推荐能强化核心机制的暗金或黄装词缀\n",
+        "5. 完善防御: 根据职业特性推荐防御层\n\n",
+        "## 输出格式\n",
+        "### 核心机制\n",
+        "(2-3句话解释这个BD的核心运作方式, 引用资料中的具体数值)\n\n",
+        "### 核心技能\n",
+        "- 主动技能 (名称+为什么选它)\n",
+        "- 辅助宝石链接 (联动关系)\n\n",
+        "### 关键装备\n",
+        "- 暗金推荐 (具体名称+作用)\n",
+        "- 黄装词缀优先级 (按重要性排序)\n\n",
+        "### 防御与天赋\n",
+        "- 关键天赋圈\n",
+        "- 防御机制\n\n",
+        "### 开荒/过渡建议\n",
+        "- 哪些装备可以降配\n",
+        "- 前期替代技能\n\n",
+        "## 规则\n",
+        "- 每个推荐必须关联资料中的具体数据, 引用数值\n",
+        "- 不编造不存在的装备/技能, 不确定的标注[推测]\n",
+        "- 如果资料不足, 诚实说明缺什么信息, 不要凑答案\n",
+        "- 回答末尾列出来源 (如[pob/asc_nodes], [poe2db/skill])\n\n",
+        "资料:\n", context,
+    ])
+    return "".join(parts)
 
 
 def _recommend_prompt(context: str) -> str:
@@ -454,26 +458,26 @@ def _recommend_prompt(context: str) -> str:
         "你是 PoE2 装备推荐专家。\n"
         "1. 先列出用户可选的装备（含关键数值）\n"
         "2. 对比优劣，给出明确推荐理由\n"
-        "3. 如果有预算范围，区分「性价比」和「毕业」选项\n\n"
+        "3. 如果有预算范围, 区分[性价比]和[毕业]选项\n\n"
         "资料：\n" + context
     )
 
 
-def _encyclopedia_prompt(context: str, asc_en: str | None, asc_cn: str | None) -> str:
+def _encyclopedia_prompt(context: str, asc_en, asc_cn) -> str:
     """Encyclopedia prompt — concise answers with progressive detail."""
     constraint = ""
     if asc_en:
         constraint = (
-            f"⚠️ 用户询问的升华是 **{asc_cn}（{asc_en}）**。"
-            f"只回答该升华的信息，**绝对不要**用其他升华的资料替代。\n"
+            "用户询问的升华是 " + str(asc_cn) + "(" + str(asc_en) + ")。"
+            "只回答该升华的信息, 绝对不要用其他升华的资料替代。\n"
         )
     return (
         "你是 PoE2 百科助手。\n"
         "1. 先一句话直接回答用户的问题\n"
-        "2. 如果资料有详细数据，列表展开\n"
-        "3. 如果资料不足，诚实说明\n"
+        "2. 如果资料有详细数据, 列表展开\n"
+        "3. 如果资料不足, 诚实说明\n"
         + constraint +
-        "\n资料：\n" + context
+        "\n资料:\n" + context
     )
 
 
