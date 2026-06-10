@@ -412,6 +412,7 @@ async def _stream_chat(messages: list[dict]):
     """Two-phase: LLM thinks what to search → retrieve → LLM thinks about results → answer."""
     user_msg = messages[-1]["content"] if messages else ""
     intent = _classify_intent(user_msg)
+    logger.info(f"[CHAT] intent={intent} | query={user_msg[:80]}")
 
     # ── Alias resolution: exact-match CN entity names before vector search ──
     from app.services.entity_dict import (
@@ -428,6 +429,8 @@ async def _stream_chat(messages: list[dict]):
         alias_keywords.append(resolved_asc_en)
     if resolved_asc_cn:
         alias_keywords.append(resolved_asc_cn)
+    if alias_keywords:
+        logger.info(f"[CHAT] alias_resolved: class={resolved_class_en} asc={resolved_asc_cn}({resolved_asc_en})")
 
     llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
     llm_key = os.getenv("LLM_API_KEY", "")
@@ -460,6 +463,8 @@ async def _stream_chat(messages: list[dict]):
 
     # Combine: alias-resolved names + model's English keywords + user's original Chinese
     search_query = user_msg + " " + " ".join(alias_keywords + search_keywords)
+    content_types = _classify_question(user_msg)
+    logger.info(f"[CHAT] search: keywords={search_keywords[:5]} alias={alias_keywords} content_types={content_types}")
 
     # Embed once; surface embedding-service failures instead of pretending "no results"
     q_embedding = get_embedding(search_query)
@@ -492,6 +497,7 @@ async def _stream_chat(messages: list[dict]):
                 .first()
             )
             if direct_chunk:
+                logger.info(f"[CHAT] structured_lookup: found asc_nodes for {resolved_asc_en}")
                 chunks = [_chunk_to_dict(direct_chunk)] + [
                     c for c in chunks if c.get("chunk_type") != "asc_nodes"
                 ]
@@ -504,10 +510,14 @@ async def _stream_chat(messages: list[dict]):
         return
 
     source_counts = {}
+    type_counts = {}
     for c in chunks:
         s = c.get("source", "?")
         source_counts[s] = source_counts.get(s, 0) + 1
+        t = c.get("chunk_type", "?")
+        type_counts[t] = type_counts.get(t, 0) + 1
     src_desc = ", ".join(k + "(" + str(v) + ")" for k, v in source_counts.items())
+    logger.info(f"[CHAT] retrieved: {len(chunks)} chunks | sources={source_counts} | types={type_counts}")
 
     # Build context
     ctx_parts = []
