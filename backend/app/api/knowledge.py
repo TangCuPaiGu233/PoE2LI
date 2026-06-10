@@ -419,6 +419,8 @@ async def _stream_chat(messages: list[dict]):
         normalize_class, normalize_ascendancy,
         resolve_ascendancy_en, resolve_class_en,
     )
+    from app.services.entity_resolver import resolve_all_entities
+
     resolved_class_en = normalize_class(user_msg)
     resolved_asc_cn = normalize_ascendancy(user_msg)
     resolved_asc_en = resolve_ascendancy_en(resolved_asc_cn) if resolved_asc_cn else None
@@ -429,6 +431,14 @@ async def _stream_chat(messages: list[dict]):
         alias_keywords.append(resolved_asc_en)
     if resolved_asc_cn:
         alias_keywords.append(resolved_asc_cn)
+
+    # Also resolve items/skills/notables from the comprehensive alias table
+    extra_entities = resolve_all_entities(user_msg)
+    for en_name, cn_name, etype in extra_entities:
+        alias_keywords.append(en_name)
+        alias_keywords.append(cn_name)
+    if extra_entities:
+        logger.info(f"[CHAT] entity_resolved: {[(e,c,t) for e,c,t in extra_entities[:5]]}")
     if alias_keywords:
         logger.info(f"[CHAT] alias_resolved: class={resolved_class_en} asc={resolved_asc_cn}({resolved_asc_en})")
 
