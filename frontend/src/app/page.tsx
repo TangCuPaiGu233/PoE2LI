@@ -360,16 +360,13 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Q&A Link */}
-                {result.homework && (
-                  <a
-                    href=”/chat”
-                    className=”block p-4 bg-cyan-900/20 border border-cyan-700/30 rounded-xl text-center hover:bg-cyan-900/30 transition-colors”
-                  >
-                    <span className=”text-cyan-400 text-sm”>AI 问答中深入讨论这个 Build →</span>
-                    <p className=”text-gray-500 text-xs mt-1”>多轮对话、装备推荐、技能搭配</p>
-                  </a>
-                )}
+                <a
+                  href="/chat"
+                  className="block p-4 bg-cyan-900/20 border border-cyan-700/30 rounded-xl text-center hover:bg-cyan-900/30 transition-colors"
+                >
+                  <span className="text-cyan-400 text-sm">AI 问答中深入讨论这个 Build</span>
+                  <p className="text-gray-500 text-xs mt-1">多轮对话、装备推荐、技能搭配</p>
+                </a>
               </div>
             )}
           </div>
