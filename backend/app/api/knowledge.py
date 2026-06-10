@@ -138,6 +138,24 @@ class AskResponse(BaseModel):
     sources: list[dict]
 
 
+def _classify_intent(question: str) -> str:
+    """Classify user intent to route retrieval."""
+    q = question.lower()
+    bd_keywords = ['bd', 'build', '构建', '配装', '开荒', '转型', '升级', '加点',
+                    '天赋怎么点', '技能搭配', '装备搭配', '怎么玩', '设计', '配一套',
+                    '给我配', '帮我配', '怎么做', '玩法', 'builds', '攻略']
+    recommend_keywords = ['推荐', '哪个好', '选哪个', '对比', '更适合', '最好']
+    trade_keywords = ['搜', '找装备', '买', '卖', '价格', '交易']
+
+    if any(k in q for k in bd_keywords):
+        return "build_design"
+    if any(k in q for k in recommend_keywords):
+        return "recommend"
+    if any(k in q for k in trade_keywords):
+        return "trade"
+    return "encyclopedia"
+
+
 def _classify_question(question: str) -> str | None:
     """Quick keyword-based content type filter to narrow vector search scope."""
     q = question.lower()
@@ -175,18 +193,25 @@ def _retrieve_knowledge(question: str, top_k: int = 5) -> list[dict]:
         db_url = str(db.get_bind().url)
         is_sqlite = db_url.startswith("sqlite")
 
-        # Base filter
         filters = [
             KnowledgeChunk.embedding != None,  # noqa: E711
-            KnowledgeChunk.source == "poe2db",
             KnowledgeChunk.stale == False,  # noqa: E712
         ]
 
-        # Content-type pre-filter (reduces search space by 60-80%)
+        # Intent-based source filtering
+        intent = _classify_intent(question)
+        if intent == "build_design":
+            # BD design: homework + pob + poe2db + wiki
+            pass  # no source filter — search all
+        elif intent == "recommend":
+            filters.append(KnowledgeChunk.chunk_type.in_(["item", "skill"]))
+        else:
+            # encyclopedia: all sources
+            pass
+
         content_type = _classify_question(question)
         if content_type:
             filters.append(KnowledgeChunk.chunk_type == content_type)
-            logger.info(f"Pre-filtering by chunk_type={content_type}")
 
         if is_sqlite:
             chunks = db.query(KnowledgeChunk).filter(*filters).all()
@@ -334,39 +359,60 @@ class ChatRequest(BaseModel):
 
 
 async def _stream_chat(messages: list[dict]):
-    """SSE generator: stream thinking → answer → sources."""
+    """SSE generator with intent routing + multi-source retrieval."""
     user_msg = messages[-1]["content"] if messages else ""
+    intent = _classify_intent(user_msg)
 
-    # Phase 1: thinking
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '正在搜索知识库...'})}\n\n"
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '识别意图: ' + intent + '...'})}\n\n"
 
-    # Retrieve
-    chunks = _retrieve_knowledge(user_msg, 5)
+    # Multi-source retrieval based on intent
+    if intent == "build_design":
+        chunks = _retrieve_multi_source(user_msg)
+    elif intent == "recommend":
+        chunks = _retrieve_knowledge(user_msg, 8)
+    else:
+        chunks = _retrieve_knowledge(user_msg, 5)
+
     if not chunks:
         yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return
 
-    yield f"data: {json.dumps({'type': 'thinking', 'content': f'找到 {len(chunks)} 条相关资料，正在分析...'})}\n\n"
+    source_counts = {}
+    for c in chunks:
+        s = c.get("source", "?")
+        source_counts[s] = source_counts.get(s, 0) + 1
+    src_desc = ", ".join(k + "(" + str(v) + ")" for k, v in source_counts.items())
 
-    # Build context from history + retrieved chunks
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析...'})}\n\n"
+
+    # Build context
     ctx_parts = []
     for c in chunks:
         try:
             data = json.loads(c["content"])
-            ctx_parts.append(data.get("search_text", c["content"])[:800])
+            ctx_parts.append("[" + c.get("source", "?") + "/" + c.get("chunk_type", "?") + "] " + data.get("search_text", c["content"])[:600])
         except Exception:
-            ctx_parts.append(c["content"][:800])
+            ctx_parts.append(c["content"][:600])
     context = "\n\n".join(ctx_parts)
 
-    # Build LLM messages with history
-    llm_msgs = [{"role": "system", "content": f"你是流放之路2(PoE2)知识助手。基于以下资料回答，不要编造。如果用户问推荐类问题，请给出对比分析。\n\n资料：\n{context}"}]
-    # Add last 5 messages for context
+    # System prompt based on intent
+    if intent == "build_design":
+        sys_prompt = (
+            "你是 PoE2 BD 设计师。基于资料设计结构化 BD 方案。\n"
+            "输出：## 核心思路\n## 主技能与连法\n## 推荐升华\n## 关键装备\n## 天赋方向\n## 防御体系\n## 开荒/转型建议\n"
+            "只基于资料，不要编造。资料不足时明确说明。\n\n资料：\n" + context
+        )
+    elif intent == "recommend":
+        sys_prompt = "你是 PoE2 装备推荐专家。对比分析以下资料，给出推荐。\n\n资料：\n" + context
+    else:
+        sys_prompt = "你是 PoE2 知识助手。基于资料回答，不要编造。\n\n资料：\n" + context
+
+    llm_msgs = [{"role": "system", "content": sys_prompt}]
     for m in messages[-5:]:
         llm_msgs.append(m)
 
-    # Phase 2: stream answer
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '正在生成回答...'})}\n\n"
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '生成回答...'})}\n\n"
 
     llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
     llm_key = os.getenv("LLM_API_KEY", "")
@@ -377,23 +423,69 @@ async def _stream_chat(messages: list[dict]):
             model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
             messages=llm_msgs,
             temperature=0.3,
-            max_tokens=1024,
+            max_tokens=2048,
             stream=True,
         )
-        full_answer = ""
         for chunk in stream:
             if chunk.choices[0].delta.content:
-                text = chunk.choices[0].delta.content
-                full_answer += text
-                yield f"data: {json.dumps({'type': 'answer', 'content': text})}\n\n"
+                yield f"data: {json.dumps({'type': 'answer', 'content': chunk.choices[0].delta.content})}\n\n"
     except Exception as e:
         logger.error(f"LLM stream error: {e}")
-        yield f"data: {json.dumps({'type': 'answer', 'content': f'生成失败: {e}'})}\n\n"
+        yield f"data: {json.dumps({'type': 'answer', 'content': '生成失败: ' + str(e)})}\n\n"
 
-    # Phase 3: sources
-    sources = [{"type": c["chunk_type"], "preview": c["content"][:100]} for c in chunks[:3]]
+    sources = [{"type": c.get("chunk_type", "?"), "source": c.get("source", "?"),
+                 "preview": c.get("content", "")[:100]} for c in chunks[:5]]
     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+
+def _retrieve_multi_source(question: str, per_source: int = 5) -> list[dict]:
+    """Multi-source: homework + pob + poe2db + poe2wiki."""
+    db = SessionLocal()
+    try:
+        q_embedding = get_embedding(question)
+        if not q_embedding:
+            return []
+
+        db_url = str(db.get_bind().url)
+        is_sqlite = db_url.startswith("sqlite")
+
+        all_chunks = []
+        for source in ["homework", "pob", "poe2db", "poe2wiki"]:
+            base_filters = [
+                KnowledgeChunk.embedding != None,
+                KnowledgeChunk.source == source,
+                KnowledgeChunk.stale == False,
+            ]
+
+            if is_sqlite:
+                candidates = db.query(KnowledgeChunk).filter(*base_filters).all()
+                scored = []
+                for c in candidates:
+                    emb = c.embedding
+                    if isinstance(emb, str):
+                        emb = json.loads(emb)
+                    sim = _cosine_sim(q_embedding, emb)
+                    if sim > 0.3:
+                        scored.append({"content": c.content, "chunk_type": c.chunk_type,
+                                       "source": c.source, "similarity": round(sim, 3)})
+                scored.sort(key=lambda x: x["similarity"], reverse=True)
+                all_chunks.extend(scored[:per_source])
+            else:
+                dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
+                rows = (db.query(KnowledgeChunk, dist).filter(*base_filters)
+                        .order_by(dist).limit(per_source).all())
+                for c, d in rows:
+                    sim = round(1.0 - d, 3) if d is not None else 0
+                    if sim > 0.3:
+                        all_chunks.append({"content": c.content, "chunk_type": c.chunk_type,
+                                           "source": c.source, "similarity": sim})
+
+        all_chunks.sort(key=lambda x: x["similarity"], reverse=True)
+        logger.info(f"Multi-source: {len(all_chunks)} chunks")
+        return all_chunks[:20]
+    finally:
+        db.close()
 
 
 @qa_router.post("/api/chat")
