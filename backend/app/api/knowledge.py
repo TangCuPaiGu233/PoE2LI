@@ -391,15 +391,18 @@ async def _stream_chat(messages: list[dict]):
     except Exception:
         search_keywords = [user_msg]
 
-    # ── Phase 2: Multi-source retrieval using model's keywords ──
+    # ── Phase 2: Multi-source retrieval using model's keywords + original query ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
 
+    # Combine: model's English keywords + user's original Chinese for cross-lingual match
+    search_query = user_msg + " " + " ".join(search_keywords)
+
     if intent == "build_design":
-        chunks = _retrieve_multi_source(" ".join(search_keywords))
+        chunks = _retrieve_multi_source(search_query)
     elif intent == "recommend":
-        chunks = _retrieve_knowledge(" ".join(search_keywords), 8)
+        chunks = _retrieve_knowledge(search_query, 8)
     else:
-        chunks = _retrieve_knowledge(" ".join(search_keywords), 5)
+        chunks = _retrieve_knowledge(search_query, 5)
 
     if not chunks:
         yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
