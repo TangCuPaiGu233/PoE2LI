@@ -21,14 +21,39 @@ const CHIPS = [
   "扭曲项链都能提供什么词条",
 ];
 
-// ── markdown render ──
+// ── markdown render (handles common patterns) ──
 function md(s: string): string {
-  let h = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let h = s;
+  // Escape HTML first
+  h = h.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Headings
+  h = h.replace(/^#### (.+)$/gm, '<h4 class="md-h4">$1</h4>');
   h = h.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
   h = h.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
+  h = h.replace(/^# (.+)$/gm, '<h2 class="md-h1">$1</h2>');
+  // Horizontal rule
+  h = h.replace(/^---$/gm, '<hr class="md-hr" />');
+  // Bold and italic
   h = h.replace(/\*\*(.+?)\*\*/g, '<strong class="md-bold">$1</strong>');
-  h = h.replace(/^- (.+)$/gm, '<li class="md-li">$1</li>');
+  h = h.replace(/\*(.+?)\*/g, '<em class="md-em">$1</em>');
+  // Inline code
   h = h.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+  // Links
+  h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="md-link">$1</a>');
+  // Blockquote
+  h = h.replace(/^&gt; (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>');
+  // Ordered lists (lines starting with "1. " "2. " etc)
+  h = h.replace(/^(\d+)\. (.+)$/gm, '<li class="md-li-ol">$2</li>');
+  // Unordered lists
+  h = h.replace(/^[-*] (.+)$/gm, '<li class="md-li">$1</li>');
+  // Paragraphs: double newline
+  h = h.replace(/\n\n/g, '</p><p class="md-p">');
+  // Wrap in paragraph
+  h = '<p class="md-p">' + h + '</p>';
+  // Clean empty paragraphs
+  h = h.replace(/<p class="md-p"><\/p>/g, '');
+  h = h.replace(/<p class="md-p">(\s*)<\/p>/g, '');
+  // Tags
   h = h.replace(/\[资料\]/g, '<span class="md-tag">资料</span>');
   h = h.replace(/\[推测\]/g, '<span class="md-tag md-tag-guess">推测</span>');
   return h;
@@ -234,13 +259,23 @@ export default function ChatPage() {
 
       <style>{`
         @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .msg-content .md-h2 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.8); margin-top: 0.75rem; margin-bottom: 0.25rem; }
-        .msg-content .md-h3 { font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.7); margin-top: 0.6rem; margin-bottom: 0.2rem; }
-        .msg-content .md-bold { color: rgba(252,211,77,0.8); font-weight: 500; }
-        .msg-content .md-li { margin-left: 1rem; list-style: disc; color: rgba(255,255,255,0.5); }
-        .msg-content .md-code { font-size: 0.8em; background: rgba(255,255,255,0.04); padding: 1px 4px; border-radius: 3px; color: rgba(252,211,77,0.55); }
-        .msg-content .md-tag { font-size: 0.6rem; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.03); padding: 0 2px; border-radius: 2px; }
-        .msg-content .md-tag-guess { color: rgba(252,211,77,0.3); background: rgba(252,211,77,0.04); }
+        .msg-content .md-p { margin-bottom: 0.5rem; }
+        .msg-content .md-p:last-child { margin-bottom: 0; }
+        .msg-content .md-h1 { font-size: 1.05rem; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 1rem; margin-bottom: 0.4rem; line-height: 1.3; }
+        .msg-content .md-h2 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.8); margin-top: 0.8rem; margin-bottom: 0.3rem; line-height: 1.3; }
+        .msg-content .md-h3 { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.72); margin-top: 0.65rem; margin-bottom: 0.25rem; line-height: 1.3; }
+        .msg-content .md-h4 { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.65); margin-top: 0.5rem; margin-bottom: 0.2rem; line-height: 1.3; }
+        .msg-content .md-bold { color: rgba(252,211,77,0.82); font-weight: 500; }
+        .msg-content .md-em { font-style: italic; color: rgba(255,255,255,0.55); }
+        .msg-content .md-li { display: list-item; margin-left: 1.2rem; list-style: disc; color: rgba(255,255,255,0.5); margin-bottom: 0.15rem; }
+        .msg-content .md-li-ol { display: list-item; margin-left: 1.2rem; list-style: decimal; color: rgba(255,255,255,0.5); margin-bottom: 0.15rem; }
+        .msg-content .md-code { font-size: 0.82em; background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: rgba(252,211,77,0.6); font-family: monospace; }
+        .msg-content .md-link { color: rgba(252,211,77,0.7); text-decoration: underline; }
+        .msg-content .md-link:hover { color: rgba(252,211,77,0.9); }
+        .msg-content .md-quote { border-left: 2px solid rgba(252,211,77,0.3); padding-left: 0.75rem; margin: 0.5rem 0; color: rgba(255,255,255,0.45); font-style: italic; }
+        .msg-content .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 0.6rem 0; }
+        .msg-content .md-tag { font-size: 0.65rem; color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); padding: 0 2px; border-radius: 2px; margin: 0 1px; }
+        .msg-content .md-tag-guess { color: rgba(252,211,77,0.32); background: rgba(252,211,77,0.04); }
       `}</style>
     </div>
   );
