@@ -417,9 +417,12 @@ async def _stream_chat(messages: list[dict]):
     for c in chunks:
         try:
             data = json.loads(c["content"])
-            ctx_parts.append("[" + c.get("source", "?") + "/" + c.get("chunk_type", "?") + "] " + data.get("search_text", c["content"])[:600])
+            text = data.get("search_text", c["content"])
+            # asc_nodes and homework need full context (node lists, build details)
+            limit = 3000 if c.get("chunk_type") in ("asc_nodes", "build_summary") else 800
+            ctx_parts.append("[" + c.get("source", "?") + "/" + c.get("chunk_type", "?") + "] " + text[:limit])
         except Exception:
-            ctx_parts.append(c["content"][:600])
+            ctx_parts.append(c["content"][:800])
     context = "\n\n".join(ctx_parts)
 
     # ── Phase 3: Model thinks about results + answers ──
