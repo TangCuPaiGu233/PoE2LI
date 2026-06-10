@@ -208,7 +208,27 @@ def build_chunk(entry, en_detail, cn_detail, tw_detail):
 
 # ═══ Main ═══
 
-def scrape():
+def _load_existing_paths(jsonl_path):
+    """Load set of already-scraped detail paths from existing output file."""
+    existing = set()
+    if os.path.exists(jsonl_path):
+        with open(jsonl_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    c = json.loads(line.strip())
+                    if c.get("detail_path"):
+                        existing.add(c["detail_path"])
+                except json.JSONDecodeError:
+                    pass
+    return existing
+
+
+def _get_output_path():
+    return os.path.join(os.path.dirname(__file__), "..", "data", "poe2db_chunks_v3.jsonl")
+
+
+def scrape(resume=True):
+    output_path = _get_output_path()
     all_entries = []
 
     # Phase 1: Collect URLs
@@ -228,18 +248,24 @@ def scrape():
 
     print(f"\nTotal unique detail pages: {len(unique_entries)}")
 
-    # Phase 2: Scrape details
+    # Resume: skip already scraped
+    existing_paths = _load_existing_paths(output_path) if resume else set()
+    pending = [e for e in unique_entries if e["path"] not in existing_paths]
+    if existing_paths:
+        print(f"Resume: {len(existing_paths)} already done, {len(pending)} remaining")
+
+    # Phase 2: Scrape details (append mode for resilience)
     print(f"\n=== Phase 2: Scrape detail pages (x3 languages) ===")
     chunks = []
     languages = [("us", "en"), ("cn", "zh_cn"), ("tw", "zh_tw")]
 
-    for idx, entry in enumerate(unique_entries):
+    for idx, entry in enumerate(pending):
         details = {}
         for lang_code, lang_key in languages:
             detail = scrape_detail(entry["path"], lang_code)
             if detail:
                 details[lang_key] = detail
-            time.sleep(0.3)  # rate limit
+            time.sleep(0.3)
 
         if details:
             chunk = build_chunk(entry,
@@ -248,31 +274,54 @@ def scrape():
                                 details.get("zh_tw"))
             chunks.append(chunk)
 
-        if (idx + 1) % 50 == 0:
-            _save(chunks)
-            print(f"  [{idx+1}/{len(unique_entries)}] {len(chunks)} chunks saved")
-            time.sleep(3)  # longer pause every 50
+        # Save incrementally: append to file every 10 entries
+        if (idx + 1) % 10 == 0 and chunks:
+            _append_save(chunks[-10:], output_path)
+            print(f"  [{idx+1}/{len(pending)}] {len(chunks)} new, "
+                  f"{len(existing_paths) + len(chunks)} total")
+            time.sleep(2)
 
-    _save(chunks)
+        # Periodic full save every 50
+        if (idx + 1) % 50 == 0:
+            _append_save(chunks[-50:], output_path)
+            print(f"  [{idx+1}/{len(pending)}] checkpoint: {len(chunks)} new chunks")
+            time.sleep(3)
+
+    # Final save
+    if chunks:
+        _append_save(chunks, output_path)
     return chunks
 
 
 def _save(chunks, path=None):
     if path is None:
-        path = os.path.join(os.path.dirname(__file__), "..", "data", "poe2db_chunks_v3.jsonl")
+        path = _get_output_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         for c in chunks:
             f.write(json.dumps(c, ensure_ascii=False) + '\n')
 
 
+def _append_save(chunks, path):
+    """Append chunks to existing file (for incremental saving)."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'a', encoding='utf-8') as f:
+        for c in chunks:
+            f.write(json.dumps(c, ensure_ascii=False) + '\n')
+
+
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else None
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--no-resume", action="store_true", help="Start fresh, ignore existing chunks")
+    parser.add_argument("-o", "--output", help="Output JSONL path")
+    args = parser.parse_args()
+
     print("=== PoE2DB Scraper v3 — Full Detail Pages ===")
-    chunks = scrape()
-    if out:
-        _save(chunks, out)
-    print(f"\nDone: {len(chunks)} detail chunks")
+    chunks = scrape(resume=not args.no_resume)
+    if args.output:
+        _save(chunks, args.output)
+    print(f"\nDone: {len(chunks)} new detail chunks this run")
     types = {}
     for c in chunks:
         t = c.get('content_type', '?')
