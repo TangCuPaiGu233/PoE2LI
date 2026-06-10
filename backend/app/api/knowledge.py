@@ -205,7 +205,7 @@ def _vector_search(db, q_embedding, filters: list, top_k: int,
             scored.append((sim, c))
         scored.sort(key=lambda x: x[0], reverse=True)
         return [{"content": c.content, "chunk_type": c.chunk_type,
-                 "source": c.source, "similarity": round(s, 3)}
+                 "source": c.source, "links": c.links, "similarity": round(s, 3)}
                 for s, c in scored[:top_k] if s > min_similarity]
     else:
         dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
@@ -218,7 +218,7 @@ def _vector_search(db, q_embedding, filters: list, top_k: int,
         )
         return [
             {"content": c.content, "chunk_type": c.chunk_type,
-             "source": c.source, "similarity": round(1.0 - d, 3)}
+             "source": c.source, "links": c.links, "similarity": round(1.0 - d, 3)}
             for c, d in rows if (1.0 - d) > min_similarity
         ]
 
@@ -296,15 +296,11 @@ def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[
     (computed at ingest time) and does secondary vector searches."""
     from app.services.concept_links import parse_link, expand_query_for_link
 
-    # Collect all links from retrieved chunks
+    # Collect all links from retrieved chunks (stored in DB column, not content JSON)
     all_links: list[str] = []
     seen_links: set[str] = set()
     for c in chunks:
-        try:
-            data = json.loads(c["content"])
-            raw = data.get("links", "")
-        except Exception:
-            continue
+        raw = c.get("links", "")
         if not raw:
             continue
         try:
@@ -374,6 +370,7 @@ def _chunk_to_dict(c: KnowledgeChunk) -> dict:
         "content": c.content,
         "chunk_type": c.chunk_type,
         "source": c.source or "db",
+        "links": c.links,
         "similarity": 1.0,  # direct lookup, not vector match
     }
 
