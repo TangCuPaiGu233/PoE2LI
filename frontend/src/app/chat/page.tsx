@@ -2,60 +2,40 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-interface TradeMatch {
-  label: string;
-  url: string;
-  count: number;
-}
-interface TradeResult {
-  best_match: TradeMatch | null;
-  alternatives: TradeMatch[];
-  explanation: string;
-}
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  sources?: { type: string; preview: string }[];
-  reasoning?: string;
-  trade?: TradeResult;
+// ── types ──
+interface TradeMatch { label: string; url: string; count: number }
+interface TradeResult { best_match: TradeMatch | null; alternatives: TradeMatch[]; explanation: string }
+interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult }
+
+function apiUrl() {
+  if (typeof window === "undefined") return "http://localhost:8000";
+  return `${window.location.protocol}//${window.location.hostname}:8000`;
 }
 
-function getApiUrl(): string {
-  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
-  }
-  return "http://localhost:8000";
-}
+// ── skill badge ──
+const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
+const SKILL_COLORS: Record<string, string> = { encyclopedia: "text-cyan-400 border-cyan-700/40 bg-cyan-950/30", build_design: "text-amber-400 border-amber-700/40 bg-amber-950/30", trade_search: "text-emerald-400 border-emerald-700/40 bg-emerald-950/30" };
 
-const SUGGESTIONS = [
-  { icon: "⚔️", label: "配一个召唤BD", query: "帮我配一个召唤女巫的开荒BD" },
-  { icon: "🔍", label: "搜装备", query: "帮我找一条加2召唤技能等级的项链" },
-  { icon: "📖", label: "技能百科", query: "火球是什么技能，有什么效果" },
-  { icon: "💡", label: "升华解析", query: "灵魂行者有哪些升华技能" },
-  { icon: "💰", label: "价格查询", query: "查一下 Mageblood 的价格" },
-  { icon: "🎯", label: "扭曲项链", query: "扭曲项链都能提供什么词条" },
+// ── suggested queries ──
+const QUERY_CHIPS = [
+  { q: "帮我配一个召唤女巫的开荒BD" },
+  { q: "帮我找一条加2召唤技能等级的项链" },
+  { q: "灵魂行者有哪些升华技能" },
+  { q: "扭曲项链都能提供什么词条" },
 ];
 
-function SkillBadge({ name, active }: { name: string; active: boolean }) {
-  const labels: Record<string, string> = {
-    encyclopedia: "百科",
-    build_design: "BD设计",
-    trade_search: "交易搜索",
-  };
-  const colors: Record<string, string> = {
-    encyclopedia: "bg-cyan-900/40 text-cyan-400 border-cyan-700/30",
-    build_design: "bg-amber-900/40 text-amber-400 border-amber-700/30",
-    trade_search: "bg-emerald-900/40 text-emerald-400 border-emerald-700/30",
-    idle: "bg-gray-800/40 text-gray-500 border-gray-700/30",
-  };
-  return (
-    <span className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors duration-500 ${active ? colors[name] || colors.idle : colors.idle}`}>
-      {active ? labels[name] || name : "就绪"}
-    </span>
-  );
+// ── markdown-ish renderer (simple, safe) ──
+function renderContent(text: string): string {
+  let h = text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  h = h.replace(/^### (.+)$/gm, '<h3 class="t-h3">$1</h3>');
+  h = h.replace(/^## (.+)$/gm, '<h2 class="t-h2">$1</h2>');
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong class="t-bold">$1</strong>');
+  h = h.replace(/^- (.+)$/gm, '<li class="t-li">$1</li>');
+  h = h.replace(/`([^`]+)`/g, '<code class="t-code">$1</code>');
+  h = h.replace(/\[资料\]/g, '<span class="t-tag">资料</span>');
+  h = h.replace(/\[推测\]/g, '<span class="t-tag t-tag-guess">推测</span>');
+  return h;
 }
 
 export default function ChatPage() {
@@ -64,199 +44,99 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false);
   const [thinking, setThinking] = useState<string[]>([]);
   const [reasoning, setReasoning] = useState("");
-  const [skillName, setSkillName] = useState("idle");
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [skill, setSkill] = useState("idle");
+  const [empty, setEmpty] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, thinking, reasoning]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking, reasoning]);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // Focus input on mount
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const sendQuery = useCallback(async (q: string) => {
+  const send = useCallback(async (q: string) => {
     if (!q.trim() || streaming) return;
-    setInput("");
-    setShowWelcome(false);
-
+    setInput(""); setEmpty(false);
     const userMsg: Message = { role: "user", content: q };
-    const allMessages = [...messages, userMsg];
-    setMessages(allMessages);
-    setThinking([]);
-    setReasoning("");
-    setSkillName("idle");
-    setStreaming(true);
+    const all = [...messages, userMsg];
+    setMessages(all); setThinking([]); setReasoning(""); setSkill("idle"); setStreaming(true);
 
-    const history = allMessages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    let assistantContent = "";
-    let currentSkill = "idle";
+    const history = all.filter(m => m.role === "user" || m.role === "assistant").map(m => ({ role: m.role, content: m.content }));
+    let acc = ""; let sk = "idle";
 
     try {
-      const resp = await fetch(`${getApiUrl()}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, stream: true }),
-      });
-
+      const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }) });
       const reader = resp.body?.getReader();
-      if (!reader) {
-        setMessages((prev) => [...prev, { role: "assistant", content: "Error: no response" }]);
-        setStreaming(false);
-        return;
-      }
+      if (!reader) { setMessages(p => [...p, { role: "assistant", content: "无响应" }]); setStreaming(false); return; }
 
-      const decoder = new TextDecoder();
-      let buffer = "";
-
+      const dec = new TextDecoder(); let buf = "";
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           try {
-            const event = JSON.parse(line.slice(6));
-
-            if (event.type === "thinking") {
-              const text = event.content;
-              if (text.includes("AI 正在搜索交易市场")) currentSkill = "trade_search";
-              else if (text.includes("AI 正在分析")) currentSkill = "encyclopedia";
-              else if (text.includes("扩展关联")) currentSkill = currentSkill;
-              setSkillName(currentSkill);
-              setThinking((prev) => [...prev, text]);
-            } else if (event.type === "reasoning") {
-              setReasoning((prev) => prev + event.content);
-            } else if (event.type === "answer") {
-              assistantContent += event.content;
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return [...prev.slice(0, -1), { ...last, content: assistantContent }];
-                }
-                return [...prev, { role: "assistant", content: assistantContent }];
-              });
-            } else if (event.type === "trade_result") {
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return [...prev.slice(0, -1), { ...last, trade: event.content }];
-                }
-                return [...prev, { role: "assistant", content: "", trade: event.content }];
-              });
-            } else if (event.type === "sources") {
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return [...prev.slice(0, -1), { ...last, content: last.content, sources: event.content }];
-                }
-                return prev;
-              });
-            } else if (event.type === "done") {
-              if (reasoning) {
-                setMessages((prev) => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === "assistant") {
-                    return [...prev.slice(0, -1), { ...last, reasoning }];
-                  }
-                  return prev;
-                });
-              }
-              setThinking([]);
-              setReasoning("");
-              setStreaming(false);
-              setSkillName("idle");
+            const ev = JSON.parse(line.slice(6));
+            if (ev.type === "thinking") { const t = ev.content || ""; if (t.includes("交易市场")) sk = "trade_search"; else if (t.includes("分析")) sk = "encyclopedia"; setSkill(sk); setThinking(p => [...p, t]); }
+            else if (ev.type === "reasoning") { setReasoning(p => p + ev.content); }
+            else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
+            else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, trade: ev.content }] : [...p, { role: "assistant", content: "", trade: ev.content }]; }); }
+            else if (ev.type === "sources") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: l.content, sources: ev.content }] : p; }); }
+            else if (ev.type === "done") {
+              if (reasoning) setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, reasoning }] : p; });
+              setThinking([]); setReasoning(""); setStreaming(false); setSkill("idle");
             }
-          } catch {
-            // skip malformed
-          }
+          } catch { /* skip */ }
         }
       }
-    } catch (err) {
-      setMessages((prev) => [...prev, { role: "assistant", content: `网络错误: ${err}` }]);
-    }
-    setStreaming(false);
-    setSkillName("idle");
+    } catch (e) { setMessages(p => [...p, { role: "assistant", content: `网络错误: ${e}` }]); }
+    setStreaming(false); setSkill("idle");
   }, [messages, streaming, reasoning]);
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendQuery(input);
-    }
-  }
+  const keyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } };
+
+  const hasMessages = messages.length > 0 || !empty;
 
   return (
-    <div className="min-h-screen bg-[#0a0c0f] text-gray-100">
-      {/* Background ornament */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-[0.03]">
-        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-amber-500 blur-[120px]" />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-emerald-500 blur-[120px]" />
+    <div className="min-h-screen bg-[#08090b] text-gray-200 font-sans">
+      {/* ── ambient light (taste: subtle, not distracting) ── */}
+      <div className="fixed inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute top-0 left-[20%] w-[500px] h-[300px] bg-amber-600/5 blur-[150px] rounded-full" />
+        <div className="absolute bottom-0 right-[10%] w-[400px] h-[250px] bg-amber-700/4 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative max-w-4xl mx-auto px-4 py-4 flex flex-col h-screen">
-        {/* Header */}
-        <header className="shrink-0 pb-3 border-b border-gray-800/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <a href="/" className="text-gray-600 hover:text-gray-400 text-xs transition-colors">
-                ← 首页
-              </a>
-              <h1 className="text-lg font-bold tracking-wide">
-                <span className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                  流放知识库
-                </span>
-                <span className="text-gray-700 text-sm font-normal ml-2">AI 对话</span>
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <a href="/trade" className="text-xs text-gray-600 hover:text-emerald-400 transition-colors">装备搜索</a>
-              <span className="text-gray-800">|</span>
-              <SkillBadge name={skillName} active={streaming} />
-            </div>
+      <div className="relative max-w-5xl mx-auto px-5 py-4 flex flex-col h-screen">
+        {/* ── header (taste: minimal, asymmetric) ── */}
+        <header className="shrink-0 flex items-center justify-between pb-3 border-b border-white/5">
+          <div className="flex items-center gap-4">
+            <a href="/" className="text-xs text-white/25 hover:text-white/50 transition-colors tracking-wide">← 首页</a>
+            <h1 className="text-base font-semibold tracking-tight text-white/90">
+              流放知识库
+              <span className="ml-2 text-[10px] font-normal text-white/30 tracking-widest uppercase">AI Chat</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <a href="/trade" className="text-[11px] text-white/30 hover:text-emerald-300/70 transition-colors tracking-wide">装备搜索</a>
+            <span className={`text-[10px] px-2.5 py-0.5 rounded-full border transition-all duration-500 ${streaming ? (SKILL_COLORS[skill] || "text-white/40 border-white/10 bg-white/5") : "text-white/25 border-white/8 bg-white/[0.02]"}`}>
+              {streaming ? (SKILL_LABELS[skill] || skill) : "就绪"}
+            </span>
           </div>
         </header>
 
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin">
-          {messages.length === 0 && showWelcome && (
-            <div className="flex items-center justify-center min-h-[60vh]">
-              <div className="text-center max-w-lg">
-                {/* Ornamental icon */}
-                <div className="mb-6 relative inline-block">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-600/20 to-emerald-600/20 border border-amber-700/30 flex items-center justify-center backdrop-blur">
-                    <span className="text-3xl">⚜️</span>
-                  </div>
-                </div>
-
-                <h2 className="text-xl font-semibold text-gray-300 mb-2">
-                  探索流放之路的知识
-                </h2>
-                <p className="text-sm text-gray-600 mb-8 leading-relaxed">
-                  AI 驱动的 PoE2 助手 — 支持装备搜索、BD 设计、机制百科
+        {/* ── messages ── */}
+        <main className="flex-1 overflow-y-auto py-6 space-y-10">
+          {!hasMessages && (
+            <div className="flex items-center min-h-[65vh]">
+              <div className="max-w-xl">
+                <p className="text-sm text-white/20 mb-2 tracking-widest uppercase">Ask anything</p>
+                <p className="text-2xl font-medium text-white/60 leading-snug mb-10">
+                  PoE2 知识助手 —<br />
+                  <span className="text-white/35">BD 设计 · 装备搜索 · 机制百科</span>
                 </p>
-
-                {/* Suggestion chips */}
-                <div className="grid grid-cols-2 gap-2">
-                  {SUGGESTIONS.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => sendQuery(s.query)}
-                      disabled={streaming}
-                      className="text-left p-3 bg-gray-900/60 border border-gray-800/60 rounded-xl hover:border-amber-700/40 hover:bg-gray-900/80 transition-all duration-200 group disabled:opacity-40"
-                    >
-                      <span className="text-sm mr-2">{s.icon}</span>
-                      <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">{s.label}</span>
+                <div className="flex flex-wrap gap-2">
+                  {QUERY_CHIPS.map((c, i) => (
+                    <button key={i} onClick={() => send(c.q)} disabled={streaming}
+                      className="text-xs px-4 py-2 rounded-full border border-white/8 text-white/40 bg-white/[0.02] hover:border-amber-500/30 hover:text-amber-200/80 hover:bg-amber-950/20 transition-all duration-300 disabled:opacity-30">
+                      {c.q}
                     </button>
                   ))}
                 </div>
@@ -265,217 +145,122 @@ export default function ChatPage() {
           )}
 
           {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              style={{ animation: "fadeIn 0.3s ease-out" }}
-            >
-              {/* Avatar */}
-              {m.role === "assistant" && (
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600/30 to-amber-700/30 border border-amber-700/40 flex items-center justify-center mt-1">
-                  <span className="text-xs">⚜️</span>
-                </div>
-              )}
+            <article key={i} className={`flex gap-4 ${m.role === "user" ? "flex-row-reverse" : ""}`} style={{ animation: `msgIn 0.35s ease-out ${i * 0.02}s both` }}>
+              {/* avatar (taste: simple monogram, no gradients) */}
+              <div className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-[11px] font-medium mt-0.5 ${m.role === "user" ? "bg-white/8 text-white/50 border border-white/10" : "bg-amber-950/30 text-amber-400/80 border border-amber-700/30"}`}>
+                {m.role === "user" ? "U" : "P"}
+              </div>
 
-              <div className={`max-w-[80%] ${m.role === "user" ? "order-first" : ""}`}>
-                {/* Message bubble */}
-                <div
-                  className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-gradient-to-br from-amber-700/30 to-amber-800/20 border border-amber-600/30 text-amber-50"
-                      : "bg-gray-900/60 border border-gray-800/60 text-gray-200"
-                  }`}
-                >
-                  {/* Reasoning */}
-                  {m.reasoning && (
-                    <details className="mb-3">
-                      <summary className="text-[11px] text-amber-500/60 cursor-pointer hover:text-amber-400/80 transition-colors select-none">
-                        🧠 思考过程
-                      </summary>
-                      <div className="mt-2 p-3 bg-amber-950/20 border border-amber-800/20 rounded-lg text-[11px] text-amber-500/50 leading-relaxed max-h-48 overflow-y-auto">
-                        {m.reasoning}
-                      </div>
-                    </details>
-                  )}
+              <div className={`min-w-0 max-w-[75%] ${m.role === "user" ? "text-right" : ""}`}>
+                {/* reasoning */}
+                {m.reasoning && (
+                  <details className="mb-2">
+                    <summary className="text-[10px] text-amber-500/40 cursor-pointer hover:text-amber-400/60 transition-colors tracking-wide uppercase select-none">思考过程</summary>
+                    <div className="mt-2 p-3 bg-amber-950/10 border border-amber-800/15 rounded-lg text-[11px] text-amber-500/35 leading-relaxed max-h-44 overflow-y-auto whitespace-pre-wrap">{m.reasoning}</div>
+                  </details>
+                )}
 
-                  {/* Content with basic markdown */}
-                  <div
-                    className="whitespace-pre-wrap [&_strong]:text-amber-300 [&_h3]:text-amber-200 [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-4 [&_code]:bg-gray-800/50 [&_code]:px-1 [&_code]:rounded [&_code]:text-amber-300/70"
-                    dangerouslySetInnerHTML={{
-                      __html: m.content
-                        .replace(/### (.+)/g, '<h3 class="text-amber-200 font-semibold mt-3 mb-1">$1</h3>')
-                        .replace(/## (.+)/g, '<h3 class="text-amber-200 font-semibold mt-3 mb-1">$1</h3>')
-                        .replace(/\*\*(.+?)\*\*/g, '<strong class="text-amber-300">$1</strong>')
-                        .replace(/^- (.+)/gm, '<li class="ml-4 list-disc">$1</li>')
-                        .replace(/`([^`]+)`/g, '<code class="bg-gray-800/50 px-1 rounded text-amber-300/70">$1</code>')
-                        .replace(/\[资料\]/g, '<span class="text-[10px] text-gray-600 bg-gray-800/50 px-1 rounded">资料</span>')
-                        .replace(/\[推测\]/g, '<span class="text-[10px] text-amber-600/70 bg-amber-950/30 px-1 rounded">推测</span>'),
-                    }}
-                  />
+                {/* content */}
+                <div className={`text-sm leading-relaxed rounded-2xl px-4 py-3 ${
+                  m.role === "user"
+                    ? "bg-amber-950/15 border border-amber-800/20 text-amber-100/80"
+                    : "bg-white/[0.02] border border-white/5 text-white/75"
+                }`}>
+                  <div className="chat-content" dangerouslySetInnerHTML={{ __html: renderContent(m.content) }} />
 
-                  {/* Trade results */}
+                  {/* trade cards */}
                   {m.trade && (
-                    <div className="mt-3 p-3 bg-emerald-950/20 border border-emerald-800/30 rounded-xl">
-                      <div className="text-xs text-emerald-400 font-medium mb-2 flex items-center gap-1">
-                        <span>🔍</span> 交易搜索结果
-                      </div>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-[10px] text-emerald-400/50 tracking-widest uppercase">交易结果</p>
                       {m.trade.best_match && (
-                        <a
-                          href={m.trade.best_match.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block p-2.5 bg-emerald-900/20 border border-emerald-700/30 rounded-lg mb-2 hover:bg-emerald-900/30 transition-colors"
-                        >
-                          <div className="text-xs text-emerald-300 font-medium">{m.trade.best_match.label}</div>
-                          <div className="text-[11px] text-gray-500 mt-0.5">{m.trade.best_match.count} 件</div>
+                        <a href={m.trade.best_match.url} target="_blank" rel="noreferrer" className="block p-3 bg-emerald-950/15 border border-emerald-800/25 rounded-xl hover:bg-emerald-950/25 transition-colors">
+                          <div className="text-xs text-emerald-300/80 font-medium">{m.trade.best_match.label}</div>
+                          <div className="text-[10px] text-white/25 mt-0.5">{m.trade.best_match.count} 件</div>
                         </a>
                       )}
-                      {m.trade.alternatives.map((alt, j) => (
-                        <a
-                          key={j}
-                          href={alt.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block p-2 bg-gray-800/40 border border-gray-700/30 rounded-lg mb-1.5 hover:bg-gray-800/60 transition-colors"
-                        >
-                          <div className="text-xs text-gray-300">{alt.label}</div>
-                          <div className="text-[11px] text-gray-600 mt-0.5">{alt.count} 件</div>
+                      {m.trade.alternatives.map((a, j) => (
+                        <a key={j} href={a.url} target="_blank" rel="noreferrer" className="block p-2.5 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                          <div className="text-xs text-white/50">{a.label}</div>
+                          <div className="text-[10px] text-white/20 mt-0.5">{a.count} 件</div>
                         </a>
                       ))}
                     </div>
                   )}
 
-                  {/* Sources */}
+                  {/* sources */}
                   {m.sources && m.sources.length > 0 && (
-                    <details className="mt-3 pt-2 border-t border-gray-800/50">
-                      <summary className="text-[11px] text-gray-600 cursor-pointer hover:text-gray-500 transition-colors">
-                        参考来源 ({m.sources.length})
-                      </summary>
+                    <details className="mt-3 pt-2 border-t border-white/5">
+                      <summary className="text-[10px] text-white/25 cursor-pointer hover:text-white/40 transition-colors">来源 ({m.sources.length})</summary>
                       <div className="mt-2 space-y-1">
-                        {m.sources.map((s, j) => (
-                          <div key={j} className="text-[10px] text-gray-700 bg-gray-900/40 rounded px-2 py-1">
-                            <span className="text-gray-500">[{s.type}]</span> {s.preview}
-                          </div>
-                        ))}
+                        {m.sources.map((s, j) => <div key={j} className="text-[10px] text-white/20 bg-white/[0.02] rounded px-2 py-1"><span className="text-white/30">[{s.type}]</span> {s.preview}</div>)}
                       </div>
                     </details>
                   )}
                 </div>
               </div>
-
-              {/* User avatar */}
-              {m.role === "user" && (
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-gray-700/30 to-gray-600/30 border border-gray-600/40 flex items-center justify-center mt-1">
-                  <span className="text-xs">👤</span>
-                </div>
-              )}
-            </div>
+            </article>
           ))}
 
-          {/* Streaming indicators */}
+          {/* ── streaming indicators ── */}
           {reasoning && (
-            <div className="flex gap-3 justify-start">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600/30 to-amber-700/30 border border-amber-700/40 flex items-center justify-center mt-1">
-                <span className="text-xs">⚜️</span>
-              </div>
-              <details open className="max-w-[80%] rounded-2xl px-4 py-3 bg-amber-950/15 border border-amber-800/20">
-                <summary className="text-[11px] text-amber-500/70 cursor-pointer animate-pulse">
-                  🧠 深度思考中...
-                </summary>
-                <p className="mt-2 text-[11px] text-amber-500/40 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-                  {reasoning}
-                </p>
+            <article className="flex gap-4">
+              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-700/30 flex items-center justify-center text-[11px] font-medium text-amber-400/80 mt-0.5">P</div>
+              <details open className="min-w-0 max-w-[75%] rounded-2xl px-4 py-3 bg-amber-950/10 border border-amber-800/15">
+                <summary className="text-[10px] text-amber-500/50 animate-pulse tracking-wide uppercase cursor-pointer">深度思考中</summary>
+                <div className="mt-2 text-[11px] text-amber-500/30 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">{reasoning}</div>
               </details>
-            </div>
+            </article>
           )}
 
           {thinking.length > 0 && (
-            <div className="flex gap-3 justify-start">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-600/20 to-cyan-700/20 border border-cyan-700/30 flex items-center justify-center mt-1">
-                <span className="text-xs">🔍</span>
+            <article className="flex gap-4">
+              <div className="shrink-0 w-8 h-8 rounded-md bg-cyan-950/20 border border-cyan-700/20 flex items-center justify-center text-[11px] font-medium text-cyan-400/60 mt-0.5">S</div>
+              <div className="min-w-0 max-w-[75%] rounded-2xl px-4 py-3 bg-cyan-950/8 border border-cyan-800/15">
+                <div className="text-[10px] text-cyan-400/40 mb-2 tracking-widest uppercase">检索</div>
+                {thinking.map((t, i) => <p key={i} className="text-[11px] text-cyan-500/25 leading-relaxed">{t}</p>)}
               </div>
-              <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-cyan-950/15 border border-cyan-800/20">
-                <div className="text-[11px] text-cyan-400/60 mb-2">检索中...</div>
-                <div className="space-y-1">
-                  {thinking.map((t, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-cyan-600/50" />
-                      <p className="text-[11px] text-cyan-500/40">{t}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            </article>
           )}
 
-          {/* Streaming answer placeholder */}
           {streaming && !reasoning && thinking.length === 0 && (
-            <div className="flex gap-3 justify-start">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600/30 to-amber-700/30 border border-amber-700/40 flex items-center justify-center mt-1">
-                <span className="text-xs">⚜️</span>
+            <article className="flex gap-4">
+              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-700/30 flex items-center justify-center text-[11px] font-medium text-amber-400/80 mt-0.5">P</div>
+              <div className="rounded-2xl px-4 py-3 bg-white/[0.02] border border-white/5 flex gap-1.5 items-center h-10">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce [animation-delay:300ms]" />
               </div>
-              <div className="rounded-2xl px-4 py-3 bg-gray-900/60 border border-gray-800/60">
-                <div className="flex gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600/60 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            </div>
+            </article>
           )}
 
           <div ref={bottomRef} />
-        </div>
+        </main>
 
-        {/* Input */}
-        <div className="shrink-0 pt-3 border-t border-gray-800/50">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 relative">
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={streaming ? "AI 正在回复..." : "输入问题，Enter 发送..."}
-                disabled={streaming}
-                className="w-full bg-gray-900/60 border border-gray-700/60 rounded-2xl px-4 py-3 pr-10 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/30 disabled:opacity-50 transition-all"
-              />
-              {input.length > 0 && (
-                <button
-                  onClick={() => setInput("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 text-xs"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => sendQuery(input)}
-              disabled={streaming || !input.trim()}
-              className="shrink-0 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:from-gray-700 disabled:to-gray-800 disabled:text-gray-600 text-white px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-200 flex items-center gap-1.5 disabled:cursor-not-allowed shadow-lg shadow-amber-900/20"
-            >
-              {streaming ? (
-                <span className="flex gap-1">
-                  <span className="w-1 h-1 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1 h-1 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1 h-1 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </span>
-              ) : (
-                <>
-                  <span>发送</span>
-                  <span className="text-xs opacity-60">↵</span>
-                </>
-              )}
+        {/* ── input (taste: floating, minimal border) ── */}
+        <footer className="shrink-0 pt-3 pb-2 border-t border-white/5">
+          <div className="flex gap-3 items-end">
+            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={keyDown}
+              placeholder={streaming ? "回复中..." : "输入问题，Enter 发送"}
+              disabled={streaming}
+              className="flex-1 bg-transparent border-b border-white/10 px-1 py-3 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:border-amber-500/40 transition-colors disabled:opacity-40" />
+            <button onClick={() => send(input)} disabled={streaming || !input.trim()}
+              className="shrink-0 px-5 py-2.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400/70 text-sm font-medium hover:bg-amber-500/20 hover:text-amber-300/90 disabled:bg-transparent disabled:border-white/5 disabled:text-white/15 transition-all duration-200">
+              {streaming ? "..." : "发送"}
             </button>
           </div>
-        </div>
+        </footer>
       </div>
 
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+      {/* ── keyframes ── */}
+      <style>{`
+        @keyframes msgIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-content .t-h2 { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 1rem; margin-bottom: 0.25rem; }
+        .chat-content .t-h3 { font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.75); margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        .chat-content .t-bold { color: rgba(252,211,77,0.85); font-weight: 500; }
+        .chat-content .t-li { margin-left: 1rem; list-style: disc; color: rgba(255,255,255,0.55); }
+        .chat-content .t-code { font-size: 0.8em; background: rgba(255,255,255,0.04); padding: 1px 4px; border-radius: 3px; color: rgba(252,211,77,0.6); }
+        .chat-content .t-tag { font-size: 0.62rem; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.03); padding: 0 3px; border-radius: 2px; }
+        .chat-content .t-tag-guess { color: rgba(252,211,77,0.3); background: rgba(252,211,77,0.04); }
       `}</style>
     </div>
   );
