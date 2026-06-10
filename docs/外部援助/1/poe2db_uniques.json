@@ -1,0 +1,3512 @@
+[
+  {
+    "name": "布琳翰德印记",
+    "base_type": "木棒",
+    "slug": "/cn/Brynhands_Mark",
+    "archetypes": [
+      "cold",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "霜息",
+    "base_type": "细柄钉锤",
+    "slug": "/cn/Frostbreath",
+    "archetypes": [
+      "minion",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "战壕砥柱",
+    "base_type": "钝钉木棒",
+    "slug": "/cn/Trenchtimbre",
+    "archetypes": [
+      "minion",
+      "crit"
+    ]
+  },
+  {
+    "name": "雕琢的苦难",
+    "base_type": "战镐",
+    "slug": "/cn/Sculpted_Suffering",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "布鲁特斯的刑具",
+    "base_type": "流星锤",
+    "slug": "/cn/Brutus_Lead_Sprinkler",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "尼布洛克",
+    "base_type": "秽咒之锤",
+    "slug": "/cn/Nebuloch",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "沉默之雷",
+    "base_type": "劫难战棒",
+    "slug": "/cn/Mj%C3%B6lner",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "欧罗瓦萨拉",
+    "base_type": "劫难战棒",
+    "slug": "/cn/Olrovasara",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "瑟尔的坚毅",
+    "base_type": "卡古兰锻造锤",
+    "slug": "/cn/Serles_Grit",
+    "archetypes": []
+  },
+  {
+    "name": "猎猪大棒",
+    "base_type": "伐采巨棍",
+    "slug": "/cn/Hoghunt",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "雷姆诺的夺命凶器",
+    "base_type": "橡木大锤",
+    "slug": "/cn/Hrimnors_Hymn",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "穿洞奇械",
+    "base_type": "锻炉巨锤",
+    "slug": "/cn/Trephina",
+    "archetypes": [
+      "lightning",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "脑乱者",
+    "base_type": "镶钉巨棍",
+    "slug": "/cn/Brain_Rattler",
+    "archetypes": [
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "空荡怒吼",
+    "base_type": "教徒大锤",
+    "slug": "/cn/The_Empty_Roar",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "席亚巴",
+    "base_type": "神殿巨锤",
+    "slug": "/cn/Shyaba",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "忠诚之锤",
+    "base_type": "灌铅大锤",
+    "slug": "/cn/Chober_Chaber",
+    "archetypes": [
+      "minion",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "重击之锤",
+    "base_type": "摧枯巨锤",
+    "slug": "/cn/Quecholli",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "局势逆转者",
+    "base_type": "钉头巨锤",
+    "slug": "/cn/Tidebreaker",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "尔奇的巨灵之锤",
+    "base_type": "图腾巨棍",
+    "slug": "/cn/Marohi_Erqi",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "信仰之锤",
+    "base_type": "伟岸巨锤",
+    "slug": "/cn/The_Hammer_of_Faith",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "罗瑞塔的破片",
+    "base_type": "硬木长矛",
+    "slug": "/cn/Splinter_of_Lorrata",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "暴政之握",
+    "base_type": "铁头长矛",
+    "slug": "/cn/Tyrannys_Grip",
+    "archetypes": []
+  },
+  {
+    "name": "缚链之针",
+    "base_type": "狩猎长矛",
+    "slug": "/cn/Chainsting",
+    "archetypes": []
+  },
+  {
+    "name": "苍穹裂片",
+    "base_type": "飞翼长矛",
+    "slug": "/cn/Skysliver",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "戴瓦塔的幻风",
+    "base_type": "历战长矛",
+    "slug": "/cn/Daevatas_Wind",
+    "archetypes": []
+  },
+  {
+    "name": "纠缠之舌",
+    "base_type": "分叉长矛",
+    "slug": "/cn/Tangletongue",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "赛萨之矛",
+    "base_type": "倒刺长矛",
+    "slug": "/cn/Saithas_Spear",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "怨怒塔矛",
+    "base_type": "螺旋长矛",
+    "slug": "/cn/Spire_of_Ire",
+    "archetypes": []
+  },
+  {
+    "name": "血棘",
+    "base_type": "裹布节杖",
+    "slug": "/cn/The_Blood_Thorn",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "囚神杵",
+    "base_type": "长柄节杖",
+    "slug": "/cn/Pillar_of_the_Caged_God",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "哨望",
+    "base_type": "哥特节杖",
+    "slug": "/cn/The_Sentry",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "摩蹉",
+    "base_type": "月牙节杖",
+    "slug": "/cn/Matsya",
+    "archetypes": [
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "纳吉尔的审判",
+    "base_type": "钢缘节杖",
+    "slug": "/cn/Nazirs_Judgement",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "崩塌视界",
+    "base_type": "腾龙节杖",
+    "slug": "/cn/Collapsing_Horizon",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "邪恶之翎",
+    "base_type": "凋零法杖",
+    "slug": "/cn/The_Wicked_Quill",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "赤红占卜师",
+    "base_type": "钙石法杖",
+    "slug": "/cn/Sanguine_Diviner",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "生机之记",
+    "base_type": "调谐法杖",
+    "slug": "/cn/Lifesprig",
+    "archetypes": []
+  },
+  {
+    "name": "阿多尼娅的自我",
+    "base_type": "虹吸法杖",
+    "slug": "/cn/Adonias_Ego",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "恩纳尊的职责",
+    "base_type": "易变法杖",
+    "slug": "/cn/Enezuns_Charge",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "刻咒",
+    "base_type": "刻薄法杖",
+    "slug": "/cn/Cursecarver",
+    "archetypes": []
+  },
+  {
+    "name": "阈限螺旋",
+    "base_type": "扭曲法杖",
+    "slug": "/cn/Liminal_Coil",
+    "archetypes": []
+  },
+  {
+    "name": "符文猎手的呼唤",
+    "base_type": "符文之叉",
+    "slug": "/cn/Runeseekers_Call",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "暮色守望",
+    "base_type": "枯灰长杖",
+    "slug": "/cn/Dusk_Vigil",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "塔林的颤栗之语",
+    "base_type": "冰寒长杖",
+    "slug": "/cn/Taryns_Shiver",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "地缚杖",
+    "base_type": "雷霆长杖",
+    "slug": "/cn/Earthbound",
+    "archetypes": [
+      "ignite",
+      "lightning"
+    ]
+  },
+  {
+    "name": "炽炎之使",
+    "base_type": "耐火长杖",
+    "slug": "/cn/The_Searing_Touch",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "破碎传承者",
+    "base_type": "鸣谐长杖",
+    "slug": "/cn/Sire_of_Shards",
+    "archetypes": []
+  },
+  {
+    "name": "暗影的重负",
+    "base_type": "鸣谐长杖",
+    "slug": "/cn/The_Burden_of_Shadows",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "未生巫妖",
+    "base_type": "饕餮法杖",
+    "slug": "/cn/The_Unborn_Lich",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "冰点低语",
+    "base_type": "永霜法杖",
+    "slug": "/cn/The_Whispering_Ice",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "阿兹里的统治",
+    "base_type": "反射长杖",
+    "slug": "/cn/Atziris_Rule",
+    "archetypes": []
+  },
+  {
+    "name": "渡鸦之群",
+    "base_type": "栖鸟长杖",
+    "slug": "/cn/The_Ravens_Flock",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "遗孀之雹",
+    "base_type": "粗制弓",
+    "slug": "/cn/Widowhail",
+    "archetypes": []
+  },
+  {
+    "name": "骤雨之弦",
+    "base_type": "短弓",
+    "slug": "/cn/Quill_Rain",
+    "archetypes": []
+  },
+  {
+    "name": "铁箍战弓",
+    "base_type": "监守弓",
+    "slug": "/cn/Ironbound",
+    "archetypes": []
+  },
+  {
+    "name": "裂心之弦",
+    "base_type": "反曲弓",
+    "slug": "/cn/Splinterheart",
+    "archetypes": []
+  },
+  {
+    "name": "灭世",
+    "base_type": "复合弓",
+    "slug": "/cn/Doomfletch",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "冥使之琴",
+    "base_type": "双弦弓",
+    "slug": "/cn/Deaths_Harp",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "白银之舌",
+    "base_type": "狂热弓",
+    "slug": "/cn/Slivertongue",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "费尔的诅咒",
+    "base_type": "轰击弓",
+    "slug": "/cn/Fairgraves_Curse",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "狮眼的战弓",
+    "base_type": "重装强弓",
+    "slug": "/cn/Lioneyes_Glare",
+    "archetypes": []
+  },
+  {
+    "name": "迷雾低语者",
+    "base_type": "拼凑战弩",
+    "slug": "/cn/Mist_Whisper",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "要塞的猛禽",
+    "base_type": "紧弦战弩",
+    "slug": "/cn/Rampart_Raptor",
+    "archetypes": []
+  },
+  {
+    "name": "双生视界",
+    "base_type": "双联战弩",
+    "slug": "/cn/Double_Vision",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "黑暗渎神",
+    "base_type": "罪孽权杖",
+    "slug": "/cn/The_Dark_Defiler",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "森林灵像",
+    "base_type": "克己权杖",
+    "slug": "/cn/Sylvans_Effigy",
+    "archetypes": []
+  },
+  {
+    "name": "力量的源泉",
+    "base_type": "预兆权杖",
+    "slug": "/cn/Font_of_Power",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "神圣之火",
+    "base_type": "圣地权杖",
+    "slug": "/cn/Sacred_Flame",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "心脏之指引之掌",
+    "base_type": "圣地权杖",
+    "slug": "/cn/Guiding_Palm_of_the_Heart",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "眼目之指引之掌",
+    "base_type": "圣地权杖",
+    "slug": "/cn/Guiding_Palm_of_the_Eye",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "意念之指引之掌",
+    "base_type": "圣地权杖",
+    "slug": "/cn/Guiding_Palm_of_the_Mind",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "幻梦者之掌",
+    "base_type": "圣地权杖",
+    "slug": "/cn/Palm_of_the_Dreamer",
+    "archetypes": []
+  },
+  {
+    "name": "爱神曼陀罗",
+    "base_type": "易形魔符",
+    "slug": "/cn/Amor_Mandragora",
+    "archetypes": []
+  },
+  {
+    "name": "怨毒之花",
+    "base_type": "荨麻魔符",
+    "slug": "/cn/Spiteful_Floret",
+    "archetypes": [
+      "minion",
+      "physical"
+    ]
+  },
+  {
+    "name": "西赛格之爪",
+    "base_type": "血亲魔符",
+    "slug": "/cn/Hyssegs_Claw",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "血肉傀儡",
+    "base_type": "凶恶魔符",
+    "slug": "/cn/The_Flesh_Poppet",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "奔涌潮汐",
+    "base_type": "蹒跚魔符",
+    "slug": "/cn/Surge_of_the_Tide",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "迷星之锤",
+    "base_type": "行军之锤",
+    "slug": "/cn/Seeing_Stars",
+    "archetypes": [
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "施虐者的慈悲",
+    "base_type": "钉头锤",
+    "slug": "/cn/Sadists_Mercy",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "扭曲天穹",
+    "base_type": "畸变巨锤",
+    "slug": "/cn/Twisted_Empyrean",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "二元一体",
+    "base_type": "守护节杖",
+    "slug": "/cn/Duality",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "魔暴之痕",
+    "base_type": "狂热之弓",
+    "slug": "/cn/Voltaxic_Rift",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "边缘",
+    "base_type": "心木短弓",
+    "slug": "/cn/Periphery",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "末后哀歌",
+    "base_type": "苍凉战弩",
+    "slug": "/cn/The_Last_Lament",
+    "archetypes": []
+  },
+  {
+    "name": "救赎",
+    "base_type": "特拉珊火炮",
+    "slug": "/cn/Redemption",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "阿兹里的蔑视",
+    "base_type": "叉尖战矛",
+    "slug": "/cn/Atziris_Contempt",
+    "archetypes": [
+      "ignite",
+      "lightning"
+    ]
+  },
+  {
+    "name": "天选之人",
+    "base_type": "宏伟战矛",
+    "slug": "/cn/The_Ordained",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "君王之怒",
+    "base_type": "灰烬树皮魔符",
+    "slug": "/cn/Fury_of_the_King",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "刺棘宝甲",
+    "base_type": "锈蚀胸甲",
+    "slug": "/cn/Bramblejack",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "黑髻",
+    "base_type": "覆皮之铠",
+    "slug": "/cn/Blackbraid",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "艾丁的獠牙",
+    "base_type": "铁锻胸甲",
+    "slug": "/cn/Edyrns_Tusks",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "征途之士",
+    "base_type": "劫掠之铠",
+    "slug": "/cn/The_Road_Warrior",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "巨人灾星甲胄",
+    "base_type": "马拉克斯胸甲",
+    "slug": "/cn/Titanrot_Cataphract",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "流浪圣柜",
+    "base_type": "冷钢之铠",
+    "slug": "/cn/Wandering_Reliquary",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "皇家卫甲",
+    "base_type": "连身铠甲",
+    "slug": "/cn/Kingsguard",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "贪婪之拥",
+    "base_type": "瓦尔胸甲",
+    "slug": "/cn/Greeds_Embrace",
+    "archetypes": [
+      "ignite",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "巨铜之顶",
+    "base_type": "冠军胸甲",
+    "slug": "/cn/The_Brass_Dome",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "冈姆的壮志",
+    "base_type": "霸王战铠",
+    "slug": "/cn/Kaoms_Heart",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "棘体猪肤",
+    "base_type": "皮革背心",
+    "slug": "/cn/Bristleboar",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "狐毛铠",
+    "base_type": "菱纹背心",
+    "slug": "/cn/Foxshade",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "拂烬",
+    "base_type": "寻路者外套",
+    "slug": "/cn/Ashrend",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "流丝之沙",
+    "base_type": "蔽影背心",
+    "slug": "/cn/Sands_of_Silk",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "荒途",
+    "base_type": "恐喙鸟皮外套",
+    "slug": "/cn/Briskwrap",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "尘绽",
+    "base_type": "嵌饰背心",
+    "slug": "/cn/Dustbloom",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "疫鼠囚笼",
+    "base_type": "斥候背心",
+    "slug": "/cn/The_Rat_Cage",
+    "archetypes": [
+      "ignite",
+      "poison"
+    ]
+  },
+  {
+    "name": "羽蛇之带",
+    "base_type": "蛇鳞外套",
+    "slug": "/cn/Quatls_Molt",
+    "archetypes": [
+      "ignite",
+      "poison",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "森林之后",
+    "base_type": "走私者外套",
+    "slug": "/cn/Queen_of_the_Forest",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "伊瑞的精通",
+    "base_type": "疾行者背心",
+    "slug": "/cn/Yriels_Fostering",
+    "archetypes": [
+      "poison",
+      "physical"
+    ]
+  },
+  {
+    "name": "占星师",
+    "base_type": "浮华背心",
+    "slug": "/cn/The_Auspex",
+    "archetypes": []
+  },
+  {
+    "name": "西里的战衣",
+    "base_type": "铠装背心",
+    "slug": "/cn/Hyrris_Ire",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "代笔人",
+    "base_type": "破烂长袍",
+    "slug": "/cn/Ghostwrithe",
+    "archetypes": []
+  },
+  {
+    "name": "苦涩之花",
+    "base_type": "羽饰长袍",
+    "slug": "/cn/Bitterbloom",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "疑心暗惑",
+    "base_type": "魔蛊长袍",
+    "slug": "/cn/The_Black_Doubt",
+    "archetypes": [
+      "minion",
+      "cold"
+    ]
+  },
+  {
+    "name": "通灵披风",
+    "base_type": "坠饰之衣",
+    "slug": "/cn/Necromantle",
+    "archetypes": [
+      "minion",
+      "ignite"
+    ]
+  },
+  {
+    "name": "烈炎之袍",
+    "base_type": "丝质之袍",
+    "slug": "/cn/Cloak_of_Flame",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "时空之肌",
+    "base_type": "丝质之袍",
+    "slug": "/cn/Temporalis",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "祈雨祷告",
+    "base_type": "克斯之衣",
+    "slug": "/cn/Prayers_for_Rain",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "特兹拉波卡尔的欲望",
+    "base_type": "奉愿之衣",
+    "slug": "/cn/Tetzlapokals_Desire",
+    "archetypes": []
+  },
+  {
+    "name": "血誓",
+    "base_type": "祭坛长袍",
+    "slug": "/cn/The_Covenant",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "薄暮罩袍",
+    "base_type": "元素使长袍",
+    "slug": "/cn/Gloamgown",
+    "archetypes": [
+      "minion",
+      "cold"
+    ]
+  },
+  {
+    "name": "兀鸣",
+    "base_type": "嵌板之衣",
+    "slug": "/cn/Vis_Mortis",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "卫道之袍",
+    "base_type": "劫难之衣",
+    "slug": "/cn/Cloak_of_Defiance",
+    "archetypes": []
+  },
+  {
+    "name": "敬奉之绸",
+    "base_type": "启迪长袍",
+    "slug": "/cn/Silks_of_Veneration",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "赤红外套",
+    "base_type": "环锁甲",
+    "slug": "/cn/Coat_of_Red",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "荒坟寄主",
+    "base_type": "盗贼护甲",
+    "slug": "/cn/The_Barrow_Dweller",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "铁腕",
+    "base_type": "漂泊者护甲",
+    "slug": "/cn/Irongrasp",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "贱民之拥",
+    "base_type": "披风锁甲",
+    "slug": "/cn/Pariahs_Embrace",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "兽腹",
+    "base_type": "探索者护甲",
+    "slug": "/cn/Belly_of_the_Beast",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "独断专行",
+    "base_type": "探索者护甲",
+    "slug": "/cn/Pragmatism",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "多里亚尼的试作甲",
+    "base_type": "嵌鳞锁甲",
+    "slug": "/cn/Doryanis_Prototype",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "寡妇的统治",
+    "base_type": "骑士护甲",
+    "slug": "/cn/Widows_Reign",
+    "archetypes": []
+  },
+  {
+    "name": "背信弃义",
+    "base_type": "骑士护甲",
+    "slug": "/cn/Perfidy",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "沉没之舟",
+    "base_type": "骑士护甲",
+    "slug": "/cn/The_Sunken_Vessel",
+    "archetypes": []
+  },
+  {
+    "name": "雷语",
+    "base_type": "先祖锁甲",
+    "slug": "/cn/Lightning_Coil",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "灵魂甲胄",
+    "base_type": "英武护甲",
+    "slug": "/cn/The_Coming_Calamity",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "遍洒晨辉",
+    "base_type": "朝圣者长衣",
+    "slug": "/cn/Enfolding_Dawn",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "冰息",
+    "base_type": "锁子长衣",
+    "slug": "/cn/Icetomb",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "幻梦曲",
+    "base_type": "萨满斗篷",
+    "slug": "/cn/Reverie",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "祖灵之约",
+    "base_type": "献祭斗篷",
+    "slug": "/cn/Soul_Mantle",
+    "archetypes": []
+  },
+  {
+    "name": "易变星辰",
+    "base_type": "圣徒长衣",
+    "slug": "/cn/The_Mutable_Star",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "塑成惊涛",
+    "base_type": "潮贤斗篷",
+    "slug": "/cn/Waveshaper",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "赤红礼装",
+    "base_type": "鎏金长衣",
+    "slug": "/cn/Couture_of_Crimson",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "吉尔菲的圣殿",
+    "base_type": "崇礼长衣",
+    "slug": "/cn/Geofris_Sanctuary",
+    "archetypes": []
+  },
+  {
+    "name": "破禁者",
+    "base_type": "崇礼长衣",
+    "slug": "/cn/The_Unleashed",
+    "archetypes": []
+  },
+  {
+    "name": "奉圣庇护所",
+    "base_type": "灵鸦斗篷",
+    "slug": "/cn/Sacrosanctum",
+    "archetypes": []
+  },
+  {
+    "name": "满溢之甲",
+    "base_type": "华饰环甲",
+    "slug": "/cn/Loreweave",
+    "archetypes": []
+  },
+  {
+    "name": "忠诚法令",
+    "base_type": "远古链甲",
+    "slug": "/cn/Decree_of_Loyalty",
+    "archetypes": []
+  },
+  {
+    "name": "艾米兰的兜裙",
+    "base_type": "隐士束衣",
+    "slug": "/cn/Apron_of_Emiran",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "幽邃之躯",
+    "base_type": "防水外衣",
+    "slug": "/cn/Gloomform",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "山岭的传承",
+    "base_type": "遁世束衣",
+    "slug": "/cn/Sierran_Inheritance",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "跃舞蜃影",
+    "base_type": "远行者外衣",
+    "slug": "/cn/The_Dancing_Mirage",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "赫耀导体",
+    "base_type": "隐士束衣",
+    "slug": "/cn/Redflare_Conduit",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "泽佛伊的毛披肩",
+    "base_type": "猎头者外衣",
+    "slug": "/cn/Zerphis_Serape",
+    "archetypes": []
+  },
+  {
+    "name": "卡斯普里意志",
+    "base_type": "暗影束衣",
+    "slug": "/cn/Cospris_Will",
+    "archetypes": []
+  },
+  {
+    "name": "凯琳飞翼",
+    "base_type": "锈蚀巨盔",
+    "slug": "/cn/Wings_of_Caelyn",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "柏安登的犄角",
+    "base_type": "锈蚀巨盔",
+    "slug": "/cn/Horns_of_Bynden",
+    "archetypes": []
+  },
+  {
+    "name": "艾兹麦的荣光",
+    "base_type": "兵卒巨盔",
+    "slug": "/cn/Ezomyte_Peak",
+    "archetypes": []
+  },
+  {
+    "name": "黑阳之冠",
+    "base_type": "裹布巨盔",
+    "slug": "/cn/Black_Sun_Crest",
+    "archetypes": []
+  },
+  {
+    "name": "惊险刺激",
+    "base_type": "螺旋巨盔",
+    "slug": "/cn/Thrillsteel",
+    "archetypes": []
+  },
+  {
+    "name": "丧钟",
+    "base_type": "精锐巨盔",
+    "slug": "/cn/Deidbell",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "赤红艳阳之冠",
+    "base_type": "战士巨盔",
+    "slug": "/cn/Corona_of_the_Red_Sun",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "血债",
+    "base_type": "刚烈巨盔",
+    "slug": "/cn/Blood_Price",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "印斯茅斯",
+    "base_type": "破旧兜帽",
+    "slug": "/cn/Innsmouth",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "金缕帽",
+    "base_type": "毛毡帽",
+    "slug": "/cn/Goldrim",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "辉煌遗恨",
+    "base_type": "花边兜帽",
+    "slug": "/cn/Radiant_Grief",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "艾尔弗雷",
+    "base_type": "猎者兜帽",
+    "slug": "/cn/Elevore",
+    "archetypes": []
+  },
+  {
+    "name": "收缩指令",
+    "base_type": "毒蝰帽",
+    "slug": "/cn/Constricting_Command",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "黑盗勋章",
+    "base_type": "海贼帽",
+    "slug": "/cn/The_Black_Insignia",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "斯塔空加之首",
+    "base_type": "皮缚兜帽",
+    "slug": "/cn/Starkonjas_Head",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "寒焰",
+    "base_type": "丝绒帽",
+    "slug": "/cn/Heatshiver",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "迈里斯之妇",
+    "base_type": "匿踪兜帽",
+    "slug": "/cn/Myris_Uxor",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "极地之眼",
+    "base_type": "覆甲帽",
+    "slug": "/cn/Alphas_Howl",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "刺棘之冠",
+    "base_type": "细枝头冠",
+    "slug": "/cn/Crown_of_Thorns",
+    "archetypes": []
+  },
+  {
+    "name": "吞噬者王冠",
+    "base_type": "柳枝冠冕",
+    "slug": "/cn/The_Devouring_Diadem",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "阿雅的面目",
+    "base_type": "珠饰头冠",
+    "slug": "/cn/Visage_of_Ayah",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "禁域面容",
+    "base_type": "锁链冠冕",
+    "slug": "/cn/Sandstorm_Visage",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "缝合恶魔面罩",
+    "base_type": "羽饰冠冕",
+    "slug": "/cn/Mask_of_the_Stitched_Demon",
+    "archetypes": []
+  },
+  {
+    "name": "邪眼之冠",
+    "base_type": "朱砂头冠",
+    "slug": "/cn/Crown_of_Eyes",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "禁语",
+    "base_type": "翠玉冠冕",
+    "slug": "/cn/Scolds_Bridle",
+    "archetypes": []
+  },
+  {
+    "name": "靛蓝之冠",
+    "base_type": "术士冠冕",
+    "slug": "/cn/Indigon",
+    "archetypes": []
+  },
+  {
+    "name": "苍髯皓首",
+    "base_type": "宽沿之盔",
+    "slug": "/cn/Greymake",
+    "archetypes": []
+  },
+  {
+    "name": "阿里安的拼凑",
+    "base_type": "守护之盔",
+    "slug": "/cn/Erians_Cobble",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "铁驭",
+    "base_type": "护面之盔",
+    "slug": "/cn/Ironride",
+    "archetypes": [
+      "lightning",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "笑面骑士",
+    "base_type": "掩面之盔",
+    "slug": "/cn/The_Smiling_Knight",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "厄难骑士",
+    "base_type": "卫护之盔",
+    "slug": "/cn/The_Vile_Knight",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "千里狙敌",
+    "base_type": "封闭之盔",
+    "slug": "/cn/Assailum",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "祭礼之雨",
+    "base_type": "华饰之盔",
+    "slug": "/cn/The_Bringer_of_Rain",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "敏锐法令",
+    "base_type": "远古面甲",
+    "slug": "/cn/Decree_of_Acuity",
+    "archetypes": []
+  },
+  {
+    "name": "胜者桂冠",
+    "base_type": "铁锻王冠",
+    "slug": "/cn/Crown_of_the_Victor",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "青铜须髯",
+    "base_type": "犄角王冠",
+    "slug": "/cn/Bronzebeard",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "殒皇之冠",
+    "base_type": "密教头冠",
+    "slug": "/cn/Crown_of_the_Pale_King",
+    "archetypes": []
+  },
+  {
+    "name": "夜幕",
+    "base_type": "英烈之冠",
+    "slug": "/cn/Veil_of_the_Night",
+    "archetypes": []
+  },
+  {
+    "name": "锋锥之帽",
+    "base_type": "沉重王冠",
+    "slug": "/cn/Cornathaum",
+    "archetypes": []
+  },
+  {
+    "name": "弧光守护者",
+    "base_type": "灵骨王冠",
+    "slug": "/cn/Keeper_of_the_Arc",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "黑暗残迹",
+    "base_type": "阴暗王冠",
+    "slug": "/cn/Vestige_of_Darkness",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "空洞面罩",
+    "base_type": "凿制之面",
+    "slug": "/cn/The_Hollow_Mask",
+    "archetypes": []
+  },
+  {
+    "name": "血咒师面罩",
+    "base_type": "覆颜面具",
+    "slug": "/cn/Mask_of_the_Sanguimancer",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "共鸣之面",
+    "base_type": "兜帽之面",
+    "slug": "/cn/Leer_Cast",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "阿萨克的凝视",
+    "base_type": "蒙纱之面",
+    "slug": "/cn/Atsaks_Sight",
+    "archetypes": [
+      "poison",
+      "crit"
+    ]
+  },
+  {
+    "name": "谜容",
+    "base_type": "部族之面",
+    "slug": "/cn/The_Vertex",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "混沌一瞥",
+    "base_type": "部族之面",
+    "slug": "/cn/Glimpse_of_Chaos",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "三龙战纪",
+    "base_type": "坚固之面",
+    "slug": "/cn/The_Three_Dragons",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "智者之秘",
+    "base_type": "死神之面",
+    "slug": "/cn/Mind_of_the_Council",
+    "archetypes": [
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "毁面者",
+    "base_type": "敦实护手",
+    "slug": "/cn/Facebreaker",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "树之指",
+    "base_type": "铆接护手",
+    "slug": "/cn/Treefingers",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "意识之缘",
+    "base_type": "淬炼护手",
+    "slug": "/cn/Lochtonial_Caress",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "恐惧之拳",
+    "base_type": "增固护手",
+    "slug": "/cn/Dreadfist",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "阿兹里的捷思",
+    "base_type": "铸锻护手",
+    "slug": "/cn/Atziris_Acuity",
+    "archetypes": []
+  },
+  {
+    "name": "仇恨熔炉",
+    "base_type": "铸锻护手",
+    "slug": "/cn/Hateforge",
+    "archetypes": []
+  },
+  {
+    "name": "帝国之掌",
+    "base_type": "泰坦护手",
+    "slug": "/cn/Empires_Grasp",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "北境凶爪",
+    "base_type": "绒皮护腕",
+    "slug": "/cn/Northpaw",
+    "archetypes": [
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "凛冬之握",
+    "base_type": "牢固护腕",
+    "slug": "/cn/Grip_of_Winter",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "光阴虚度",
+    "base_type": "截片护腕",
+    "slug": "/cn/Idle_Hands",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "蝮吻",
+    "base_type": "精纺护腕",
+    "slug": "/cn/Snakebite",
+    "archetypes": [
+      "poison",
+      "crit"
+    ]
+  },
+  {
+    "name": "马雷格罗的玫红手套",
+    "base_type": "精工护腕",
+    "slug": "/cn/Maligaros_Virtuosity",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "恐惧之翼",
+    "base_type": "雕饰护腕",
+    "slug": "/cn/Horrors_Flight",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "画师之侍",
+    "base_type": "破碎手套",
+    "slug": "/cn/Painters_Servant",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "塑烛者",
+    "base_type": "肃穆手套",
+    "slug": "/cn/Candlemaker",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "德瑞的精神手套",
+    "base_type": "缝合手套",
+    "slug": "/cn/Doedres_Tenure",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "奇托克的洪流",
+    "base_type": "宝石手套",
+    "slug": "/cn/Kitokos_Current",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "恶魔缝补者",
+    "base_type": "精致手套",
+    "slug": "/cn/Demon_Stitcher",
+    "archetypes": [
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "夜鳞",
+    "base_type": "海灵鳞缀手套",
+    "slug": "/cn/Nightscale",
+    "archetypes": [
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "利奥波德的赞许",
+    "base_type": "刺绣手套",
+    "slug": "/cn/Leopolds_Applause",
+    "archetypes": []
+  },
+  {
+    "name": "金石手甲",
+    "base_type": "环锁手甲",
+    "slug": "/cn/Jarngreipr",
+    "archetypes": []
+  },
+  {
+    "name": "富贵之运",
+    "base_type": "垫层护手",
+    "slug": "/cn/Aurseize",
+    "archetypes": []
+  },
+  {
+    "name": "死神的袭击",
+    "base_type": "合钢手甲",
+    "slug": "/cn/Deathblow",
+    "archetypes": []
+  },
+  {
+    "name": "瓦拉库的离奇",
+    "base_type": "铁板护手",
+    "slug": "/cn/Valakos_Vice",
+    "archetypes": [
+      "ignite",
+      "lightning"
+    ]
+  },
+  {
+    "name": "艾瑞斯维恩之翼",
+    "base_type": "冷芒手甲",
+    "slug": "/cn/Aerisvanes_Wings",
+    "archetypes": []
+  },
+  {
+    "name": "死神铰链",
+    "base_type": "华贵护手",
+    "slug": "/cn/Death_Articulated",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "坟场之链",
+    "base_type": "绳索袖带",
+    "slug": "/cn/Gravebind",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "悲运之缚",
+    "base_type": "风霜袖带",
+    "slug": "/cn/Shackles_of_the_Wretched",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "蓝焰护腕",
+    "base_type": "金索袖带",
+    "slug": "/cn/Blueflame_Bracers",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "囚徒的镣铐",
+    "base_type": "卡古兰袖带",
+    "slug": "/cn/The_Prisoners_Manacles",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "毒疫之指",
+    "base_type": "薄纱裹手",
+    "slug": "/cn/Plaguefinger",
+    "archetypes": [
+      "poison",
+      "crit"
+    ]
+  },
+  {
+    "name": "败兴灾星",
+    "base_type": "亚麻裹手",
+    "slug": "/cn/Killjoy",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "蒙福的羁绊",
+    "base_type": "亚麻裹手",
+    "slug": "/cn/Blessed_Bonds",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "智行之手",
+    "base_type": "螺旋裹手",
+    "slug": "/cn/Hand_of_Wisdom_and_Action",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "精华收割器",
+    "base_type": "鬼祟裹手",
+    "slug": "/cn/Essentia_Sanguis",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "雷拳",
+    "base_type": "万用裹手",
+    "slug": "/cn/Thunderfist",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "军团的进击",
+    "base_type": "粗制胫甲",
+    "slug": "/cn/Legionstride",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "涉灵",
+    "base_type": "铁锻胫甲",
+    "slug": "/cn/Corpsewade",
+    "archetypes": []
+  },
+  {
+    "name": "无尽之距",
+    "base_type": "青铜胫甲",
+    "slug": "/cn/The_Infinite_Pursuit",
+    "archetypes": []
+  },
+  {
+    "name": "踏趾靴",
+    "base_type": "镶边胫甲",
+    "slug": "/cn/Trampletoe",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "怒火降生",
+    "base_type": "坚石胫甲",
+    "slug": "/cn/Birth_of_Fury",
+    "archetypes": [
+      "ignite",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "荆皮护靴",
+    "base_type": "花边靴",
+    "slug": "/cn/Briarpatch",
+    "archetypes": [
+      "lightning",
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "博运步伐",
+    "base_type": "浮雕靴",
+    "slug": "/cn/Gamblesprint",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "踏林长靴",
+    "base_type": "蜥鳞靴",
+    "slug": "/cn/Bushwhack",
+    "archetypes": []
+  },
+  {
+    "name": "流光步履",
+    "base_type": "稻草鞋履",
+    "slug": "/cn/Luminous_Pace",
+    "archetypes": []
+  },
+  {
+    "name": "苦行之履",
+    "base_type": "裹布鞋履",
+    "slug": "/cn/Wanderlust",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "灵骸之履",
+    "base_type": "硬框鞋履",
+    "slug": "/cn/Bones_of_Ullr",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "回光之迹",
+    "base_type": "丝绸便鞋",
+    "slug": "/cn/Wondertrap",
+    "archetypes": []
+  },
+  {
+    "name": "恶风足迹",
+    "base_type": "羽饰鞋履",
+    "slug": "/cn/Windscream",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "豪侠骑士",
+    "base_type": "锁链战靴",
+    "slug": "/cn/The_Knight-errant",
+    "archetypes": [
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "暗雷",
+    "base_type": "加固战靴",
+    "slug": "/cn/Darkray_Vectors",
+    "archetypes": [
+      "lightning",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "欧本的壁垒",
+    "base_type": "层钢战靴",
+    "slug": "/cn/Oberns_Bastion",
+    "archetypes": [
+      "lightning",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "藏锋",
+    "base_type": "掩护战靴",
+    "slug": "/cn/Shankgonne",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "覆灭之兆",
+    "base_type": "牢靠绑腿",
+    "slug": "/cn/Wake_of_Destruction",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "飞行法令",
+    "base_type": "远古护腿",
+    "slug": "/cn/Decree_of_Flight",
+    "archetypes": []
+  },
+  {
+    "name": "鬼行",
+    "base_type": "线缝便鞋",
+    "slug": "/cn/Ghostmarch",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "神力靴",
+    "base_type": "狩猎便鞋",
+    "slug": "/cn/Powertread",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "甲虫之口",
+    "base_type": "鹅绒便鞋",
+    "slug": "/cn/Beetlebite",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "御身守卫",
+    "base_type": "朽木塔盾",
+    "slug": "/cn/Dionadair",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "伍夫之难",
+    "base_type": "彩绘塔盾",
+    "slug": "/cn/Wulfsbane",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "毁灭雄关",
+    "base_type": "加固塔盾",
+    "slug": "/cn/Doomgate",
+    "archetypes": []
+  },
+  {
+    "name": "乐土之窗",
+    "base_type": "障壁塔盾",
+    "slug": "/cn/Window_to_Paradise",
+    "archetypes": []
+  },
+  {
+    "name": "狼蛛",
+    "base_type": "壁垒塔盾",
+    "slug": "/cn/Lycosidae",
+    "archetypes": [
+      "poison",
+      "physical"
+    ]
+  },
+  {
+    "name": "红刃旗帜",
+    "base_type": "徽纹塔盾",
+    "slug": "/cn/Redblade_Banner",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "斯瓦林",
+    "base_type": "熔铸塔盾",
+    "slug": "/cn/Svalinn",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "五芒屏障",
+    "base_type": "黑钢塔盾",
+    "slug": "/cn/Chernobogs_Pillar",
+    "archetypes": [
+      "ignite",
+      "physical"
+    ]
+  },
+  {
+    "name": "阿维尔之轮",
+    "base_type": "硬木圆盾",
+    "slug": "/cn/Arvils_Wheel",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "乱羽金城",
+    "base_type": "新月圆盾",
+    "slug": "/cn/Feathered_Fortress",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "神谕",
+    "base_type": "饰印纹章盾",
+    "slug": "/cn/Alkem_Eira",
+    "archetypes": []
+  },
+  {
+    "name": "橡木盟誓",
+    "base_type": "魔印纹章盾",
+    "slug": "/cn/Oaksworn",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "萨费尔的智慧",
+    "base_type": "圣徽纹章盾",
+    "slug": "/cn/Saffells_Frame",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "阿杜拉荣徽",
+    "base_type": "铃鸣纹章盾",
+    "slug": "/cn/Crest_of_Ardura",
+    "archetypes": []
+  },
+  {
+    "name": "马赫索托之诈",
+    "base_type": "噩兆纹章盾",
+    "slug": "/cn/Mahuxotls_Machination",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "烈炎之翼",
+    "base_type": "噩兆纹章盾",
+    "slug": "/cn/Rise_of_the_Phoenix",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "黑暗止步",
+    "base_type": "皮制轻盾",
+    "slug": "/cn/Dunkelhalt",
+    "archetypes": []
+  },
+  {
+    "name": "夜曲",
+    "base_type": "木制轻盾",
+    "slug": "/cn/Nocturne",
+    "archetypes": []
+  },
+  {
+    "name": "艾佐的诗篇",
+    "base_type": "嵌板轻盾",
+    "slug": "/cn/Rondel_de_Ezo",
+    "archetypes": []
+  },
+  {
+    "name": "血垒障壁",
+    "base_type": "锻铁轻盾",
+    "slug": "/cn/Bloodbarrier",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "冰霜之镜",
+    "base_type": "凸脊轻盾",
+    "slug": "/cn/Kaltenhalt",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "银芒荆棘",
+    "base_type": "尖刺轻盾",
+    "slug": "/cn/Silverthorne",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "凯尔格拉的弧光",
+    "base_type": "华丽轻盾",
+    "slug": "/cn/Calgyras_Arc",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "烈阳残片",
+    "base_type": "阵列轻盾",
+    "slug": "/cn/Sunsplinter",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "逝亡呢喃",
+    "base_type": "枝条法器",
+    "slug": "/cn/Deathrattle",
+    "archetypes": []
+  },
+  {
+    "name": "明光丝缕",
+    "base_type": "织造法器",
+    "slug": "/cn/Threaded_Light",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "残酷雕塑",
+    "base_type": "鹿角法器",
+    "slug": "/cn/Effigy_of_Cruelty",
+    "archetypes": [
+      "minion",
+      "crit"
+    ]
+  },
+  {
+    "name": "不洁召唤",
+    "base_type": "铭刻法器",
+    "slug": "/cn/Carrion_Call",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "毒蛇的训诫",
+    "base_type": "音调法器",
+    "slug": "/cn/Serpents_Lesson",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "永恒火花",
+    "base_type": "水晶法器",
+    "slug": "/cn/The_Eternal_Spark",
+    "archetypes": [
+      "poison",
+      "lightning"
+    ]
+  },
+  {
+    "name": "艾普的霸权",
+    "base_type": "巫毒法器",
+    "slug": "/cn/Apeps_Supremacy",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "无尽之衣",
+    "base_type": "华服装束",
+    "slug": "/cn/Tabula_Rasa",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "忠诚之肤",
+    "base_type": "华服装束",
+    "slug": "/cn/Skin_of_the_Loyal",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "无生之辱",
+    "base_type": "恢弘盛装",
+    "slug": "/cn/Morior_Invictus",
+    "archetypes": []
+  },
+  {
+    "name": "阿兹里的威权",
+    "base_type": "献祭盛装",
+    "slug": "/cn/Atziris_Splendour",
+    "archetypes": []
+  },
+  {
+    "name": "形单影只",
+    "base_type": "恢弘面罩",
+    "slug": "/cn/Solus_Ipse",
+    "archetypes": []
+  },
+  {
+    "name": "公理不存",
+    "base_type": "恢弘袖口",
+    "slug": "/cn/Sine_Aequo",
+    "archetypes": []
+  },
+  {
+    "name": "无始之时",
+    "base_type": "恢弘腿甲",
+    "slug": "/cn/Ab_Aeterno",
+    "archetypes": []
+  },
+  {
+    "name": "升华之美德",
+    "base_type": "金色面具",
+    "slug": "/cn/Demigods_Virtue",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "福尔的战铠",
+    "base_type": "嵌板长衣",
+    "slug": "/cn/Volls_Protector",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "遗忘守卫",
+    "base_type": "原始印记",
+    "slug": "/cn/Forgotten_Warden",
+    "archetypes": []
+  },
+  {
+    "name": "阿兹里的金履",
+    "base_type": "束带长靴",
+    "slug": "/cn/Atziris_Step",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "夜临",
+    "base_type": "要塞塔盾",
+    "slug": "/cn/Nightfall",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "降伏",
+    "base_type": "瓦尔塔盾",
+    "slug": "/cn/The_Surrender",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "符父之眼",
+    "base_type": "庄严护卫",
+    "slug": "/cn/Eyes_of_the_Runefather",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "元素的庇护",
+    "base_type": "精巧纹章盾",
+    "slug": "/cn/Prism_Guardian",
+    "archetypes": []
+  },
+  {
+    "name": "献祭之心",
+    "base_type": "圣洁法器",
+    "slug": "/cn/Rathpith_Globe",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "英雄的悲歌",
+    "base_type": "永恒珠宝",
+    "slug": "/cn/Heroic_Tragedy",
+    "archetypes": []
+  },
+  {
+    "name": "不朽之恨",
+    "base_type": "永恒珠宝",
+    "slug": "/cn/Undying_Hate",
+    "archetypes": []
+  },
+  {
+    "name": "聚光之石",
+    "base_type": "红玉",
+    "slug": "/cn/Grand_Spectrum",
+    "archetypes": []
+  },
+  {
+    "name": "人格分裂",
+    "base_type": "红玉",
+    "slug": "/cn/Split_Personality",
+    "archetypes": []
+  },
+  {
+    "name": "天神之音",
+    "base_type": "蓝玉",
+    "slug": "/cn/Voices",
+    "archetypes": []
+  },
+  {
+    "name": "妄想症",
+    "base_type": "宝钻",
+    "slug": "/cn/Megalomaniac",
+    "archetypes": []
+  },
+  {
+    "name": "无根之源",
+    "base_type": "宝钻",
+    "slug": "/cn/From_Nothing",
+    "archetypes": []
+  },
+  {
+    "name": "可控变形",
+    "base_type": "宝钻",
+    "slug": "/cn/Controlled_Metamorphosis",
+    "archetypes": []
+  },
+  {
+    "name": "信念的棱镜",
+    "base_type": "宝钻",
+    "slug": "/cn/Prism_of_Belief",
+    "archetypes": []
+  },
+  {
+    "name": "浮华",
+    "base_type": "宝钻",
+    "slug": "/cn/The_Adorned",
+    "archetypes": []
+  },
+  {
+    "name": "泉井之心",
+    "base_type": "宝钻",
+    "slug": "/cn/Heart_of_the_Well",
+    "archetypes": []
+  },
+  {
+    "name": "血肉玄炉",
+    "base_type": "宝钻",
+    "slug": "/cn/Flesh_Crucible",
+    "archetypes": []
+  },
+  {
+    "name": "抗衡黑暗",
+    "base_type": "失落的宝钻",
+    "slug": "/cn/Against_the_Darkness",
+    "archetypes": []
+  },
+  {
+    "name": "求和者的饮剂",
+    "base_type": "土罐遗物",
+    "slug": "/cn/The_Peacemakers_Draught",
+    "archetypes": []
+  },
+  {
+    "name": "绝境同盟",
+    "base_type": "花瓶遗物",
+    "slug": "/cn/The_Desperate_Alliance",
+    "archetypes": []
+  },
+  {
+    "name": "季节变迁",
+    "base_type": "封印遗物",
+    "slug": "/cn/The_Changing_Seasons",
+    "archetypes": []
+  },
+  {
+    "name": "领袖的重负",
+    "base_type": "挂毯遗物",
+    "slug": "/cn/The_Burden_of_Leadership",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "终末之火",
+    "base_type": "熏香遗物",
+    "slug": "/cn/The_Last_Flame",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "冰灵之吼",
+    "base_type": "宽矢箭袋",
+    "slug": "/cn/Asphyxias_Wrath",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "黑炎之芒",
+    "base_type": "火灵箭袋",
+    "slug": "/cn/Blackgleam",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "攫命",
+    "base_type": "圣骨箭袋",
+    "slug": "/cn/The_Lethal_Draw",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "寒锋之卫",
+    "base_type": "钝矢箭袋",
+    "slug": "/cn/Rearguard",
+    "archetypes": [
+      "poison",
+      "physical"
+    ]
+  },
+  {
+    "name": "沉郁之棍",
+    "base_type": "淬毒箭袋",
+    "slug": "/cn/Murkshaft",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "卡迪罗的赌局",
+    "base_type": "精工箭袋",
+    "slug": "/cn/Cadiros_Gambit",
+    "archetypes": []
+  },
+  {
+    "name": "穿心",
+    "base_type": "穿射箭袋",
+    "slug": "/cn/Drillneck",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "望而不及",
+    "base_type": "贯心箭袋",
+    "slug": "/cn/Beyond_Reach",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "燃印",
+    "base_type": "赤红项链",
+    "slug": "/cn/Igniferis",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "乌尔顿的雕像",
+    "base_type": "赤红项链",
+    "slug": "/cn/Idol_of_Uldurn",
+    "archetypes": []
+  },
+  {
+    "name": "永恒凝望",
+    "base_type": "碧蓝项链",
+    "slug": "/cn/The_Everlasting_Gaze",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "恩吉尔的和谐",
+    "base_type": "碧蓝项链",
+    "slug": "/cn/Ungils_Harmony",
+    "archetypes": [
+      "physical",
+      "crit"
+    ]
+  },
+  {
+    "name": "神圣树脂",
+    "base_type": "琥珀项链",
+    "slug": "/cn/Revered_Resin",
+    "archetypes": []
+  },
+  {
+    "name": "屠戮之心",
+    "base_type": "琥珀项链",
+    "slug": "/cn/Carnage_Heart",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "索伏之血",
+    "base_type": "琥珀项链",
+    "slug": "/cn/Xophs_Blood",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "稳步法印",
+    "base_type": "翠玉项链",
+    "slug": "/cn/Surefooted_Sigil",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "暴风之语",
+    "base_type": "翠玉项链",
+    "slug": "/cn/Choir_of_the_Storm",
+    "archetypes": [
+      "lightning",
+      "crit"
+    ]
+  },
+  {
+    "name": "命运之抗争",
+    "base_type": "翠玉项链",
+    "slug": "/cn/Defiance_of_Destiny",
+    "archetypes": []
+  },
+  {
+    "name": "猞利子护符",
+    "base_type": "海玉项链",
+    "slug": "/cn/Ligurium_Talisman",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "群魔殿",
+    "base_type": "海玉项链",
+    "slug": "/cn/The_Pandemonius",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "拉兹瓦的灵石",
+    "base_type": "海玉项链",
+    "slug": "/cn/Stone_of_Lazhwar",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "脆弱的诗文",
+    "base_type": "月影项链",
+    "slug": "/cn/Rondel_of_Fragility",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "信念之砧",
+    "base_type": "血岩项链",
+    "slug": "/cn/The_Anvil",
+    "archetypes": []
+  },
+  {
+    "name": "苦难羁绊",
+    "base_type": "血岩项链",
+    "slug": "/cn/Yoke_of_Suffering",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "均衡之符",
+    "base_type": "星辉项链",
+    "slug": "/cn/Astramentis",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "伊克斯的专注",
+    "base_type": "星辉项链",
+    "slug": "/cn/Fixation_of_Yix",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "困苦尖啸",
+    "base_type": "星辉项链",
+    "slug": "/cn/Strugglescream",
+    "archetypes": []
+  },
+  {
+    "name": "辛格拉的凝视",
+    "base_type": "星辉项链",
+    "slug": "/cn/Hinekoras_Sight",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "阿吉斯的道标",
+    "base_type": "日曜项链",
+    "slug": "/cn/Beacon_of_Azis",
+    "archetypes": [
+      "ignite",
+      "crit"
+    ]
+  },
+  {
+    "name": "烈火繁花",
+    "base_type": "日曜项链",
+    "slug": "/cn/Fireflower",
+    "archetypes": [
+      "ignite"
+    ]
+  },
+  {
+    "name": "完美信条",
+    "base_type": "日曜项链",
+    "slug": "/cn/Immaculate_Adherence",
+    "archetypes": []
+  },
+  {
+    "name": "寻宝者的心眼",
+    "base_type": "帝金项链",
+    "slug": "/cn/Eye_of_Chayula",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "毒蛇之卵",
+    "base_type": "帝金项链",
+    "slug": "/cn/Serpents_Egg",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "黄昏花瓣",
+    "base_type": "真相之链",
+    "slug": "/cn/Eventide_Petals",
+    "archetypes": [
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "幽暗之语",
+    "base_type": "锻铁戒指",
+    "slug": "/cn/Blackheart",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "冰牙指环",
+    "base_type": "锻铁戒指",
+    "slug": "/cn/Icefang_Orbit",
+    "archetypes": [
+      "poison",
+      "cold"
+    ]
+  },
+  {
+    "name": "珍藏的痛苦",
+    "base_type": "锻铁戒指",
+    "slug": "/cn/Prized_Pain",
+    "archetypes": []
+  },
+  {
+    "name": "静脉穿刺",
+    "base_type": "锻铁戒指",
+    "slug": "/cn/Venopuncture",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "德瑞的魔具",
+    "base_type": "青金戒指",
+    "slug": "/cn/Doedres_Damning",
+    "archetypes": []
+  },
+  {
+    "name": "微光虫",
+    "base_type": "青金戒指",
+    "slug": "/cn/Glowswarm",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "灾变的种子",
+    "base_type": "青金戒指",
+    "slug": "/cn/Seed_of_Cataclysm",
+    "archetypes": [
+      "ignite",
+      "crit"
+    ]
+  },
+  {
+    "name": "爆裂蔓延",
+    "base_type": "红玉戒指",
+    "slug": "/cn/Cracklecreep",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "沸腾桎梏",
+    "base_type": "红玉戒指",
+    "slug": "/cn/Blistering_Bond",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "极圈",
+    "base_type": "蓝玉戒指",
+    "slug": "/cn/Polcirkeln",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "梦语之痕",
+    "base_type": "蓝玉戒指",
+    "slug": "/cn/Dream_Fragments",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "兄弟会的耳语",
+    "base_type": "蓝玉戒指",
+    "slug": "/cn/Whisper_of_the_Brotherhood",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "挖掘者",
+    "base_type": "黄玉戒指",
+    "slug": "/cn/The_Burrower",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "意志呼唤",
+    "base_type": "黄玉戒指",
+    "slug": "/cn/Call_of_the_Brotherhood",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "电光之石",
+    "base_type": "黄玉戒指",
+    "slug": "/cn/Levinstone",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "明恩的慧心",
+    "base_type": "紫晶戒指",
+    "slug": "/cn/Mings_Heart",
+    "archetypes": []
+  },
+  {
+    "name": "原初之罪",
+    "base_type": "紫晶戒指",
+    "slug": "/cn/Original_Sin",
+    "archetypes": [
+      "ignite",
+      "poison"
+    ]
+  },
+  {
+    "name": "黑焰",
+    "base_type": "紫晶戒指",
+    "slug": "/cn/Blackflame",
+    "archetypes": [
+      "ignite",
+      "poison"
+    ]
+  },
+  {
+    "name": "破幕者",
+    "base_type": "紫晶戒指",
+    "slug": "/cn/Veilpiercer",
+    "archetypes": []
+  },
+  {
+    "name": "警戒凝视",
+    "base_type": "翡翠戒指",
+    "slug": "/cn/Vigilant_View",
+    "archetypes": []
+  },
+  {
+    "name": "亡者呼唤",
+    "base_type": "翡翠戒指",
+    "slug": "/cn/Death_Rush",
+    "archetypes": []
+  },
+  {
+    "name": "窃罪",
+    "base_type": "翡翠戒指",
+    "slug": "/cn/Thiefs_Torment",
+    "archetypes": []
+  },
+  {
+    "name": "永恒紧缩之戒",
+    "base_type": "珠玉戒指",
+    "slug": "/cn/Evergrasping_Ring",
+    "archetypes": []
+  },
+  {
+    "name": "蛇穴",
+    "base_type": "珠玉戒指",
+    "slug": "/cn/Snakepit",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "结魂之环",
+    "base_type": "珠玉戒指",
+    "slug": "/cn/Heartbound_Loop",
+    "archetypes": [
+      "minion",
+      "crit"
+    ]
+  },
+  {
+    "name": "神赐",
+    "base_type": "三相戒指",
+    "slug": "/cn/Gifts_from_Above",
+    "archetypes": [
+      "crit"
+    ]
+  },
+  {
+    "name": "元素之章",
+    "base_type": "三相戒指",
+    "slug": "/cn/The_Taming",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "普兰德斯的印章",
+    "base_type": "金光戒指",
+    "slug": "/cn/Perandus_Seal",
+    "archetypes": []
+  },
+  {
+    "name": "贪欲之记",
+    "base_type": "金光戒指",
+    "slug": "/cn/Andvarius",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "赌神芬多",
+    "base_type": "金光戒指",
+    "slug": "/cn/Ventors_Gamble",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "腐朽迸发",
+    "base_type": "潜能之戒",
+    "slug": "/cn/Bursting_Decay",
+    "archetypes": []
+  },
+  {
+    "name": "库勒马克之握",
+    "base_type": "深渊印戒",
+    "slug": "/cn/Grip_of_Kulemak",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "贝雷克的冰与火之歌",
+    "base_type": "双玉戒指",
+    "slug": "/cn/Bereks_Pass",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "贝雷克的火与雷之乐",
+    "base_type": "双玉戒指",
+    "slug": "/cn/Bereks_Respite",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "贝雷克的冰与雷之曲",
+    "base_type": "双玉戒指",
+    "slug": "/cn/Bereks_Grip",
+    "archetypes": [
+      "lightning",
+      "cold",
+      "crit"
+    ]
+  },
+  {
+    "name": "梅吉诺德的力量泉源",
+    "base_type": "生皮腰带",
+    "slug": "/cn/Meginords_Girdle",
+    "archetypes": [
+      "cold"
+    ]
+  },
+  {
+    "name": "午夜穗带",
+    "base_type": "生皮腰带",
+    "slug": "/cn/Midnight_Braid",
+    "archetypes": []
+  },
+  {
+    "name": "罪罚拖绳",
+    "base_type": "亚麻腰带",
+    "slug": "/cn/Keelhaul",
+    "archetypes": []
+  },
+  {
+    "name": "不朽系命",
+    "base_type": "亚麻腰带",
+    "slug": "/cn/Umbilicus_Immortalis",
+    "archetypes": [
+      "minion"
+    ]
+  },
+  {
+    "name": "天赋扣带",
+    "base_type": "宽大腰带",
+    "slug": "/cn/Birthright_Buckle",
+    "archetypes": []
+  },
+  {
+    "name": "伯纳巴斯",
+    "base_type": "宽大腰带",
+    "slug": "/cn/Byrnabas",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "狂獠饰带",
+    "base_type": "宽大腰带",
+    "slug": "/cn/The_Gnashing_Sash",
+    "archetypes": []
+  },
+  {
+    "name": "灵魂羁绊",
+    "base_type": "加长腰带",
+    "slug": "/cn/Soul_Tether",
+    "archetypes": []
+  },
+  {
+    "name": "残血束腰",
+    "base_type": "嵌板腰带",
+    "slug": "/cn/Goregirdle",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "瑞斯拉萨的线圈",
+    "base_type": "华丽腰带",
+    "slug": "/cn/Ryslathas_Coil",
+    "archetypes": []
+  },
+  {
+    "name": "懦夫之遗",
+    "base_type": "环锁腰带",
+    "slug": "/cn/Cowards_Legacy",
+    "archetypes": []
+  },
+  {
+    "name": "珠宝承载者",
+    "base_type": "双重腰带",
+    "slug": "/cn/Bijouborne",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "腰际之门",
+    "base_type": "重革腰带",
+    "slug": "/cn/Waistgate",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "猎首",
+    "base_type": "重革腰带",
+    "slug": "/cn/Headhunter",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "泽佛伊的本源",
+    "base_type": "重革腰带",
+    "slug": "/cn/Zerphis_Genesis",
+    "archetypes": [
+      "physical"
+    ]
+  },
+  {
+    "name": "九尾灵猫",
+    "base_type": "万用腰带",
+    "slug": "/cn/Cat_O_Nine_Tails",
+    "archetypes": []
+  },
+  {
+    "name": "奇思妙想",
+    "base_type": "万用腰带",
+    "slug": "/cn/Ingenuity",
+    "archetypes": []
+  },
+  {
+    "name": "法师之血",
+    "base_type": "万用腰带",
+    "slug": "/cn/Mageblood",
+    "archetypes": []
+  },
+  {
+    "name": "薛朗的背包",
+    "base_type": "精致腰带",
+    "slug": "/cn/Shavronnes_Satchel",
+    "archetypes": []
+  },
+  {
+    "name": "战士之血",
+    "base_type": "恢弘生命药剂",
+    "slug": "/cn/Blood_of_the_Warrior",
+    "archetypes": []
+  },
+  {
+    "name": "欧罗什的决心",
+    "base_type": "终极生命药剂",
+    "slug": "/cn/Olroths_Resolve",
+    "archetypes": []
+  },
+  {
+    "name": "机遇",
+    "base_type": "终极生命药剂",
+    "slug": "/cn/Opportunity",
+    "archetypes": []
+  },
+  {
+    "name": "拉维安加之灵",
+    "base_type": "恢弘魔力药剂",
+    "slug": "/cn/Laviangas_Spirits",
+    "archetypes": []
+  },
+  {
+    "name": "乌崔德圣杯",
+    "base_type": "非凡魔力药剂",
+    "slug": "/cn/Uhtreds_Chalice",
+    "archetypes": [
+      "poison"
+    ]
+  },
+  {
+    "name": "消融漩涡",
+    "base_type": "终极魔力药剂",
+    "slug": "/cn/Melting_Maelstrom",
+    "archetypes": [
+      "poison",
+      "cold"
+    ]
+  },
+  {
+    "name": "新生希望",
+    "base_type": "融冰咒符",
+    "slug": "/cn/Nascent_Hope",
+    "archetypes": [
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "英雄血液",
+    "base_type": "止血咒符",
+    "slug": "/cn/Sanguis_Heroum",
+    "archetypes": [
+      "poison",
+      "physical"
+    ]
+  },
+  {
+    "name": "阿拉卡力的礼物",
+    "base_type": "抗毒咒符",
+    "slug": "/cn/Arakaalis_Gift",
+    "archetypes": [
+      "ignite",
+      "poison"
+    ]
+  },
+  {
+    "name": "贝拉的苦楚",
+    "base_type": "浸润咒符",
+    "slug": "/cn/Beiras_Anguish",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "黑猫",
+    "base_type": "根基咒符",
+    "slug": "/cn/The_Black_Cat",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "physical"
+    ]
+  },
+  {
+    "name": "为了乌托邦",
+    "base_type": "磐石咒符",
+    "slug": "/cn/For_Utopia",
+    "archetypes": [
+      "ignite",
+      "cold",
+      "physical"
+    ]
+  },
+  {
+    "name": "落刃时刻",
+    "base_type": "真银咒符",
+    "slug": "/cn/The_Fall_of_the_Axe",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "努葛玛呼的亲选",
+    "base_type": "红玉咒符",
+    "slug": "/cn/Ngamahus_Chosen",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "群山之息",
+    "base_type": "蓝玉咒符",
+    "slug": "/cn/Breath_of_the_Mountains",
+    "archetypes": [
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "瓦拉克怒吼",
+    "base_type": "黄玉咒符",
+    "slug": "/cn/Valakos_Roar",
+    "archetypes": [
+      "lightning"
+    ]
+  },
+  {
+    "name": "遗弃手镯",
+    "base_type": "紫晶咒符",
+    "slug": "/cn/Forsaken_Bangle",
+    "archetypes": []
+  },
+  {
+    "name": "仪式通道",
+    "base_type": "黄金咒符",
+    "slug": "/cn/Rite_of_Passage",
+    "archetypes": [
+      "ignite",
+      "cold"
+    ]
+  },
+  {
+    "name": "卡兰德之触",
+    "base_type": "戒指",
+    "slug": "/cn/Kalandras_Touch",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "萨芙琳的决心",
+    "base_type": "戒指",
+    "slug": "/cn/Safrins_Resolve",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "埃斯特拉的道路",
+    "base_type": "戒指",
+    "slug": "/cn/Eshteras_Path",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "寨达的长寿",
+    "base_type": "戒指",
+    "slug": "/cn/Zaidas_Longevity",
+    "archetypes": [
+      "ignite",
+      "lightning",
+      "cold"
+    ]
+  },
+  {
+    "name": "围困瓦尔克拉斯",
+    "base_type": "裂隙石板",
+    "slug": "/cn/Wraeclast_Besieged",
+    "archetypes": []
+  },
+  {
+    "name": "时光的埋没",
+    "base_type": "先祖秘藏石板",
+    "slug": "/cn/Forgotten_By_Time",
+    "archetypes": []
+  },
+  {
+    "name": "万里晴空",
+    "base_type": "惊悸迷雾石板",
+    "slug": "/cn/Clear_Skies",
+    "archetypes": []
+  },
+  {
+    "name": "信念的自由",
+    "base_type": "驱灵仪式石板",
+    "slug": "/cn/Freedom_of_Faith",
+    "archetypes": []
+  },
+  {
+    "name": "宏伟计划",
+    "base_type": "能量辐照石板",
+    "slug": "/cn/The_Grand_Project",
+    "archetypes": []
+  },
+  {
+    "name": "乐园幻象",
+    "base_type": "能量辐照石板",
+    "slug": "/cn/Visions_of_Paradise",
+    "archetypes": []
+  },
+  {
+    "name": "疆域主宰",
+    "base_type": "能量辐照石板",
+    "slug": "/cn/Mastered_Domain",
+    "archetypes": []
+  },
+  {
+    "name": "狩猎时节",
+    "base_type": "霸主石板",
+    "slug": "/cn/Season_of_the_Hunt",
+    "archetypes": []
+  },
+  {
+    "name": "残酷霸权",
+    "base_type": "霸主石板",
+    "slug": "/cn/Cruel_Hegemony",
+    "archetypes": []
+  },
+  {
+    "name": "无常因果",
+    "base_type": "深渊石板",
+    "slug": "/cn/Unforeseen_Consequences",
+    "archetypes": []
+  }
+]
