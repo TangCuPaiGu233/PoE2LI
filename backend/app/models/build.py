@@ -63,6 +63,7 @@ class KnowledgeChunk(Base):
     source = Column(String(64), nullable=True) # homework / pob / wiki / poe2db
     chunk_type = Column(String(32), nullable=True) # build_summary / core_idea / core_items / etc
     stale = Column(Boolean, default=False) # True = excluded from RAG retrieval (outdated league)
+    links = Column(Text, nullable=True)  # JSON array: ["concept:涂油:wiki:anoint", "entity:Fireball:skill:Fireball"]
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

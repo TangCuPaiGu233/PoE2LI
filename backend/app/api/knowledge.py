@@ -291,87 +291,61 @@ def _cosine_sim(a, b):
     return dot / (na * nb) if na and nb else 0
 
 
-# ── Concept hooks: keywords that trigger secondary retrieval ──
-CONCEPT_HOOKS: dict[str, str] = {
-    # Mechanics → chunk_type to search
-    "涂油": "wiki",
-    "anoint": "wiki",
-    "instilled": "wiki",
-    "instill": "wiki",
-    "notable": "passive",
-    "启迪": "wiki",
-    "delirium": "wiki",
-    "梦魇": "wiki",
-    "前缀": "mod",
-    "后缀": "mod",
-    "prefix": "mod",
-    "suffix": "mod",
-    "词缀": "mod",
-    "affix": "mod",
-    "modifier": "mod",
-    "implicit": "mod",
-    "explicit": "mod",
-    "腐化": "wiki",
-    "corrupt": "wiki",
-    "瓦爾": "wiki",
-    "vaal": "wiki",
-    "精华": "wiki",
-    "essence": "wiki",
-    "裂痕": "wiki",
-    "breach": "wiki",
-    " ritual": "wiki",
-    "仪式": "wiki",
-    "催化剂": "wiki",
-    "catalyst": "wiki",
-    "预兆": "wiki",
-    "omen": "wiki",
-    "基底": "item",
-    "base type": "item",
-    "宝石": "skill",
-    "辅助宝石": "skill",
-    "support gem": "skill",
-}
-
-
 def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[dict]:
-    """Follow concept pointers from retrieved text. For each hook keyword found
-    in the retrieved chunks, do a secondary vector search for related data."""
-    # Collect all text from retrieved chunks
-    all_text = ""
+    """Follow concept links from retrieved chunks. Reads the 'links' field
+    (computed at ingest time) and does secondary vector searches."""
+    from app.services.concept_links import parse_link, expand_query_for_link
+
+    # Collect all links from retrieved chunks
+    all_links: list[str] = []
+    seen_links: set[str] = set()
     for c in chunks:
         try:
             data = json.loads(c["content"])
-            all_text += data.get("search_text", c["content"]) + " "
+            raw = data.get("links", "")
         except Exception:
-            all_text += c.get("content", "") + " "
+            continue
+        if not raw:
+            continue
+        try:
+            link_list = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for link in link_list:
+            if link not in seen_links:
+                seen_links.add(link)
+                all_links.append(link)
 
-    all_text_lower = all_text.lower()
-
-    # Find which concept hooks fire
-    triggered_types: set[str] = set()
-    for keyword, ctype in CONCEPT_HOOKS.items():
-        if keyword.lower() in all_text_lower:
-            triggered_types.add(ctype)
-
-    if not triggered_types:
+    if not all_links:
         return []
 
-    # For each triggered type, do a vector search
+    # For each link, do a targeted vector search
     db = SessionLocal()
     try:
         all_new = []
         seen_contents = {c.get("content", "")[:100] for c in chunks}
 
-        for ctype in list(triggered_types)[:4]:  # Max 4 concept types
+        for link in all_links[:6]:  # Max 6 links
+            if len(all_new) >= max_new:
+                break
+            ctype_filter, search_kw = expand_query_for_link(link)
+            if not search_kw:
+                continue
+
+            # Build filter
+            filters = [
+                KnowledgeChunk.embedding.isnot(None),
+                KnowledgeChunk.stale == False,
+            ]
+            if ctype_filter:
+                filters.append(KnowledgeChunk.chunk_type == ctype_filter)
+
             dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
             rows = (
                 db.query(KnowledgeChunk, dist)
-                .filter(
-                    KnowledgeChunk.chunk_type == ctype,
-                    KnowledgeChunk.stale == False,
-                )
+                .filter(*filters)
                 .order_by(dist)
-                .limit(3)
+                .limit(2)
                 .all()
             )
             for c, d in rows:
@@ -380,11 +354,13 @@ def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[
                 content_preview = c.content[:100] if c.content else ""
                 if content_preview not in seen_contents:
                     seen_contents.add(content_preview)
+                    info = parse_link(link)
                     all_new.append({
                         "content": c.content,
                         "chunk_type": c.chunk_type,
                         "source": c.source or "db",
                         "similarity": round(1.0 - d, 3),
+                        "via_link": info.get("key", link),
                     })
 
         return all_new[:max_new]

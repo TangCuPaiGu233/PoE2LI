@@ -56,14 +56,18 @@ def ingest(jsonl_path: str, source: str = "poe2db",
                     failed += 1
                     continue
 
+                # Auto-compute concept links
+                from app.services.concept_links import compute_links
+                st = chunk.get("search_text", "")
+                ctype = chunk.get("content_type", "unknown")
+                links = compute_links(st, ctype)
+
                 kc = KnowledgeChunk(
                     content=json.dumps(chunk, ensure_ascii=False),
                     embedding=embedding,
                     source=source,
-                    chunk_type=chunk.get("content_type", "unknown"),
-                    # league must hold a real league name (or None), never the
-                    # scraper page name — league-filtered retrieval paths
-                    # (recommend, build chat) match on this column.
+                    chunk_type=ctype,
+                    links=json.dumps(links, ensure_ascii=False) if links else None,
                     league=league,
                     game_version=game_version,
                 )
