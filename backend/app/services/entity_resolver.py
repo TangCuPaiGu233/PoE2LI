@@ -135,3 +135,46 @@ def resolve_entity(cn_name: str) -> tuple[str, str] | None:
     """Look up a single CN entity name. Returns (en_name, type) or None."""
     aliases = _load_aliases()
     return aliases.get(cn_name)
+
+
+# ── Notable → Ascendancy mapping (lazy-loaded from DB) ──
+_notable_to_asc: dict[str, str] | None = None
+
+
+def _load_notable_asc_map() -> dict[str, str]:
+    """Build {notable_name_lower: ascendancy_name} from asc_nodes chunks."""
+    global _notable_to_asc
+    if _notable_to_asc is not None:
+        return _notable_to_asc
+    _notable_to_asc = {}
+    try:
+        from app.core.database import SessionLocal
+        from app.models.build import KnowledgeChunk
+        db = SessionLocal()
+        chunks = db.query(KnowledgeChunk).filter(
+            KnowledgeChunk.chunk_type == "asc_nodes"
+        ).all()
+        for c in chunks:
+            data = json.loads(c.content)
+            asc_name = data.get("ascendancy", "")
+            if not asc_name:
+                continue
+            st = data.get("search_text", "")
+            for m in re.finditer(r'\[notable\] ([^:]+):', st):
+                name = m.group(1).strip()
+                if name:
+                    _notable_to_asc[name.lower()] = asc_name
+        db.close()
+    except Exception:
+        pass
+    return _notable_to_asc
+
+
+def find_asc_for_notable(keywords: list[str]) -> str | None:
+    """Check if any keyword matches a known notable, return its ascendancy name."""
+    notable_map = _load_notable_asc_map()
+    for kw in keywords:
+        asc = notable_map.get(kw.lower())
+        if asc:
+            return asc
+    return None
