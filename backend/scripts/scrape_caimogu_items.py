@@ -26,31 +26,82 @@ from app.core.database import SessionLocal
 from app.models.build import KnowledgeChunk
 
 
-def get_item_slugs() -> list[str]:
-    """Extract unique English item names from poe2db item chunks."""
+def get_item_slugs() -> list[tuple[str, str]]:
+    """Extract (en_name, slug) pairs from poe2db item chunks.
+
+    Returns list of (name_en, url_slug).
+    Filters out index pages (Skill Gems, Support Gems, etc.)
+    """
+    NON_ITEMS = {
+        "skill gems", "support gems", "spirit gems", "lineage supports",
+        "desecrated modifiers", "keywords", "crafting", "quest",
+        "ascendancy classes", "act", "waystones", "patreon",
+        "modifiers", "unique item", "items",
+    }
     db = SessionLocal()
     try:
         chunks = db.query(KnowledgeChunk).filter(
             KnowledgeChunk.source == "poe2db",
             KnowledgeChunk.chunk_type == "item"
         ).all()
-        names = set()
+        pairs = []
         for c in chunks:
             try:
                 data = json.loads(c.content)
-                path = data.get("detail_path", "")
-                if path:
-                    names.add(path)
-                else:
-                    name_en = data.get("name_en", "")
-                    if name_en:
-                        names.add(name_en)
+                name_en = data.get("name_en", "").strip()
+                if not name_en or name_en.lower() in NON_ITEMS:
+                    continue
+                # name_en may contain item name + base type concatenated
+                # e.g., "Sands of SilkShrouded Vest" → extract "Sands of Silk"
+                # Check if cn_data has a proper name
+                slug = _name_to_slug(name_en)
+                if slug:
+                    pairs.append((name_en, slug))
             except Exception:
                 pass
         db.close()
-        return sorted(names)
+        # Dedup by slug
+        seen = set()
+        unique = []
+        for name_en, slug in pairs:
+            if slug not in seen:
+                seen.add(slug)
+                unique.append((name_en, slug))
+        return unique
     finally:
         db.close()
+
+
+def _name_to_slug(name_en: str) -> str:
+    """Convert an English item name to a caimogu URL slug.
+
+    Caimogu uses the item name with spaces and apostrophes preserved,
+    special chars stripped. e.g., "Atziri's Disdain" → "Atziris_Disdain"
+    """
+    import re
+    # Remove base type concatenation: split on uppercase following lowercase
+    # "Sands of SilkShrouded Vest" → first part before a lowercase→UPPERCASE boundary
+    # that follows a non-space
+    slug = re.sub(r"([a-z])([A-Z])", lambda m: m.group(1) + " " + m.group(2), name_en)
+    # Take first part if name seems to have base type appended
+    # Heuristic: if >3 words, the last 1-2 words might be base type
+    words = slug.split()
+    if len(words) > 3:
+        # Common base types to strip
+        base_types = {
+            "vest", "robe", "circlet", "belt", "ring", "amulet", "boots",
+            "gloves", "gauntlets", "helm", "helmet", "shield",
+            "sword", "axe", "mace", "bow", "wand", "sceptre", "staff",
+            "spear", "crossbow", "quiver", "flask", "jewel",
+            "cuisses", "greaves", "sollerets", "coat", "mail", "plate",
+            "mask", "crown", "hood", "shroud", "sash", "talisman",
+            "spirit", "diamond", "pearl", "coral",
+        }
+        # Strip trailing base type words
+        while len(words) > 1 and words[-1].lower() in base_types:
+            words = words[:-1]
+        slug = " ".join(words)
+    return slug.replace(" ", "_").replace("'", "").replace('"', "").replace(".", "")
 
 
 def scrape_item_page(slug: str) -> dict | None:
@@ -119,13 +170,14 @@ def scrape_all(output_dir: str = "/app/data"):
     slugs = get_item_slugs()
     print(f"Total poe2db item slugs: {len(slugs)}")
 
-    pending = [s for s in slugs if s not in existing]
+    pending = [(name_en, slug) for name_en, slug in slugs if slug not in existing]
     print(f"Pending: {len(pending)}")
 
     items = list(existing.values())
-    for i, slug in enumerate(pending):
+    for i, (name_en, slug) in enumerate(pending):
         result = scrape_item_page(slug)
         if result:
+            result["name_en_raw"] = name_en
             items.append(result)
             if (i + 1) % 20 == 0:
                 _save(items, output_path)
