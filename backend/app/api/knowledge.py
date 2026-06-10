@@ -291,6 +291,107 @@ def _cosine_sim(a, b):
     return dot / (na * nb) if na and nb else 0
 
 
+# ── Concept hooks: keywords that trigger secondary retrieval ──
+CONCEPT_HOOKS: dict[str, str] = {
+    # Mechanics → chunk_type to search
+    "涂油": "wiki",
+    "anoint": "wiki",
+    "instilled": "wiki",
+    "instill": "wiki",
+    "notable": "passive",
+    "启迪": "wiki",
+    "delirium": "wiki",
+    "梦魇": "wiki",
+    "前缀": "mod",
+    "后缀": "mod",
+    "prefix": "mod",
+    "suffix": "mod",
+    "词缀": "mod",
+    "affix": "mod",
+    "modifier": "mod",
+    "implicit": "mod",
+    "explicit": "mod",
+    "腐化": "wiki",
+    "corrupt": "wiki",
+    "瓦爾": "wiki",
+    "vaal": "wiki",
+    "精华": "wiki",
+    "essence": "wiki",
+    "裂痕": "wiki",
+    "breach": "wiki",
+    " ritual": "wiki",
+    "仪式": "wiki",
+    "催化剂": "wiki",
+    "catalyst": "wiki",
+    "预兆": "wiki",
+    "omen": "wiki",
+    "基底": "item",
+    "base type": "item",
+    "宝石": "skill",
+    "辅助宝石": "skill",
+    "support gem": "skill",
+}
+
+
+def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[dict]:
+    """Follow concept pointers from retrieved text. For each hook keyword found
+    in the retrieved chunks, do a secondary vector search for related data."""
+    # Collect all text from retrieved chunks
+    all_text = ""
+    for c in chunks:
+        try:
+            data = json.loads(c["content"])
+            all_text += data.get("search_text", c["content"]) + " "
+        except Exception:
+            all_text += c.get("content", "") + " "
+
+    all_text_lower = all_text.lower()
+
+    # Find which concept hooks fire
+    triggered_types: set[str] = set()
+    for keyword, ctype in CONCEPT_HOOKS.items():
+        if keyword.lower() in all_text_lower:
+            triggered_types.add(ctype)
+
+    if not triggered_types:
+        return []
+
+    # For each triggered type, do a vector search
+    db = SessionLocal()
+    try:
+        all_new = []
+        seen_contents = {c.get("content", "")[:100] for c in chunks}
+
+        for ctype in list(triggered_types)[:4]:  # Max 4 concept types
+            dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
+            rows = (
+                db.query(KnowledgeChunk, dist)
+                .filter(
+                    KnowledgeChunk.chunk_type == ctype,
+                    KnowledgeChunk.stale == False,
+                )
+                .order_by(dist)
+                .limit(3)
+                .all()
+            )
+            for c, d in rows:
+                if len(all_new) >= max_new:
+                    break
+                content_preview = c.content[:100] if c.content else ""
+                if content_preview not in seen_contents:
+                    seen_contents.add(content_preview)
+                    all_new.append({
+                        "content": c.content,
+                        "chunk_type": c.chunk_type,
+                        "source": c.source or "db",
+                        "similarity": round(1.0 - d, 3),
+                    })
+
+        return all_new[:max_new]
+    finally:
+        db.close()
+
+
 def _chunk_to_dict(c: KnowledgeChunk) -> dict:
     """Convert an ORM KnowledgeChunk to the dict format expected by _stream_chat."""
     return {
@@ -653,6 +754,14 @@ async def _stream_chat(messages: list[dict]):
         type_counts[t] = type_counts.get(t, 0) + 1
     src_desc = ", ".join(k + "(" + str(v) + ")" for k, v in source_counts.items())
     logger.info(f"[CHAT] retrieved: {len(chunks)} chunks | sources={source_counts} | types={type_counts}")
+
+    # ── Concept-link expansion: follow pointers from retrieved text ──
+    if skill.name != "trade_search":
+        yield f"data: {json.dumps({'type': 'thinking', 'content': '扩展关联概念...'})}\n\n"
+        concept_chunks = _expand_concepts(chunks, q_embedding, max_new=8)
+        if concept_chunks:
+            chunks = chunks + concept_chunks
+            logger.info(f"[CHAT] concept_expand: +{len(concept_chunks)} related chunks")
 
     # Build context
     ctx_parts = []
