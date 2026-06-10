@@ -485,6 +485,12 @@ async def _stream_chat(messages: list[dict]):
     """Skill-based router: classify intent → dispatch to matching Skill."""
     from app.skills.router import route
 
+    # Init LLM client early — needed by all skill paths
+    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
+    llm_key = os.getenv("LLM_API_KEY", "")
+    from openai import OpenAI as OAI
+    llm_client = OAI(base_url=llm_url, api_key=llm_key)
+
     user_msg = messages[-1]["content"] if messages else ""
     skill = route(user_msg)
     logger.info(f"[CHAT] skill={skill.name} | query={user_msg[:80]}")
@@ -554,11 +560,6 @@ async def _stream_chat(messages: list[dict]):
         logger.info(f"[CHAT] entity_resolved: {[(e,c,t) for e,c,t in extra_entities[:5]]}")
     if alias_keywords:
         logger.info(f"[CHAT] alias_resolved: class={resolved_class_en} asc={resolved_asc_cn}({resolved_asc_en})")
-
-    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
-    llm_key = os.getenv("LLM_API_KEY", "")
-    from openai import OpenAI as OAI
-    llm_client = OAI(base_url=llm_url, api_key=llm_key)
 
     # ── Phase 1: Model thinks, decides what to search ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析需要查什么...'})}\n\n"
