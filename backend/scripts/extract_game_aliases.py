@@ -14,9 +14,10 @@ import os
 import sys
 
 # Allow running from /app or from local
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from app.database import SessionLocal
-from app.models import KnowledgeChunk
+_proj_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _proj_root)
+from app.core.database import SessionLocal
+from app.models.build import KnowledgeChunk
 
 
 def extract_name_pairs(chunk_content: str, content_type: str) -> list[dict]:
