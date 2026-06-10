@@ -34,18 +34,42 @@ def get_category_pages(category):
         print(f"  HTTP {r.status_code}")
         return items
     soup = BeautifulSoup(r.text, "html.parser")
+
+    # Try multiple methods to find item links
+    links = []
+
+    # Method 1: mw-category div (standard wiki)
     content = soup.find("div", class_="mw-category")
-    if not content:
-        print(f"  No mw-category div")
-        return items
-    links = content.find_all("a")
+    if content:
+        links = content.find_all("a")
+
+    # Method 2: mw-content-text with li elements
+    if not links:
+        content = soup.find("div", class_="mw-content-text") or soup.find("div", id="mw-content-text")
+        if content:
+            links = content.find_all("a")
+
+    # Method 3: all li elements
+    if not links:
+        links = soup.find_all("a")
+
     for a in links:
         href = a.get("href", "")
         text = a.get_text(strip=True)
         if href.startswith("/wiki/") and not href.startswith("/wiki/Category:"):
-            items.append((text, href.replace("/wiki/", "")))
-    print(f"  Found {len(items)} links")
-    return items
+            # Filter out utility pages
+            if not any(skip in href.lower() for skip in ["/wiki/help:", "/wiki/special:", "/wiki/template:", "/wiki/file:"]):
+                items.append((text, href.replace("/wiki/", "")))
+
+    # Deduplicate
+    seen = set()
+    unique = []
+    for text, slug in items:
+        if slug not in seen:
+            seen.add(slug)
+            unique.append((text, slug))
+    print(f"  Found {len(unique)} items")
+    return unique
 
 
 def scrape_item(slug):
