@@ -482,38 +482,30 @@ def _encyclopedia_prompt(context: str, asc_en, asc_cn) -> str:
 
 
 async def _stream_chat(messages: list[dict]):
-    """Two-phase: LLM thinks what to search → retrieve → LLM thinks about results → answer."""
-    user_msg = messages[-1]["content"] if messages else ""
-    intent = _classify_intent(user_msg)
-    logger.info(f"[CHAT] intent={intent} | query={user_msg[:80]}")
+    """Skill-based router: classify intent → dispatch to matching Skill."""
+    from app.skills.router import route
 
-    # ── Trade Search Skill ──
-    if intent == "trade":
+    user_msg = messages[-1]["content"] if messages else ""
+    skill = route(user_msg)
+    logger.info(f"[CHAT] skill={skill.name} | query={user_msg[:80]}")
+
+    # ── Trade Search: calls trade API directly, no RAG ──
+    if skill.name == "trade_search":
         yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在搜索交易市场...'})}\n\n"
         try:
             from app.services.trade_agent import run_agent as trade_run_agent
             trade_result = trade_run_agent(user_msg)
             best = trade_result.get("best_match")
             alts = trade_result.get("alternatives", [])
-            explanation = trade_result.get("explanation", "")
 
-            # Build trade result event for frontend
             trade_data = {
                 "best_match": {"label": best["label"], "url": best["url"], "count": best["count"]} if best else None,
                 "alternatives": [{"label": a["label"], "url": a["url"], "count": a["count"]} for a in alts[:3]],
-                "explanation": explanation,
+                "explanation": trade_result.get("explanation", ""),
             }
             yield f"data: {json.dumps({'type': 'trade_result', 'content': trade_data})}\n\n"
 
-            # Have LLM explain the results
-            trade_prompt = (
-                "你是 PoE2 交易助手。用户搜索了装备，以下是搜索结果。"
-                "用中文简要解释搜索结果，说明找到了什么、价格范围、推荐哪个。\n\n"
-                f"用户查询: {user_msg}\n\n"
-                f"最佳匹配: {json.dumps(best, ensure_ascii=False) if best else '无'}\n"
-                f"其他选择: {json.dumps(alts[:3], ensure_ascii=False)}\n"
-                f"搜索说明: {explanation}\n"
-            )
+            trade_prompt = skill.build_prompt("", user_msg, trade_result=trade_result)
             llm_msgs = [{"role": "system", "content": trade_prompt},
                          {"role": "user", "content": "帮我解释这些搜索结果"}]
             stream = llm_client.chat.completions.create(
@@ -521,15 +513,13 @@ async def _stream_chat(messages: list[dict]):
                 messages=llm_msgs, temperature=0.3, max_tokens=1024, stream=True,
                 extra_body={'thinking': {'type': 'enabled'}},
             )
-            reasoning_buf = ""
-            answer_buf = ""
             for chunk in stream:
                 delta = chunk.choices[0].delta
                 r = getattr(delta, 'reasoning_content', None) or (
                     delta.model_extra.get('reasoning_content') if hasattr(delta, 'model_extra') and delta.model_extra else None
                 )
-                if r: reasoning_buf += r; yield f"data: {json.dumps({'type': 'reasoning', 'content': r})}\n\n"
-                if delta.content: answer_buf += delta.content; yield f"data: {json.dumps({'type': 'answer', 'content': delta.content})}\n\n"
+                if r: yield f"data: {json.dumps({'type': 'reasoning', 'content': r})}\n\n"
+                if delta.content: yield f"data: {json.dumps({'type': 'answer', 'content': delta.content})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             logger.error(f"Trade search failed: {e}")
@@ -537,7 +527,7 @@ async def _stream_chat(messages: list[dict]):
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return
 
-    # ── Alias resolution: exact-match CN entity names before vector search ──
+    # ── RAG-based Skills: entity resolution → keyword gen → retrieve → answer ──
     from app.services.entity_dict import (
         normalize_class, normalize_ascendancy,
         resolve_ascendancy_en, resolve_class_en,
@@ -620,10 +610,8 @@ async def _stream_chat(messages: list[dict]):
 
     # NOTE: classify on the raw user message, not the LLM-keyword-augmented query —
     # English keywords like "item"/"map" used to mis-trigger chunk_type pre-filters.
-    if intent == "build_design":
+    if skill.name == "build_design":
         chunks = _retrieve_multi_source(search_query, q_embedding=q_embedding)
-    elif intent == "recommend":
-        chunks = _retrieve_knowledge(search_query, 8, classify_text=user_msg, q_embedding=q_embedding)
     else:
         chunks = _retrieve_knowledge(search_query, 5, classify_text=user_msg, q_embedding=q_embedding)
 
@@ -679,12 +667,9 @@ async def _stream_chat(messages: list[dict]):
     # ── Phase 3: Model thinks about results + answers ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析回答...'})}\n\n"
 
-    if intent == "build_design":
-        sys_prompt = _build_design_prompt(context, resolved_asc_en, resolved_asc_cn)
-    elif intent == "recommend":
-        sys_prompt = _recommend_prompt(context)
-    else:
-        sys_prompt = _encyclopedia_prompt(context, resolved_asc_en, resolved_asc_cn)
+    # Skill-based prompt dispatch
+    sys_prompt = skill.build_prompt(context, user_msg,
+                                    asc_en=resolved_asc_en, asc_cn=resolved_asc_cn)
 
     llm_msgs = [{"role": "system", "content": sys_prompt}]
     for m in messages[-5:]:
