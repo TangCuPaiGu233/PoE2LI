@@ -321,7 +321,7 @@ def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[
         all_new = []
         seen_contents = {c.get("content", "")[:100] for c in chunks}
 
-        for link in all_links[:6]:  # Max 6 links
+        for link in all_links[:3]:  # Max 3 links
             if len(all_new) >= max_new:
                 break
             ctype_filter, search_kw = expand_query_for_link(link)
@@ -735,7 +735,7 @@ async def _stream_chat(messages: list[dict]):
     # ── Concept-link expansion: follow pointers from retrieved text ──
     if skill.name != "trade_search":
         yield f"data: {json.dumps({'type': 'thinking', 'content': '扩展关联概念...'})}\n\n"
-        concept_chunks = _expand_concepts(chunks, q_embedding, max_new=8)
+        concept_chunks = _expand_concepts(chunks, q_embedding, max_new=4)
         logger.info(f"[CHAT] concept_expand: found {len(concept_chunks)} related chunks "
                      f"(chunks_have_links={sum(1 for c in chunks if c.get('links'))}/{len(chunks)})")
         if concept_chunks:
