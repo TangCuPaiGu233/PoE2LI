@@ -80,7 +80,7 @@ def inject():
                 failed += 1
                 continue
 
-            en_name = data.get("name", "")
+            en_name = data.get("ascendancy", "") or data.get("name", "")
             cn_name = ASC_EN_TO_CN.get(en_name)
             if not cn_name:
                 print(f"  SKIP: no CN mapping for '{en_name}'")
