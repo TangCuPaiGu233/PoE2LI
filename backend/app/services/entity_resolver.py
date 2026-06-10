@@ -105,7 +105,9 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
 def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
     """Fuzzy-match LLM keywords against known EN entity names.
 
-    If a keyword closely matches a known entity, return the corrected name.
+    Two strategies:
+    1. If keyword is a full sentence, look for known entity names as substrings
+    2. If keyword is short, try fuzzy match to correct spelling
     This fixes LLM spelling mistakes like 'Moriigan' → 'Morrigan'.
     """
     _load_aliases()
@@ -114,12 +116,32 @@ def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
 
     corrected = []
     for kw in keywords:
-        # Try fuzzy match against known names
-        matches = get_close_matches(kw, _all_en_names, n=1, cutoff=cutoff)
-        if matches and matches[0].lower() != kw.lower():
-            corrected.append(matches[0])
-        else:
-            corrected.append(kw)
+        matched = None
+
+        # Strategy 1: substring match with accent normalization
+        # (e.g. "morrigan's guidance" should match "The Mórrigan's Guidance")
+        kw_lower = _normalize(kw.lower())
+        for name in _all_en_names:
+            if len(name) < 5:
+                continue
+            name_lower = _normalize(name.lower())
+            # Check if known name (or its "The "-less version) is in keyword
+            if name_lower in kw_lower:
+                matched = name
+                break
+            if name_lower.startswith("the ") and name_lower[4:] in kw_lower:
+                matched = name
+                break
+
+        # Strategy 2: fuzzy match for short keywords
+        if not matched and len(kw) < 60:
+            matches = get_close_matches(kw, _all_en_names, n=1, cutoff=cutoff)
+            if matches and matches[0].lower() != kw.lower():
+                matched = matches[0]
+
+        if matched:
+            corrected.append(matched)
+        corrected.append(kw)  # Always keep original too
 
     # Deduplicate while preserving order
     seen = set()
@@ -129,6 +151,21 @@ def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
             seen.add(k.lower())
             result.append(k)
     return result
+    seen = set()
+    result = []
+    for k in corrected:
+        if k.lower() not in seen:
+            seen.add(k.lower())
+            result.append(k)
+    return result
+
+
+def _normalize(text: str) -> str:
+    """Normalize text for matching: remove accents, lowercase."""
+    import unicodedata
+    text = unicodedata.normalize('NFKD', text)
+    text = ''.join(c for c in text if not unicodedata.combining(c))
+    return text
 
 
 def resolve_entity(cn_name: str) -> tuple[str, str] | None:
