@@ -732,9 +732,10 @@ async def _stream_chat(messages: list[dict]):
     if skill.name != "trade_search":
         yield f"data: {json.dumps({'type': 'thinking', 'content': '扩展关联概念...'})}\n\n"
         concept_chunks = _expand_concepts(chunks, q_embedding, max_new=8)
+        logger.info(f"[CHAT] concept_expand: found {len(concept_chunks)} related chunks "
+                     f"(chunks_have_links={sum(1 for c in chunks if c.get('links'))}/{len(chunks)})")
         if concept_chunks:
             chunks = chunks + concept_chunks
-            logger.info(f"[CHAT] concept_expand: +{len(concept_chunks)} related chunks")
 
     # Build context
     ctx_parts = []
