@@ -260,19 +260,26 @@ def scrape(resume=True):
     languages = [("us", "en"), ("cn", "zh_cn"), ("tw", "zh_tw")]
 
     for idx, entry in enumerate(pending):
-        details = {}
-        for lang_code, lang_key in languages:
-            detail = scrape_detail(entry["path"], lang_code)
-            if detail:
-                details[lang_key] = detail
-            time.sleep(0.3)
+        try:
+            details = {}
+            for lang_code, lang_key in languages:
+                try:
+                    detail = scrape_detail(entry["path"], lang_code)
+                    if detail:
+                        details[lang_key] = detail
+                except Exception as le:
+                    print(f"  WARN: {lang_code}/{entry['path']} failed: {le}", flush=True)
+                time.sleep(0.3)
 
-        if details:
-            chunk = build_chunk(entry,
-                                details.get("en"),
+            if details:
+                chunk = build_chunk(entry,
+                                    details.get("en"),
                                 details.get("zh_cn"),
                                 details.get("zh_tw"))
-            chunks.append(chunk)
+                chunks.append(chunk)
+        except Exception as e:
+            print(f"  ERROR at {entry['path']}: {e}", flush=True)
+            time.sleep(1)
 
         # Save incrementally: append to file every 10 entries
         if (idx + 1) % 10 == 0 and chunks:
