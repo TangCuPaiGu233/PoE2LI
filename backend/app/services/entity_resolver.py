@@ -113,19 +113,19 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
             en_name, etype = aliases[cn_name]
             found[cn_name] = (en_name, cn_name, etype)
 
-    # Strategy 2: if no exact match, try word-level fuzzy matching
+    # Strategy 2: if no exact match, try CJK bigram matching
     if not found:
-        # Extract CJK words from user text (2-4 char segments)
         import re as _re
-        user_words = set(_re.findall(r'[一-鿿]{2,4}', text))
-        if user_words:
+        def _bigrams(s):
+            return {s[i:i+2] for i in range(len(s)-1) if _re.match(r'[一-鿿]{2}', s[i:i+2])}
+        user_bigrams = _bigrams(text)
+        if user_bigrams:
             for cn_name in sorted_cn:
                 if cn_name in found:
                     continue
-                alias_words = set(_re.findall(r'[一-鿿]{2,4}', cn_name))
-                # If user and alias share >=1 significant word, it's a match
-                common = user_words & alias_words
-                if common and len(common) >= 1:
+                alias_bigrams = _bigrams(cn_name)
+                common = user_bigrams & alias_bigrams
+                if len(common) >= 1:
                     en_name, etype = aliases[cn_name]
                     found[cn_name] = (en_name, cn_name, etype)
 
