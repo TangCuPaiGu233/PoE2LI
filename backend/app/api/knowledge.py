@@ -435,10 +435,17 @@ async def _stream_chat(messages: list[dict]):
             temperature=0.3,
             max_tokens=2048,
             stream=True,
+            extra_body={'thinking': {'type': 'enabled'}},
         )
         for chunk in stream:
-            if chunk.choices[0].delta.content:
-                yield f"data: {json.dumps({'type': 'answer', 'content': chunk.choices[0].delta.content})}\n\n"
+            delta = chunk.choices[0].delta
+            reasoning = getattr(delta, 'reasoning_content', None) or (
+                delta.model_extra.get('reasoning_content') if hasattr(delta, 'model_extra') and delta.model_extra else None
+            )
+            if reasoning:
+                yield f"data: {json.dumps({'type': 'reasoning', 'content': reasoning})}\n\n"
+            if delta.content:
+                yield f"data: {json.dumps({'type': 'answer', 'content': delta.content})}\n\n"
     except Exception as e:
         logger.error(f"LLM stream error: {e}")
         yield f"data: {json.dumps({'type': 'answer', 'content': '生成失败: ' + str(e)})}\n\n"

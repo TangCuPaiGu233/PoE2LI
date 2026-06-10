@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 
 interface Message {
-  role: "user" | "assistant" | "thinking" | "sources";
+  role: "user" | "assistant";
   content: string;
   sources?: { type: string; preview: string }[];
+  reasoning?: string;
 }
 
 function getApiUrl(): string {
@@ -23,6 +24,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [thinking, setThinking] = useState<string[]>([]);
+  const [reasoning, setReasoning] = useState("");  // model's chain-of-thought
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,7 +80,9 @@ export default function ChatPage() {
           try {
             const event = JSON.parse(jsonStr);
 
-            if (event.type === "thinking") {
+            if (event.type === "reasoning") {
+              setReasoning((prev) => prev + event.content);
+            } else if (event.type === "thinking") {
               setThinking((prev) => [...prev, event.content]);
             } else if (event.type === "answer") {
               assistantContent += event.content;
@@ -99,7 +103,17 @@ export default function ChatPage() {
                 return prev;
               });
             } else if (event.type === "done") {
+              if (reasoning) {
+                setMessages((prev) => {
+                  const last = prev[prev.length - 1];
+                  if (last?.role === "assistant") {
+                    return [...prev.slice(0, -1), { ...last, reasoning }];
+                  }
+                  return prev;
+                });
+              }
               setThinking([]);
+              setReasoning("");
               setStreaming(false);
             }
           } catch {
@@ -155,6 +169,16 @@ export default function ChatPage() {
                   <p className="text-sm whitespace-pre-wrap">{m.content}</p>
                 ) : (
                   <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {m.reasoning && (
+                      <details className="mb-2">
+                        <summary className="text-xs text-amber-400/70 cursor-pointer hover:text-amber-400">
+                          🧠 思考过程
+                        </summary>
+                        <div className="mt-1 p-2 bg-amber-900/10 border border-amber-700/20 rounded text-xs text-amber-400/60">
+                          {m.reasoning}
+                        </div>
+                      </details>
+                    )}
                     {m.content}
                     {m.sources && m.sources.length > 0 && (
                       <details className="mt-2 pt-2 border-t border-gray-700/30">
@@ -176,12 +200,24 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {/* Thinking indicator */}
+          {/* Model reasoning streaming */}
+          {reasoning && (
+            <div className="flex justify-start">
+              <details open className="max-w-[85%] rounded-xl px-4 py-3 bg-amber-900/10 border border-amber-700/20">
+                <summary className="text-xs text-amber-400 cursor-pointer animate-pulse">
+                  🧠 深度思考中...
+                </summary>
+                <p className="mt-2 text-xs text-amber-400/60 whitespace-pre-wrap">{reasoning}</p>
+              </details>
+            </div>
+          )}
+
+          {/* Retrieval progress indicator */}
           {thinking.length > 0 && (
             <div className="flex justify-start">
               <details open className="max-w-[85%] rounded-xl px-4 py-3 bg-cyan-900/20 border border-cyan-700/30">
-                <summary className="text-xs text-cyan-400 cursor-pointer animate-pulse">
-                  🤔 AI 思考中...
+                <summary className="text-xs text-cyan-400 cursor-pointer">
+                  🔍 检索中...
                 </summary>
                 <div className="mt-2 space-y-1">
                   {thinking.map((t, i) => (
