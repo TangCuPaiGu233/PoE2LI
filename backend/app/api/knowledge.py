@@ -336,7 +336,11 @@ def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[
             if ctype_filter:
                 filters.append(KnowledgeChunk.chunk_type == ctype_filter)
 
-            dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
+            # Get concept-specific embedding, not original query embedding
+            concept_emb = get_embedding(search_kw)
+            if not concept_emb:
+                continue
+            dist = KnowledgeChunk.embedding.cosine_distance(concept_emb).label("distance")
             rows = (
                 db.query(KnowledgeChunk, dist)
                 .filter(*filters)

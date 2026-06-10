@@ -21,13 +21,18 @@ CONCEPT_HOOKS: dict[str, tuple[str, str]] = {
     "涂油": ("wiki", "anoint instilled notable enchant"),
     "anoint": ("wiki", "instilled notable enchantment oil"),
     "instilled": ("wiki", "instilled notable anoint"),
+    "instill": ("wiki", "instilled notable anoint enchant"),
     "启迪": ("wiki", "anoint instilled notable enchant"),
+    "notable": ("passive", "notable passive skill enchant"),
     "notable enchant": ("wiki", "instilled notable passive skill"),
 
     # ── 词缀系统 ──
     "前缀": ("mod", "prefix modifier affix"),
     "后缀": ("mod", "suffix modifier affix"),
     "词缀": ("mod", "prefix suffix affix modifier"),
+    "prefix": ("mod", "prefix modifier affix"),
+    "suffix": ("mod", "suffix modifier affix"),
+    "modifier allowed": ("mod", "prefix suffix modifier slot limit"),
     "prefix modifier": ("mod", "prefix affix"),
     "suffix modifier": ("mod", "suffix affix"),
 
