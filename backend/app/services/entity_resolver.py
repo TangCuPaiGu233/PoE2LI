@@ -95,16 +95,39 @@ def _load_notables():
 
 def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
     """Find all known CN entity names in the text.
+
+    Three strategies:
+    1. Exact substring: known CN name appears in user text
+    2. Partial word match: split user text into words, find aliases
+       that share significant words (handles colloquial names like
+       "扭曲项链" when the actual item is called something else)
     Returns list of (en_name, cn_name, entity_type) tuples.
     """
     aliases = _load_aliases()
     found: dict[str, tuple[str, str, str]] = {}
 
+    # Strategy 1: exact substring (longest first)
     sorted_cn = sorted(aliases.keys(), key=len, reverse=True)
     for cn_name in sorted_cn:
         if cn_name in text and cn_name not in found:
             en_name, etype = aliases[cn_name]
             found[cn_name] = (en_name, cn_name, etype)
+
+    # Strategy 2: if no exact match, try word-level fuzzy matching
+    if not found:
+        # Extract CJK words from user text (2-4 char segments)
+        import re as _re
+        user_words = set(_re.findall(r'[一-鿿]{2,4}', text))
+        if user_words:
+            for cn_name in sorted_cn:
+                if cn_name in found:
+                    continue
+                alias_words = set(_re.findall(r'[一-鿿]{2,4}', cn_name))
+                # If user and alias share >=1 significant word, it's a match
+                common = user_words & alias_words
+                if common and len(common) >= 1:
+                    en_name, etype = aliases[cn_name]
+                    found[cn_name] = (en_name, cn_name, etype)
 
     return list(found.values())
 
