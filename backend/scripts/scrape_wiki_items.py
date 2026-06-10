@@ -29,25 +29,22 @@ def get_category_pages(category):
     """Get all item page links from a wiki category."""
     url = f"{WIKI_BASE}/wiki/Category:{category}"
     items = []
-    page = 1
-    while True:
-        r = requests.get(url, headers=HEADERS, timeout=15, params={"pagefrom": f"page{page}"} if page > 1 else None)
-        if r.status_code != 200:
-            break
-        soup = BeautifulSoup(r.text, "html.parser")
-        content = soup.find("div", class_="mw-category")
-        if not content:
-            break
-        links = content.find_all("a")
-        for a in links:
-            href = a.get("href", "")
-            text = a.get_text(strip=True)
-            if href.startswith("/wiki/") and not href.startswith("/wiki/Category:"):
-                items.append((text, href.replace("/wiki/", "")))
-        if "next page" not in r.text:
-            break
-        page += 1
-        time.sleep(1)
+    r = requests.get(url, headers=HEADERS, timeout=20)
+    if r.status_code != 200:
+        print(f"  HTTP {r.status_code}")
+        return items
+    soup = BeautifulSoup(r.text, "html.parser")
+    content = soup.find("div", class_="mw-category")
+    if not content:
+        print(f"  No mw-category div")
+        return items
+    links = content.find_all("a")
+    for a in links:
+        href = a.get("href", "")
+        text = a.get_text(strip=True)
+        if href.startswith("/wiki/") and not href.startswith("/wiki/Category:"):
+            items.append((text, href.replace("/wiki/", "")))
+    print(f"  Found {len(items)} links")
     return items
 
 
