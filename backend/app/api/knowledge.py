@@ -468,6 +468,10 @@ async def _stream_chat(messages: list[dict]):
     except Exception:
         search_keywords = [user_msg]
 
+    # ── Fuzzy-correct LLM keywords against known entity names ──
+    from app.services.entity_resolver import correct_keywords
+    search_keywords = correct_keywords(search_keywords)
+
     # ── Phase 2: Multi-source retrieval using model's keywords + original query ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
 

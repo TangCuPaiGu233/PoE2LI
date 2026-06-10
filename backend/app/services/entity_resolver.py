@@ -1,90 +1,134 @@
-"""entity_resolver.py — 统一的游戏实体 CN→EN 解析器。
+"""entity_resolver.py — 统一的游戏实体 CN→EN 解析器 + EN 关键词拼写纠错。
 
-覆盖：技能（caimogu）、装备/暗金（poe2db）、升华 notable 名（asc_nodes）。
-从多个数据源加载别名表，支持从用户中文查询中抽取已知实体。
+覆盖：技能（caimogu）、装备/暗金（poe2db）、升华 notable 名（asc_nodes）、升华/职业。
+策略：
+  1. CN 精确匹配 → 注入 EN 名
+  2. LLM 关键词 → fuzzy 匹配已知 EN 实体名 → 纠正拼写
 """
 import json
 import os
 import re
+from difflib import get_close_matches
 
 # ── Lazy-loaded alias maps ──
-_cn_to_en: dict[str, tuple[str, str]] | None = None  # cn_name → (en_name, type)
+_cn_to_en: dict[str, tuple[str, str]] | None = None
+_all_en_names: list[str] | None = None  # All known EN entity names for fuzzy matching
 
 
 def _load_aliases() -> dict[str, tuple[str, str]]:
-    """Load all CN→EN alias maps. Returns {cn_name: (en_name, type)}."""
-    global _cn_to_en
+    global _cn_to_en, _all_en_names
     if _cn_to_en is not None:
         return _cn_to_en
 
     _cn_to_en = {}
+    _all_en_names = []
 
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-    # In container, data_dir is /app/data
+    data_dir = "/app/data"
     if not os.path.isdir(data_dir):
-        data_dir = "/app/data"
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 
-    # 1. Caimogu skills (Tencent-aligned CN names)
+    def _add(cn, en, etype):
+        if cn and en and cn not in _cn_to_en:
+            _cn_to_en[cn] = (en, etype)
+            if en not in _all_en_names:
+                _all_en_names.append(en)
+
+    # 1. Caimogu skills
     skills_path = os.path.join(data_dir, "caimogu_skills.json")
     if os.path.exists(skills_path):
         with open(skills_path, "r", encoding="utf-8") as f:
-            skills = json.load(f)
-        for s in skills:
-            cn = s.get("cn", "").strip()
-            en = s.get("en", "").strip()
-            if cn and en and cn not in _cn_to_en:
-                _cn_to_en[cn] = (en, "skill")
+            for s in json.load(f):
+                _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill")
 
     # 2. game_aliases.json (poe2db items/mods)
     aliases_path = os.path.join(data_dir, "game_aliases.json")
     if os.path.exists(aliases_path):
         with open(aliases_path, "r", encoding="utf-8") as f:
             aliases = json.load(f)
-        cn_map = aliases.get("cn_to_en", {})
-        for cn, info in cn_map.items():
-            if cn not in _cn_to_en:
-                _cn_to_en[cn] = (info.get("en", ""), info.get("type", "item"))
+        for cn, info in aliases.get("cn_to_en", {}).items():
+            _add(cn, info.get("en", ""), info.get("type", "item"))
 
-    # 3. Ascendancy notables from entity_dict
+    # 3. Ascendancy names
     from app.services.entity_dict import ASCENDANCY_CN_TO_EN as asc_en_map
     for cn, en in asc_en_map.items():
-        if cn not in _cn_to_en:
-            _cn_to_en[cn] = (en, "ascendancy")
+        _add(cn, en, "ascendancy")
 
     # 4. Class names
     from app.services.entity_dict import CLASS_CN_TO_EN as class_en_map
     for cn, en in class_en_map.items():
-        if cn not in _cn_to_en:
-            _cn_to_en[cn] = (en, "class")
+        _add(cn, en, "class")
+
+    # 5. Ascendancy notables — extract from DB (EN only, for spell-check)
+    _load_notables()
 
     return _cn_to_en
 
 
+def _load_notables():
+    """Load notable names from asc_nodes chunks (for spell-check only, no CN)."""
+    global _all_en_names
+    try:
+        from app.core.database import SessionLocal
+        from app.models.build import KnowledgeChunk
+        db = SessionLocal()
+        chunks = db.query(KnowledgeChunk).filter(
+            KnowledgeChunk.chunk_type == "asc_nodes"
+        ).all()
+        for c in chunks:
+            data = json.loads(c.content)
+            st = data.get("search_text", "")
+            for m in re.finditer(r'\[notable\] ([^:]+):', st):
+                name = m.group(1).strip()
+                if name and name not in _all_en_names:
+                    _all_en_names.append(name)
+        db.close()
+    except Exception:
+        pass  # Skip if DB not available (e.g., during startup)
+
+
 def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
     """Find all known CN entity names in the text.
-
     Returns list of (en_name, cn_name, entity_type) tuples.
-    Longer matches preferred over shorter ones.
     """
     aliases = _load_aliases()
-    found: dict[str, tuple[str, str, str]] = {}  # cn → (en, cn, type), dedup
+    found: dict[str, tuple[str, str, str]] = {}
 
-    # Sort aliases by length (longest first) for greedy matching
     sorted_cn = sorted(aliases.keys(), key=len, reverse=True)
-
     for cn_name in sorted_cn:
         if cn_name in text and cn_name not in found:
             en_name, etype = aliases[cn_name]
             found[cn_name] = (en_name, cn_name, etype)
 
-            # If we matched a long name, skip its substrings
-            # e.g., "灵魂行者" matched → skip "行者"
-            for shorter in list(sorted_cn):
-                if shorter != cn_name and shorter in cn_name and shorter in text:
-                    if shorter not in found:
-                        pass  # Don't add substrings
-
     return list(found.values())
+
+
+def correct_keywords(keywords: list[str], cutoff: float = 0.75) -> list[str]:
+    """Fuzzy-match LLM keywords against known EN entity names.
+
+    If a keyword closely matches a known entity, return the corrected name.
+    This fixes LLM spelling mistakes like 'Moriigan' → 'Morrigan'.
+    """
+    _load_aliases()
+    if not _all_en_names:
+        return keywords
+
+    corrected = []
+    for kw in keywords:
+        # Try fuzzy match against known names
+        matches = get_close_matches(kw, _all_en_names, n=1, cutoff=cutoff)
+        if matches and matches[0].lower() != kw.lower():
+            corrected.append(matches[0])
+        else:
+            corrected.append(kw)
+
+    # Deduplicate while preserving order
+    seen = set()
+    result = []
+    for k in corrected:
+        if k.lower() not in seen:
+            seen.add(k.lower())
+            result.append(k)
+    return result
 
 
 def resolve_entity(cn_name: str) -> tuple[str, str] | None:
