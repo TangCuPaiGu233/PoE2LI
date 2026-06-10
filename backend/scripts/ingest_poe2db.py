@@ -15,7 +15,8 @@ def content_hash(text: str) -> str:
     return hashlib.md5(text.encode()[:500]).hexdigest()[:12]
 
 
-def ingest(jsonl_path: str):
+def ingest(jsonl_path: str, source: str = "poe2db",
+           league: str | None = None, game_version: str | None = None):
     if not os.path.exists(jsonl_path):
         logger.error(f"File not found: {jsonl_path}")
         return
@@ -23,24 +24,28 @@ def ingest(jsonl_path: str):
     with open(jsonl_path, "r", encoding="utf-8") as f:
         chunks = [json.loads(line) for line in f if line.strip()]
 
-    logger.info(f"Loaded {len(chunks)} chunks from {jsonl_path}")
+    logger.info(f"Loaded {len(chunks)} chunks from {jsonl_path} (source={source})")
 
     db = SessionLocal()
     try:
-        # Check existing by content hash to avoid duplicates
-        existing = set(
-            row[0] for row in db.query(KnowledgeChunk.source).filter(
-                KnowledgeChunk.source == "poe2db"
-            ).all()
-        )
-        logger.info(f"Existing poe2db chunks: {len(existing)}")
+        # Dedup by hashing the search_text of already-ingested chunks for this source.
+        # (Previous version compared content hashes against the literal string
+        # "poe2db", so dedup never matched and re-runs created duplicates.)
+        existing = set()
+        for (content,) in db.query(KnowledgeChunk.content).filter(
+            KnowledgeChunk.source == source
+        ).all():
+            try:
+                existing.add(content_hash(json.loads(content).get("search_text", "")[:2000]))
+            except Exception:
+                existing.add(content_hash(content[:2000]))
+        logger.info(f"Existing {source} chunks: {len(existing)}")
 
         ingested, skipped, failed = 0, 0, 0
         for i, chunk in enumerate(chunks):
             search_text = chunk.get("search_text", "")[:2000]
             chash = content_hash(search_text)
 
-            # Use search_text hash as dedup key (stored in chunk_type)
             if chash in existing:
                 skipped += 1
                 continue
@@ -54,9 +59,13 @@ def ingest(jsonl_path: str):
                 kc = KnowledgeChunk(
                     content=json.dumps(chunk, ensure_ascii=False),
                     embedding=embedding,
-                    source="poe2db",
+                    source=source,
                     chunk_type=chunk.get("content_type", "unknown"),
-                    league=chunk.get("source_page", ""),
+                    # league must hold a real league name (or None), never the
+                    # scraper page name — league-filtered retrieval paths
+                    # (recommend, build chat) match on this column.
+                    league=league,
+                    game_version=game_version,
                 )
                 db.add(kc)
                 existing.add(chash)
@@ -76,5 +85,13 @@ def ingest(jsonl_path: str):
 
 
 if __name__ == "__main__":
-    p = sys.argv[1] if len(sys.argv) > 1 else "/app/data/poe2db_chunks_v2.jsonl"
-    ingest(p)
+    import argparse
+    parser = argparse.ArgumentParser(description="Ingest JSONL chunks into knowledge_chunks")
+    parser.add_argument("jsonl_path", nargs="?", default="/app/data/poe2db_chunks_v2.jsonl")
+    parser.add_argument("--source", default="poe2db",
+                        help="source tag: poe2db / pob / poe2wiki / homework")
+    parser.add_argument("--league", default=None, help="league name (optional)")
+    parser.add_argument("--game-version", default=None, help="game version (optional)")
+    args = parser.parse_args()
+    ingest(args.jsonl_path, source=args.source,
+           league=args.league, game_version=args.game_version)

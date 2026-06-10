@@ -156,93 +156,129 @@ def _classify_intent(question: str) -> str:
     return "encyclopedia"
 
 
-def _classify_question(question: str) -> str | None:
-    """Quick keyword-based content type filter to narrow vector search scope."""
+def _classify_question(question: str) -> list[str] | None:
+    """Quick keyword-based content type filter to narrow vector search scope.
+
+    Returns a LIST of chunk_type values matching how data was actually ingested:
+    PoB chunks use 'gem'/'passive'/'asc_nodes'/'item'/'mod', poe2db uses
+    'skill'/'item'/'mod'/'quest'/'map', poe2wiki uses 'wiki', homework uses
+    'build_summary' etc. A single-type equality filter silently excluded most
+    of the corpus (e.g. gems, ascendancy node lists, waystone/map data).
+    """
     q = question.lower()
     if any(w in q for w in ['skill', 'gem', 'herald', 'aura', 'attack', 'spell',
                               '技能', '宝石', '光环', '攻击', '法术', '召唤']):
-        return 'skill'
+        return ['skill', 'gem', 'wiki']
     if any(w in q for w in ['unique', 'item', 'weapon', 'armour', 'sword', 'bow',
                               '暗金', '装备', '武器', '防具', '传奇', '项链', '戒指']):
-        return 'item'
+        return ['item', 'mod']
     if any(w in q for w in ['mod', 'affix', 'prefix', 'suffix', 'enchant',
                               '词缀', '前缀', '后缀', '附魔']):
-        return 'mod'
+        return ['mod', 'item']
     if any(w in q for w in ['quest', 'act', 'boss', 'map', 'waystone',
                               '任务', '章节', 'boss', '首领', '地图']):
-        return 'quest'
+        return ['quest', 'map']
     if any(w in q for w in ['passive', 'ascendancy', 'tree', 'node',
                               '天赋', '升华', '节点']):
-        return 'passive'
+        return ['passive', 'asc_nodes']
     return None
 
 
-def _retrieve_knowledge(question: str, top_k: int = 5) -> list[dict]:
+def _vector_search(db, q_embedding, filters: list, top_k: int,
+                   min_similarity: float = 0.3) -> list[dict]:
+    """Run a vector similarity search with the given filters."""
+    db_url = str(db.get_bind().url)
+    is_sqlite = db_url.startswith("sqlite")
+
+    if is_sqlite:
+        chunks = db.query(KnowledgeChunk).filter(*filters).all()
+        scored = []
+        for c in chunks:
+            emb = c.embedding
+            if isinstance(emb, str):
+                emb = json.loads(emb)
+            sim = _cosine_sim(q_embedding, emb)
+            scored.append((sim, c))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [{"content": c.content, "chunk_type": c.chunk_type,
+                 "source": c.source, "similarity": round(s, 3)}
+                for s, c in scored[:top_k] if s > min_similarity]
+    else:
+        dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
+        rows = (
+            db.query(KnowledgeChunk, dist)
+            .filter(*filters)
+            .order_by(dist)
+            .limit(top_k)
+            .all()
+        )
+        return [
+            {"content": c.content, "chunk_type": c.chunk_type,
+             "source": c.source, "similarity": round(1.0 - d, 3)}
+            for c, d in rows if (1.0 - d) > min_similarity
+        ]
+
+
+def _retrieve_knowledge(question: str, top_k: int = 5,
+                        classify_text: str | None = None,
+                        q_embedding: list[float] | None = None) -> list[dict]:
     """Retrieve relevant knowledge chunks using vector similarity.
 
-    Optimizations:
-      1. Content-type pre-filtering (keyword match)
-      2. Limits to poe2db source, non-stale chunks
+    Args:
+        question: text to embed for the vector search (may include LLM keywords)
+        classify_text: text used for intent / content-type classification.
+            Defaults to `question`. The chat flow passes the raw user message
+            here so LLM-generated English keywords (e.g. "skill gem", "map")
+            don't accidentally trigger the wrong pre-filter.
+        q_embedding: optional precomputed embedding (avoids duplicate API calls)
+
+    The chunk_type pre-filter is a soft optimization: if the filtered search
+    yields nothing, we retry without the filter instead of returning empty.
     """
     db = SessionLocal()
     try:
-        q_embedding = get_embedding(question)
+        if q_embedding is None:
+            q_embedding = get_embedding(question)
         if not q_embedding:
+            logger.error("RAG retrieval aborted: query embedding unavailable "
+                         "(check EMBEDDING_API_KEY / embedding service)")
             return []
 
-        db_url = str(db.get_bind().url)
-        is_sqlite = db_url.startswith("sqlite")
-
-        filters = [
+        base_filters = [
             KnowledgeChunk.embedding != None,  # noqa: E711
             KnowledgeChunk.stale == False,  # noqa: E712
         ]
 
-        # Intent-based source filtering
-        intent = _classify_intent(question)
-        if intent == "build_design":
-            # BD design: homework + pob + poe2db + wiki
-            pass  # no source filter — search all
-        elif intent == "recommend":
-            filters.append(KnowledgeChunk.chunk_type.in_(["item", "skill"]))
-        else:
-            # encyclopedia: all sources
-            pass
+        cls_text = classify_text if classify_text is not None else question
+        filters = list(base_filters)
 
-        content_type = _classify_question(question)
-        if content_type:
-            filters.append(KnowledgeChunk.chunk_type == content_type)
+        # Intent-based content-type narrowing
+        intent = _classify_intent(cls_text)
+        if intent == "recommend":
+            filters.append(KnowledgeChunk.chunk_type.in_(["item", "skill", "gem", "mod"]))
 
-        if is_sqlite:
-            chunks = db.query(KnowledgeChunk).filter(*filters).all()
-            scored = []
-            for c in chunks:
-                emb = c.embedding
-                if isinstance(emb, str):
-                    emb = json.loads(emb)
-                sim = _cosine_sim(q_embedding, emb)
-                scored.append((sim, c))
-            scored.sort(key=lambda x: x[0], reverse=True)
-            return [{"content": c.content, "chunk_type": c.chunk_type, "similarity": round(s, 3)}
-                    for s, c in scored[:top_k] if s > 0.3]
-        else:
-            dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
-            rows = (
-                db.query(KnowledgeChunk, dist)
-                .filter(*filters)
-                .order_by(dist)
-                .limit(top_k)
-                .all()
-            )
-            return [
-                {"content": c.content, "chunk_type": c.chunk_type, "similarity": round(1.0 - d, 3)}
-                for c, d in rows if (1.0 - d) > 0.3
-            ]
+        content_types = _classify_question(cls_text)
+        if content_types:
+            filters.append(KnowledgeChunk.chunk_type.in_(content_types))
+
+        results = _vector_search(db, q_embedding, filters, top_k)
+
+        # Soft-filter fallback: pre-filter may have excluded the right chunks
+        if not results and len(filters) > len(base_filters):
+            logger.info("Pre-filtered retrieval empty, retrying without chunk_type filter")
+            results = _vector_search(db, q_embedding, base_filters, top_k)
+
+        return results
     finally:
         db.close()
 
 
 def _cosine_sim(a, b):
+    # embeddings may arrive as numpy arrays (pgvector on sqlite) — normalize to list
+    if a is not None and not isinstance(a, (list, tuple)):
+        a = list(a)
+    if b is not None and not isinstance(b, (list, tuple)):
+        b = list(b)
     if not a or not b:
         return 0
     dot = sum(x * y for x, y in zip(a, b))
@@ -397,12 +433,22 @@ async def _stream_chat(messages: list[dict]):
     # Combine: model's English keywords + user's original Chinese for cross-lingual match
     search_query = user_msg + " " + " ".join(search_keywords)
 
+    # Embed once; surface embedding-service failures instead of pretending "no results"
+    q_embedding = get_embedding(search_query)
+    if not q_embedding:
+        logger.error("Chat retrieval failed: embedding service unavailable")
+        yield f"data: {json.dumps({'type': 'answer', 'content': '知识库检索失败：embedding 服务不可用（请检查 EMBEDDING_API_KEY 配置或 API 配额）。'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return
+
+    # NOTE: classify on the raw user message, not the LLM-keyword-augmented query —
+    # English keywords like "item"/"map" used to mis-trigger chunk_type pre-filters.
     if intent == "build_design":
-        chunks = _retrieve_multi_source(search_query)
+        chunks = _retrieve_multi_source(search_query, q_embedding=q_embedding)
     elif intent == "recommend":
-        chunks = _retrieve_knowledge(search_query, 8)
+        chunks = _retrieve_knowledge(search_query, 8, classify_text=user_msg, q_embedding=q_embedding)
     else:
-        chunks = _retrieve_knowledge(search_query, 5)
+        chunks = _retrieve_knowledge(search_query, 5, classify_text=user_msg, q_embedding=q_embedding)
 
     if not chunks:
         yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
@@ -472,50 +518,47 @@ async def _stream_chat(messages: list[dict]):
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
 
-def _retrieve_multi_source(question: str, per_source: int = 5) -> list[dict]:
-    """Multi-source: homework + pob + poe2db + poe2wiki."""
+def _retrieve_multi_source(question: str, per_source: int = 5,
+                           q_embedding: list[float] | None = None) -> list[dict]:
+    """Multi-source: homework + pob + poe2db + poe2wiki.
+
+    Sources are discovered from the DB (DISTINCT) rather than hardcoded, so
+    chunks ingested with unexpected source values are still searchable.
+    Falls back to a source-agnostic search if per-source retrieval is empty.
+    """
     db = SessionLocal()
     try:
-        q_embedding = get_embedding(question)
+        if q_embedding is None:
+            q_embedding = get_embedding(question)
         if not q_embedding:
+            logger.error("Multi-source retrieval aborted: query embedding unavailable")
             return []
 
-        db_url = str(db.get_bind().url)
-        is_sqlite = db_url.startswith("sqlite")
+        sources = [
+            row[0] for row in db.query(KnowledgeChunk.source)
+            .filter(KnowledgeChunk.stale == False)  # noqa: E712
+            .distinct().all() if row[0]
+        ] or ["homework", "pob", "poe2db", "poe2wiki"]
 
         all_chunks = []
-        for source in ["homework", "pob", "poe2db", "poe2wiki"]:
-            base_filters = [
-                KnowledgeChunk.embedding != None,
+        for source in sources:
+            filters = [
+                KnowledgeChunk.embedding != None,  # noqa: E711
                 KnowledgeChunk.source == source,
-                KnowledgeChunk.stale == False,
+                KnowledgeChunk.stale == False,  # noqa: E712
             ]
+            all_chunks.extend(_vector_search(db, q_embedding, filters, per_source))
 
-            if is_sqlite:
-                candidates = db.query(KnowledgeChunk).filter(*base_filters).all()
-                scored = []
-                for c in candidates:
-                    emb = c.embedding
-                    if isinstance(emb, str):
-                        emb = json.loads(emb)
-                    sim = _cosine_sim(q_embedding, emb)
-                    if sim > 0.3:
-                        scored.append({"content": c.content, "chunk_type": c.chunk_type,
-                                       "source": c.source, "similarity": round(sim, 3)})
-                scored.sort(key=lambda x: x["similarity"], reverse=True)
-                all_chunks.extend(scored[:per_source])
-            else:
-                dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
-                rows = (db.query(KnowledgeChunk, dist).filter(*base_filters)
-                        .order_by(dist).limit(per_source).all())
-                for c, d in rows:
-                    sim = round(1.0 - d, 3) if d is not None else 0
-                    if sim > 0.3:
-                        all_chunks.append({"content": c.content, "chunk_type": c.chunk_type,
-                                           "source": c.source, "similarity": sim})
+        if not all_chunks:
+            logger.info("Multi-source empty, falling back to source-agnostic search")
+            fallback_filters = [
+                KnowledgeChunk.embedding != None,  # noqa: E711
+                KnowledgeChunk.stale == False,  # noqa: E712
+            ]
+            all_chunks = _vector_search(db, q_embedding, fallback_filters, 10)
 
         all_chunks.sort(key=lambda x: x["similarity"], reverse=True)
-        logger.info(f"Multi-source: {len(all_chunks)} chunks")
+        logger.info(f"Multi-source: {len(all_chunks)} chunks from sources={sources}")
         return all_chunks[:20]
     finally:
         db.close()
