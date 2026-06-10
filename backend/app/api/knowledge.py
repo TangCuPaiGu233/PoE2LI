@@ -587,11 +587,13 @@ async def _stream_chat(messages: list[dict]):
     search_keywords = correct_keywords(search_keywords)
 
     # If any keyword matches a known notable, resolve its ascendancy for structured lookup
-    notable_asc = find_asc_for_notable(search_keywords)
-    if notable_asc and not resolved_asc_en:
-        resolved_asc_en = notable_asc
-        resolved_asc_cn = resolved_asc_cn or notable_asc
-        logger.info(f"[CHAT] notable_resolved: asc={notable_asc}")
+    # Only for build_design (where ascendancy context is relevant), not encyclopedia
+    if skill.name == "build_design":
+        notable_asc = find_asc_for_notable(search_keywords)
+        if notable_asc and not resolved_asc_en:
+            resolved_asc_en = notable_asc
+            resolved_asc_cn = resolved_asc_cn or notable_asc
+            logger.info(f"[CHAT] notable_resolved: asc={notable_asc}")
 
     # ── Phase 2: Multi-source retrieval using model's keywords + original query ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"

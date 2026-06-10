@@ -102,7 +102,7 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
     return list(found.values())
 
 
-def correct_keywords(keywords: list[str], cutoff: float = 0.7) -> list[str]:
+def correct_keywords(keywords: list[str], cutoff: float = 0.8) -> list[str]:
     """Fuzzy-match LLM keywords against known EN entity names.
 
     Three strategies:
