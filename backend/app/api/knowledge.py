@@ -359,19 +359,47 @@ class ChatRequest(BaseModel):
 
 
 async def _stream_chat(messages: list[dict]):
-    """SSE generator with intent routing + multi-source retrieval."""
+    """Two-phase: LLM thinks what to search → retrieve → LLM thinks about results → answer."""
     user_msg = messages[-1]["content"] if messages else ""
     intent = _classify_intent(user_msg)
 
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '识别意图: ' + intent + '...'})}\n\n"
+    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
+    llm_key = os.getenv("LLM_API_KEY", "")
+    from openai import OpenAI as OAI
+    llm_client = OAI(base_url=llm_url, api_key=llm_key)
 
-    # Multi-source retrieval based on intent
+    # ── Phase 1: Model thinks, decides what to search ──
+    yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析需要查什么...'})}\n\n"
+
+    plan_prompt = (
+        "用户问了一个 PoE2 问题。你需要列出检索关键词来查找相关资料。\n"
+        "输出 3-5 个英文检索关键词，一行一个，不要其他文字。\n\n"
+        "用户问题: " + user_msg
+    )
+    try:
+        resp = llm_client.chat.completions.create(
+            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
+            messages=[{"role": "user", "content": plan_prompt}],
+            temperature=0.1, max_tokens=200,
+            extra_body={'thinking': {'type': 'enabled'}},
+        )
+        # Stream the planning reasoning
+        # (planning is a non-streaming call for speed, but we can show the keywords)
+        search_keywords = resp.choices[0].message.content.strip().split('\n')
+        search_keywords = [k.strip() for k in search_keywords if k.strip()][:5]
+        yield f"data: {json.dumps({'type': 'thinking', 'content': '搜索关键词: ' + ', '.join(search_keywords[:5])})}\n\n"
+    except Exception:
+        search_keywords = [user_msg]
+
+    # ── Phase 2: Multi-source retrieval using model's keywords ──
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
+
     if intent == "build_design":
-        chunks = _retrieve_multi_source(user_msg)
+        chunks = _retrieve_multi_source(" ".join(search_keywords))
     elif intent == "recommend":
-        chunks = _retrieve_knowledge(user_msg, 8)
+        chunks = _retrieve_knowledge(" ".join(search_keywords), 8)
     else:
-        chunks = _retrieve_knowledge(user_msg, 5)
+        chunks = _retrieve_knowledge(" ".join(search_keywords), 5)
 
     if not chunks:
         yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
@@ -384,8 +412,6 @@ async def _stream_chat(messages: list[dict]):
         source_counts[s] = source_counts.get(s, 0) + 1
     src_desc = ", ".join(k + "(" + str(v) + ")" for k, v in source_counts.items())
 
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析...'})}\n\n"
-
     # Build context
     ctx_parts = []
     for c in chunks:
@@ -396,25 +422,17 @@ async def _stream_chat(messages: list[dict]):
             ctx_parts.append(c["content"][:600])
     context = "\n\n".join(ctx_parts)
 
-    # System prompt based on intent
+    # ── Phase 3: Model thinks about results + answers ──
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析回答...'})}\n\n"
+
     if intent == "build_design":
         sys_prompt = (
-            "你是 PoE2 BD 设计师。你的任务是尽力为用户提供有用的 BD 设计建议。\n\n"
-            "输出格式：\n"
-            "## 核心思路\n## 推荐技能（从资料中找，找不到就列出疑似相关的）\n"
-            "## 推荐升华（资料有就用，没有就根据职业推理）\n"
-            "## 关键装备（资料中的传奇/基底）\n"
-            "## 天赋方向（资料中有天赋数据就引用）\n"
-            "## 防御与属性建议\n"
-            "## 说明（标注：哪些来自资料，哪些是推测）\n\n"
-            "规则：\n"
-            "- 资料有的，直接引用。资料不足的，标注【推测】后给出合理建议\n"
-            "- 不要因为资料不足就直接放弃——用户需要的是指导\n"
-            "- 如果资料中有技能/装备/天赋名，优先用它们\n\n"
-            "资料：\n" + context
+            "你是 PoE2 BD 设计师。尽力为用户提供有用的 BD 设计建议。\n"
+            "输出：## 核心思路\n## 推荐技能\n## 推荐升华\n## 关键装备\n## 天赋方向\n## 防御体系\n## 说明（[资料]/[推测]标注来源）\n"
+            "资料有的直接引用，不足的标注[推测]后给出合理建议。\n\n资料：\n" + context
         )
     elif intent == "recommend":
-        sys_prompt = "你是 PoE2 装备推荐专家。对比分析以下资料，给出推荐。\n\n资料：\n" + context
+        sys_prompt = "你是 PoE2 装备推荐专家。对比分析资料，给出推荐。\n\n资料：\n" + context
     else:
         sys_prompt = "你是 PoE2 知识助手。基于资料回答，不要编造。\n\n资料：\n" + context
 
@@ -422,19 +440,11 @@ async def _stream_chat(messages: list[dict]):
     for m in messages[-5:]:
         llm_msgs.append(m)
 
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '生成回答...'})}\n\n"
-
-    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
-    llm_key = os.getenv("LLM_API_KEY", "")
-    from openai import OpenAI as OAI
-    llm_client = OAI(base_url=llm_url, api_key=llm_key)
     try:
         stream = llm_client.chat.completions.create(
             model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
             messages=llm_msgs,
-            temperature=0.3,
-            max_tokens=2048,
-            stream=True,
+            temperature=0.3, max_tokens=2048, stream=True,
             extra_body={'thinking': {'type': 'enabled'}},
         )
         for chunk in stream:
