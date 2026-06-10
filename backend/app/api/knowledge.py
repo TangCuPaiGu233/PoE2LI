@@ -164,24 +164,28 @@ def _classify_question(question: str) -> list[str] | None:
     'skill'/'item'/'mod'/'quest'/'map', poe2wiki uses 'wiki', homework uses
     'build_summary' etc. A single-type equality filter silently excluded most
     of the corpus (e.g. gems, ascendancy node lists, waystone/map data).
+
+    IMPORTANT: accumulates ALL matching types instead of early-returning —
+    "升华技能" must match BOTH asc_nodes AND skill, not just skill first.
     """
     q = question.lower()
+    types: list[str] = []
     if any(w in q for w in ['skill', 'gem', 'herald', 'aura', 'attack', 'spell',
                               '技能', '宝石', '光环', '攻击', '法术', '召唤']):
-        return ['skill', 'gem', 'wiki']
+        types.extend(['skill', 'gem', 'wiki'])
     if any(w in q for w in ['unique', 'item', 'weapon', 'armour', 'sword', 'bow',
                               '暗金', '装备', '武器', '防具', '传奇', '项链', '戒指']):
-        return ['item', 'mod']
+        types.extend(['item', 'mod'])
     if any(w in q for w in ['mod', 'affix', 'prefix', 'suffix', 'enchant',
                               '词缀', '前缀', '后缀', '附魔']):
-        return ['mod', 'item']
+        types.extend(['mod', 'item'])
     if any(w in q for w in ['quest', 'act', 'boss', 'map', 'waystone',
                               '任务', '章节', 'boss', '首领', '地图']):
-        return ['quest', 'map']
+        types.extend(['quest', 'map'])
     if any(w in q for w in ['passive', 'ascendancy', 'tree', 'node',
                               '天赋', '升华', '节点']):
-        return ['passive', 'asc_nodes']
-    return None
+        types.extend(['passive', 'asc_nodes'])
+    return list(dict.fromkeys(types)) or None  # dedup, keep order
 
 
 def _vector_search(db, q_embedding, filters: list, top_k: int,
