@@ -177,6 +177,65 @@ Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
 
 **Docker deployment caveat**: Only `/app/data` is volume-mounted. Code changes require `docker cp` into the running container or a full `docker compose up -d --build`.
 
+## Knowledge Base (as of 2026-06-10)
+
+**21,010 chunks, 82MB** across 4 sources:
+
+| Source | Types | Count | Content |
+|--------|-------|-------|---------|
+| **PoB** (jsDelivr CDN) | passive/item/mod/gem/asc_nodes | ~18K | 4912天赋节点+3588物品+1828词缀+1260宝石+22升华详情 |
+| **poe2db** (cloudscraper) | skill/item/mod/quest | 2,733 | 技能详情+528传奇完整词缀+273词缀+93任务（三语EN/CN/TW） |
+| **poe2wiki** (cloudscraper) | wiki | 183 | 机制百科：Aura/Buff/Herald/Huntress等29关键页+53通用页 |
+| **homework** (PoB解码) | BD攻略 | 72 | 从用户PoB code解码生成的AI分析文本 |
+
+### Key Data Files
+- `backend/data/trade_stats_condensed.json` — 7816 PoE2 trade stat IDs (live API dump)
+- `backend/app/services/poe2db_uniques.json` — 446传奇完整数据
+- `backend/app/services/poe2db_ascendancies.json` — 82升华职业
+- `backend/data/poe2db_chunks_v3.jsonl` — 978 skill detail pages (CDN scrape)
+- `backend/data/pob_data.jsonl` — 10253 PoB structured data chunks
+
+### Ingestion Gotchas
+- **Ascendancy nodes**: embedding text MUST be short (`"Spirit Walker ascendancy: Node1, Node2..."`) — long search_text (3000 chars) dilutes similarity
+- **Context truncation**: asc_nodes type gets 3000 chars, others 800 (was 600 — cut 18-node lists to 3, causing hallucination)
+- **Cross-lingual retrieval**: always include user's original Chinese query alongside LLM's English keywords
+- **Dedup**: use exact chunk_id match via `league` field, NOT `content.like('%id%')` (matches "tree_4"→"tree_40")
+
+## Chat System
+
+### Endpoints
+- `POST /api/chat` — SSE streaming, multi-turn, DeepSeek thinking mode
+- `POST /api/knowledge/ask` — single-turn RAG QA (Redis cached, 1h TTL)
+- `POST /api/knowledge/recommend` — multi-hop item comparison (auto-routes to RAG for encyclopedia)
+
+### Flow
+1. LLM thinks → outputs search keywords (non-stream, fast)
+2. Code retrieves from all 4 sources using user's Chinese + LLM's English keywords
+3. LLM thinks about results → streams reasoning (🧠) + answer
+
+### Intent Routing (`_classify_intent`)
+- `build_design`: "BD/构建/配装/开荒/天赋怎么点" → multi-source + structured BD output
+- `recommend`: "推荐/哪个好/对比" → item comparison
+- `encyclopedia`: default → all-source RAG
+
+### Frontend Pages
+- `/` — PoB decoder (paste code → stats + homework + link to /chat)
+- `/trade` — natural language trade search (Agent + multi-plan)
+- `/chat` — multi-turn AI chat with thinking display (collapsible 🧠 思考过程)
+
+## Trade Search
+
+### Key Files
+- `backend/app/services/trade_agent.py` — main pipeline
+- `backend/app/services/trade_concepts.py` — 60 curated CN→stat_id mappings with item_slot allowlists
+- `backend/app/services/trade_stat_service.py` — vector search for stat IDs (pgvector)
+- `backend/app/services/trade_service.py` — Trade API query builder + rate-limited HTTP client
+
+### COUNT Group Semantics
+- AND: all stats must match (core requirement)
+- COUNT(min=N): at least N of the listed stats must match (flexible pool)
+- AND + COUNT combined: core stat required, broad stats flexible
+
 ## Agent skills
 
 ### Issue tracker
