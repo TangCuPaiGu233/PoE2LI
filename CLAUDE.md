@@ -177,51 +177,86 @@ Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
 
 **Docker deployment caveat**: Only `/app/data` is volume-mounted. Code changes require `docker cp` into the running container or a full `docker compose up -d --build`.
 
-## Knowledge Base (as of 2026-06-10)
+## Knowledge Base (as of 2026-06-11)
 
-**21,010 chunks, 82MB** across 4 sources:
+**21,977 chunks** across 5 sources:
 
-| Source | Types | Count | Content |
-|--------|-------|-------|---------|
-| **PoB** (jsDelivr CDN) | passive/item/mod/gem/asc_nodes | ~18K | 4912天赋节点+3588物品+1828词缀+1260宝石+22升华详情 |
-| **poe2db** (cloudscraper) | skill/item/mod/quest | 2,733 | 技能详情+528传奇完整词缀+273词缀+93任务（三语EN/CN/TW） |
-| **poe2wiki** (cloudscraper) | wiki | 183 | 机制百科：Aura/Buff/Herald/Huntress等29关键页+53通用页 |
-| **homework** (PoB解码) | BD攻略 | 72 | 从用户PoB code解码生成的AI分析文本 |
+| Source | Types | Count | CN? | Content |
+|--------|-------|-------|-----|---------|
+| **PoB** (jsDelivr CDN) | passive/item/mod/gem/asc_nodes | ~18K | N | 纯英文：天赋节点+物品+词缀+宝石+22升华 |
+| **poe2db** (cloudscraper) | skill/item/mod/quest | ~3.4K | Y | 三语(EN/CN/TW)：技能+528暗金+273词缀+93任务 |
+| **poe2wiki** (crawler) | wiki/item | 552 | N | 全站爬取：Delirium/Breach/Ritual/Omen/Spirit/Aura等 |
+| **homework** (PoB解码) | BD攻略 | 72 | Y | AI生成中文BD分析 |
+| **craftofexile** | mod aliases | 258 | Y | 词缀中英对照(回退层) |
+
+### Alias Tables (entity_resolver)
+| 数据源 | 条目 | 类型 |
+|--------|------|------|
+| caimogu_skills.json | 846 | 技能(国服译名) |
+| game_aliases.json | 515 | 暗金/词缀(poe2db) |
+| coe_cn_aliases.json | 258 | 词缀(craftofexile) |
+| ASCENDANCY_CN_TO_EN | 22 | 升华 |
+| CLASS_CN_TO_EN | 10 | 职业 |
+| caimogu_items.json | 14 | 物品(几乎全挂) |
+| **合计** | **~1,665** | |
 
 ### Key Data Files
-- `backend/data/trade_stats_condensed.json` — 7816 PoE2 trade stat IDs (live API dump)
-- `backend/app/services/poe2db_uniques.json` — 446传奇完整数据
-- `backend/app/services/poe2db_ascendancies.json` — 82升华职业
-- `backend/data/poe2db_chunks_v3.jsonl` — 978 skill detail pages (CDN scrape)
+- `backend/data/poe2db_chunks_v3.jsonl` — 890 skill detail pages (3-language)
 - `backend/data/pob_data.jsonl` — 10253 PoB structured data chunks
+- `backend/data/caimogu_skills.json` — 846 CN skill names (Tencent-aligned)
+- `backend/data/coe_cn_aliases.json` — 258 CN mod translations (craftofexile)
+- NAS: `/volume1/docker/PoE2LI/data/` — volume-mounted into container `/app/data/`
+
+### CN Coverage Reality
+- PoB 18K chunks are pure English — **BGE-M3 cross-lingual matching handles this** (tested: "火焰伤害"→"Fire Damage" sim=0.64)
+- CN data exists for: poe2db items/skills (CN), homework (CN), asc_nodes (CN injected)
+- Missing: special base types (Delirium Twisted Amulet etc.), user slang→official name mappings
 
 ### Ingestion Gotchas
-- **Ascendancy nodes**: embedding text MUST be short (`"Spirit Walker ascendancy: Node1, Node2..."`) — long search_text (3000 chars) dilutes similarity
-- **Context truncation**: asc_nodes type gets 3000 chars, others 800 (was 600 — cut 18-node lists to 3, causing hallucination)
-- **Cross-lingual retrieval**: always include user's original Chinese query alongside LLM's English keywords
-- **Dedup**: use exact chunk_id match via `league` field, NOT `content.like('%id%')` (matches "tree_4"→"tree_40")
+- **Asc_nodes embedding**: MUST be short or similarity diluted. CN prefix injected: "灵魂行者 (Spirit Walker)"
+- **Cross-lingual**: always include original CN query + LLM EN keywords
+- **Encoding**: SSH garbles CJK display but DB storage is UTF-8. Scripts using `chr()` for CJK are fragile
+- **FK constraints**: `kb_entities` references `knowledge_chunks` via FK — can't delete chunks without deleting entities first
+- **docker cp**: Copying files to `/app/scripts/` often fails silently (use `docker compose build --no-cache` instead)
 
 ## Chat System
+
+### Skill-based Architecture
+```
+User query → Skill Router (router.py)
+  ├── TradeSearchSkill  [tools: trade_api, entity_resolve]
+  ├── BuildDesignSkill  [tools: rag_search, entity_resolve, structured_lookup]
+  ├── RecommendSkill    [tools: rag_search, entity_resolve]
+  └── EncyclopediaSkill [tools: rag_search, entity_resolve]
+```
+Each Skill has its own `system_prompt()`, `keywords[]`, and `tools[]`. New skills added by creating a module in `backend/app/skills/` and registering in `router.py`.
+
+### Retrieval Pipeline
+- **Unified**: `retrieval_pipeline.py` (595 lines) consolidates vector search, intent routing, entity resolution, concept expansion
+- **Structured Lookup**: resolved entities (ascendancy/item/skill) trigger direct DB fetch BEFORE vector search
+- **Concept Expansion**: reads chunk `links` field, does secondary vector searches (max 4 chunks, 3 links)
+- **Knowledge Graph**: `kb_entities` + `kb_edges` tables (3,395 entities, 15,401 edges) for multi-hop traversal
+
+### Entity Resolution
+- `entity_resolver.py`: 3-tier — exact substring → CJK bigram fuzzy → keyword correction
+- CJK bigram: "扭曲项链" shares "扭曲" with "扭曲苍穹" → matches
+- Fuzzy keyword correction: fixes LLM misspellings ("Moriigan"→"Morrigan")
 
 ### Endpoints
 - `POST /api/chat` — SSE streaming, multi-turn, DeepSeek thinking mode
 - `POST /api/knowledge/ask` — single-turn RAG QA (Redis cached, 1h TTL)
-- `POST /api/knowledge/recommend` — multi-hop item comparison (auto-routes to RAG for encyclopedia)
+- `POST /api/knowledge/recommend` — multi-hop item comparison
 
 ### Flow
-1. LLM thinks → outputs search keywords (non-stream, fast)
-2. Code retrieves from all 4 sources using user's Chinese + LLM's English keywords
-3. LLM thinks about results → streams reasoning (🧠) + answer
-
-### Intent Routing (`_classify_intent`)
-- `build_design`: "BD/构建/配装/开荒/天赋怎么点" → multi-source + structured BD output
-- `recommend`: "推荐/哪个好/对比" → item comparison
-- `encyclopedia`: default → all-source RAG
+1. Skill Router dispatches → Entity resolution + alias injection
+2. LLM generates search keywords → fuzzy-corrected against known entities
+3. Vector search + structured lookup → concept expansion via links/knowledge graph
+4. LLM streams reasoning + answer in markdown format
 
 ### Frontend Pages
 - `/` — PoB decoder (paste code → stats + homework + link to /chat)
 - `/trade` — natural language trade search (Agent + multi-plan)
-- `/chat` — multi-turn AI chat with thinking display (collapsible 🧠 思考过程)
+- `/chat` — Taste-skill redesigned: zinc palette, amber accent, markdown rendering, collapsible thinking
 
 ## Trade Search
 
@@ -236,13 +271,44 @@ Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
 - COUNT(min=N): at least N of the listed stats must match (flexible pool)
 - AND + COUNT combined: core stat required, broad stats flexible
 
-## Agent skills
+## Concept Links System
 
-### Issue tracker
-Issues live in this repo's GitHub Issues. See `docs/agents/issue-tracker.md`.
+`concept_links.py`: 3-tier link computation at chunk ingest time:
+1. **Entity names**: scan text with entity_resolver → `entity:灵魂行者:ascendancy:Spirit Walker`
+2. **Concept hooks** (~60 keywords): "涂油"→wiki, "词缀"→mod, "delirium"→wiki, "minion"→minion
+3. **Chunk_type self-link**: `type:item`
 
-### Triage labels
-Default vocabulary — all five canonical labels used verbatim. See `docs/agents/triage-labels.md`.
+Links stored in `knowledge_chunks.links` (JSON array), computed by `backfill_links.py`.
+Concept expansion during retrieval: reads links → secondary vector search → merges results.
 
-### Domain docs
-Single-context — `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+## Known Issues & Gotchas
+
+1. **Encoding**: Chinese text in container scripts must be proper UTF-8. Using `chr()` escapes works but is fragile
+2. **Inline Python via SSH**: Multi-layer quoting (Python→bash→Python) breaks on `"` and `'` and `{}`. Always write scripts to files and deploy
+3. **Twisted Amulet (id=24446)**: manually injected chunk. Had encoding issues with merged Instilled Notables text
+4. **docker exec -d**: background processes die when SSH disconnects. Use synchronous `docker exec` with long timeout
+5. **Docker cache**: `docker compose up -d --build` may use cached layers. Use `--no-cache` or `docker cp` for single-file changes
+6. **Concept expansion noise**: when links are irrelevant (random items matching same concept), expansion adds noise not signal
+7. **Frontend Next.js**: Turbopack version has breaking changes (see `frontend/AGENTS.md`). Use `docker compose build --no-cache frontend` for reliable rebuilds
+
+## Key Files Reference
+
+| File | Purpose |
+|------|---------|
+| `backend/app/api/knowledge.py` | Chat endpoint, streaming, skill dispatch |
+| `backend/app/services/retrieval_pipeline.py` | Unified retrieval: vector search + intent + entity + expand |
+| `backend/app/services/entity_resolver.py` | CN→EN entity resolution with bigram fuzzy match |
+| `backend/app/services/concept_links.py` | Concept hooks + link computation |
+| `backend/app/services/knowledge_graph_service.py` | KG edge creation and traversal |
+| `backend/app/models/knowledge_graph.py` | KbEntity + KbEdge DB models |
+| `backend/app/skills/router.py` | Skill dispatch by keyword matching |
+| `backend/app/skills/encyclopedia.py` | Encyclopedia Q&A skill |
+| `backend/app/skills/build_design.py` | BD design skill |
+| `backend/app/skills/trade_search.py` | Trade search skill |
+| `backend/app/skills/recommend.py` | Item recommend skill |
+| `backend/scripts/backfill_links.py` | Compute links for existing chunks |
+| `backend/scripts/backfill_knowledge_graph.py` | Populate KG entities/edges |
+| `backend/scripts/crawl_poe2wiki.py` | Full wiki crawler (resumable, 1s/page) |
+| `backend/scripts/scrape_caimogu_aliases.py` | Caimogu skill CN name scraper |
+| `frontend/src/app/chat/page.tsx` | Chat UI (taste-skill redesign, markdown renderer) |
+| `deploy_nas.py` | NAS deployment via paramiko SSH |
