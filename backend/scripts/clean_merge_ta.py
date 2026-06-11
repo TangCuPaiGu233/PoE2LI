@@ -72,12 +72,8 @@ resp = requests.post(emb_url,
     json={"model": "BAAI/bge-m3", "input": [new_st[:4000]]}, timeout=15)
 best_ta.embedding = resp.json()["data"][0]["embedding"]
 
-# Delete corrupted TA chunks
-for c in tas:
-    if c.id != best_ta.id:
-        db.delete(c)
-
-db.commit()
+# Skip deletion (FK constraints on kb_entities)
+# Just commit the merge
 print(f"\nOK: TA id={best_ta.id}, {len(ta_st)} -> {len(new_st)} chars")
 print(f"Preview: {new_st[:200]}...")
 print(f"Corrupted chunks deleted: {len(tas)-1}")
