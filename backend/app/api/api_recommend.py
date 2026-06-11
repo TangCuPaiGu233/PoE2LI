@@ -16,16 +16,8 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.recommend_agent import RecommendAgent
-from app.services.embedding_service import get_embedding
-from app.services.knowledge_service import retrieve_similar
-from app.core.database import SessionLocal
+from app.services.recommend_runtime import get_recommend_agent, _get_llm
 from app.core.redis_client import get_redis
-# PoB decoder optional
-try:
-    from app.services.pob_service import decode_pob
-except ImportError:
-    decode_pob = None
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/knowledge", tags=["recommend"])
@@ -82,94 +74,7 @@ def route_intent(question: str, has_candidates: bool) -> str:
     return "encyclopedia"
 
 
-# ─────────────────────── Adapter functions ───────────────────────
 import os
-import asyncio
-from openai import OpenAI
-
-_llm_client = None
-
-def _get_llm():
-    global _llm_client
-    if _llm_client is None:
-        _llm_client = OpenAI(
-            base_url=os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
-            api_key=os.getenv("LLM_API_KEY", ""),
-        )
-    return _llm_client
-
-
-async def _embed_adapter(text: str) -> list[float]:
-    """Async wrapper around sync get_embedding."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, get_embedding, text)
-
-
-async def _retrieve_adapter(vec: list[float], top_k: int = 5, filters: dict | None = None) -> list[dict]:
-    """Adapter: vector + filters → knowledge chunks."""
-    # Build a search query from the vector context
-    # Since retrieve_similar needs a text query, we do a direct vector search
-    db = SessionLocal()
-    try:
-        from sqlalchemy import func
-        from app.models.build import KnowledgeChunk
-        import json as _json
-
-        dist = KnowledgeChunk.embedding.cosine_distance(vec).label("distance")
-        q = db.query(KnowledgeChunk, dist).filter(
-            KnowledgeChunk.embedding != None,
-            KnowledgeChunk.source == "poe2db",
-            KnowledgeChunk.stale == False,
-        )
-        if filters:
-            if filters.get("chunk_type"):
-                q = q.filter(KnowledgeChunk.chunk_type == filters["chunk_type"])
-            if filters.get("league"):
-                q = q.filter(KnowledgeChunk.league == filters["league"])
-            if filters.get("game_version"):
-                q = q.filter(KnowledgeChunk.game_version == filters["game_version"])
-        q = q.order_by(dist).limit(top_k)
-        rows = q.all()
-        chunks = []
-        for c, d in rows:
-            sim = round(1.0 - d, 3) if d is not None else 0
-            if sim > 0.3:
-                chunks.append({"content": c.content, "chunk_type": c.chunk_type, "similarity": sim})
-        return chunks
-    finally:
-        db.close()
-
-
-async def _llm_adapter(messages: list[dict], **kw) -> str:
-    """Async LLM call adapter."""
-    loop = asyncio.get_running_loop()
-    def _call():
-        client = _get_llm()
-        resp = client.chat.completions.create(
-            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
-            messages=messages,
-            temperature=kw.get("temperature", 0.3),
-            max_tokens=kw.get("max_tokens", 1024),
-        )
-        return resp.choices[0].message.content.strip()
-    return await loop.run_in_executor(None, _call)
-
-
-# ─────────────────────── Agent singleton ───────────────────────
-
-_agent = None
-
-def _build_agent():
-    global _agent
-    if _agent is None:
-        _agent = RecommendAgent(
-            embed_fn=_embed_adapter,
-            retrieve_fn=_retrieve_adapter,
-            llm_fn=_llm_adapter,
-            decode_pob_fn=decode_pob,
-        )
-    return _agent
-
 
 def _cache_key(req: RecommendRequest) -> str:
     payload = json.dumps(req.model_dump(), ensure_ascii=False, sort_keys=True)
@@ -245,7 +150,7 @@ async def recommend(req: RecommendRequest):
     #     data["cached"] = True
     #     return RecommendResponse(**data)
 
-    agent = _build_agent()
+    agent = get_recommend_agent()
     try:
         result = await agent.run(
             question=req.question,

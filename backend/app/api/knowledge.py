@@ -313,79 +313,6 @@ class ChatRequest(BaseModel):
     stream: bool = True
 
 
-def _build_design_prompt(context: str, asc_en, asc_cn) -> str:
-    """Progressive BD design prompt — forces deep analysis of retrieved mechanics."""
-    anchor = ""
-    if asc_en and asc_cn:
-        anchor = (
-            "用户询问的升华是 " + str(asc_cn) + "(" + str(asc_en) + ")。"
-            "必须先深入分析该升华的核心机制, 再基于机制推导技能和装备选择。\n"
-        )
-    parts = [
-        "你是 PoE2 BD 架构师。基于检索到的游戏数据设计可行的 Build 方案。\n\n",
-    ]
-    if anchor:
-        parts.append(anchor)
-    parts.extend([
-        "## 分析要求\n",
-        "1. 读懂核心机制: 仔细阅读升华节点、技能描述中的具体数值和联动关系\n",
-        "2. 确定核心技能: 基于机制选出1-2个核心主动技能, 说明为什么它们与机制配合\n",
-        "3. 构建辅助链路: 为核心技能搭配辅助宝石, 解释联动逻辑\n",
-        "4. 寻找装备支撑: 推荐能强化核心机制的暗金或黄装词缀\n",
-        "5. 完善防御: 根据职业特性推荐防御层\n\n",
-        "## 输出格式\n",
-        "### 核心机制\n",
-        "(2-3句话解释这个BD的核心运作方式, 引用资料中的具体数值)\n\n",
-        "### 核心技能\n",
-        "- 主动技能 (名称+为什么选它)\n",
-        "- 辅助宝石链接 (联动关系)\n\n",
-        "### 关键装备\n",
-        "- 暗金推荐 (具体名称+作用)\n",
-        "- 黄装词缀优先级 (按重要性排序)\n\n",
-        "### 防御与天赋\n",
-        "- 关键天赋圈\n",
-        "- 防御机制\n\n",
-        "### 开荒/过渡建议\n",
-        "- 哪些装备可以降配\n",
-        "- 前期替代技能\n\n",
-        "## 规则\n",
-        "- 每个推荐必须关联资料中的具体数据, 引用数值\n",
-        "- 不编造不存在的装备/技能, 不确定的标注[推测]\n",
-        "- 如果资料不足, 诚实说明缺什么信息, 不要凑答案\n",
-        "- 回答末尾列出来源 (如[pob/asc_nodes], [poe2db/skill])\n\n",
-        "资料:\n", context,
-    ])
-    return "".join(parts)
-
-
-def _recommend_prompt(context: str) -> str:
-    return (
-        "你是 PoE2 装备推荐专家。\n"
-        "1. 先列出用户可选的装备（含关键数值）\n"
-        "2. 对比优劣，给出明确推荐理由\n"
-        "3. 如果有预算范围, 区分[性价比]和[毕业]选项\n\n"
-        "资料：\n" + context
-    )
-
-
-def _encyclopedia_prompt(context: str, asc_en, asc_cn) -> str:
-    """Encyclopedia prompt — concise answers with progressive detail."""
-    constraint = ""
-    if asc_en:
-        constraint = (
-            "用户询问的升华是 " + str(asc_cn) + "(" + str(asc_en) + ")。"
-            "只回答该升华的信息, 绝对不要用其他升华的资料替代。\n"
-        )
-    return (
-        "你是 PoE2 百科助手。\n"
-        "1. 先一句话直接回答用户的问题\n"
-        "2. 如果资料有详细数据, 列表展开\n"
-        "3. 如果资料不足, 诚实说明\n"
-        + constraint +
-        "\n资料:\n" + context
-    )
-
-
 async def _stream_chat(messages: list[dict]):
     """Skill-based router: classify intent → dispatch to matching Skill."""
     from app.skills.router import route
@@ -398,6 +325,8 @@ async def _stream_chat(messages: list[dict]):
 
     user_msg = messages[-1]["content"] if messages else ""
     skill = route(user_msg)
+    league = default_league()
+    game_version = default_game_version()
     logger.info(f"[CHAT] skill={skill.name} | query={user_msg[:80]}")
 
     # ── Trade Search: calls trade API directly, no RAG ──
@@ -438,6 +367,32 @@ async def _stream_chat(messages: list[dict]):
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return
 
+    # ── Recommend: multi-candidate comparison via RecommendAgent ──
+    if skill.name == "recommend":
+        yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析候选项并评分...'})}\n\n"
+        try:
+            from app.services.recommend_runtime import get_recommend_agent, format_recommend_markdown
+            agent = get_recommend_agent()
+            result = await agent.run(
+                question=user_msg,
+                league=league,
+                game_version=game_version,
+            )
+            recommend_data = {
+                "best_pick": result.best_pick,
+                "ranking": result.ranking[:5],
+                "summary": result.summary,
+                "resolved": result.resolved,
+            }
+            yield f"data: {json.dumps({'type': 'recommend_result', 'content': recommend_data}, ensure_ascii=False)}\n\n"
+            answer = format_recommend_markdown(result)
+            yield f"data: {json.dumps({'type': 'answer', 'content': answer}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            logger.error(f"Recommend skill failed: {e}")
+            yield f"data: {json.dumps({'type': 'answer', 'content': f'推荐分析失败: {str(e)}'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return
+
     # ── RAG-based Skills: entity resolution → keyword gen → retrieve → answer ──
     from app.services.entity_dict import normalize_ascendancy, resolve_ascendancy_en
     from app.services.retrieval_pipeline import structured_entity_lookup
@@ -445,8 +400,6 @@ async def _stream_chat(messages: list[dict]):
     alias_keywords, resolved_entities = extract_alias_keywords(user_msg)
     resolved_asc_cn = normalize_ascendancy(user_msg)
     resolved_asc_en = resolve_ascendancy_en(resolved_asc_cn) if resolved_asc_cn else None
-    league = default_league()
-    game_version = default_game_version()
     if alias_keywords:
         logger.info(f"[CHAT] alias_resolved: {alias_keywords[:8]}")
 

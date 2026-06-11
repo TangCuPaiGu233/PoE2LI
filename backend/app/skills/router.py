@@ -3,17 +3,20 @@
 根据用户输入匹配最合适的 Skill，按优先级：
   1. trade_search (搜装备/交易)
   2. build_design (配BD/构建)
-  3. encyclopedia (默认兜底)
+  3. recommend (装备对比/推荐)
+  4. encyclopedia (默认兜底)
 """
 from app.skills.base import BaseSkill
 from app.skills.build_design import BuildDesignSkill
 from app.skills.encyclopedia import EncyclopediaSkill
+from app.skills.recommend import RecommendSkill
 from app.skills.trade_search import TradeSearchSkill
 
 # 注册所有 Skill（优先级从高到低）
 SKILLS: list[BaseSkill] = [
     TradeSearchSkill(),
     BuildDesignSkill(),
+    RecommendSkill(),
     EncyclopediaSkill(),
 ]
 

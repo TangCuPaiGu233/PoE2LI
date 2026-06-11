@@ -72,6 +72,13 @@ def ingest(jsonl_path: str, source: str = "poe2db",
                     game_version=game_version,
                 )
                 db.add(kc)
+                db.flush()
+                try:
+                    from app.services.knowledge_graph_service import graph_available, sync_chunk_graph
+                    if graph_available(db):
+                        sync_chunk_graph(db, kc)
+                except Exception as ge:
+                    logger.debug(f"Graph sync skipped for chunk: {ge}")
                 existing.add(chash)
                 ingested += 1
 

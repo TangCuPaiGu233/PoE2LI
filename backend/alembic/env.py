@@ -26,7 +26,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.core.database import Base
-from app.models import build # noqa
+from app.models import build  # noqa
+from app.models import knowledge_graph  # noqa
 
 target_metadata = Base.metadata
 

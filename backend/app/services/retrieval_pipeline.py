@@ -213,6 +213,7 @@ def vector_search(
 
 def _chunk_row_to_dict(c: KnowledgeChunk, similarity: float, **extra) -> dict:
     row = {
+        "id": c.id,
         "content": c.content,
         "chunk_type": c.chunk_type,
         "source": c.source,
@@ -330,9 +331,32 @@ def expand_concepts(
     league: str | None = None,
     game_version: str | None = None,
 ) -> list[dict]:
-    """Follow concept links from retrieved chunks for multi-hop context."""
+    """Multi-hop expansion: knowledge graph traversal + concept link follow-up."""
     from app.services.concept_links import parse_link, expand_query_for_link
+    from app.services.knowledge_graph_service import expand_via_graph, graph_available
 
+    seen_contents = {c.get("content", "")[:100] for c in chunks}
+    all_new: list[dict] = []
+
+    # Phase 1: typed graph traversal (skill → mentions → minion wiki, etc.)
+    chunk_ids = [c["id"] for c in chunks if c.get("id")]
+    if chunk_ids:
+        db = SessionLocal()
+        try:
+            if graph_available(db):
+                graph_chunks = expand_via_graph(db, chunk_ids, max_hops=1, max_results=max_new)
+                for c in graph_chunks:
+                    preview = c.get("content", "")[:100]
+                    if preview not in seen_contents:
+                        seen_contents.add(preview)
+                        all_new.append(c)
+        finally:
+            db.close()
+
+    if len(all_new) >= max_new:
+        return all_new[:max_new]
+
+    # Phase 2: legacy concept link vector expansion
     all_links: list[str] = []
     seen_links: set[str] = set()
     for c in chunks:
@@ -349,13 +373,10 @@ def expand_concepts(
                 all_links.append(link)
 
     if not all_links:
-        return []
+        return all_new[:max_new]
 
     db = SessionLocal()
     try:
-        all_new: list[dict] = []
-        seen_contents = {c.get("content", "")[:100] for c in chunks}
-
         for link in all_links[:6]:
             if len(all_new) >= max_new:
                 break
@@ -564,6 +585,8 @@ def chunk_text_for_context(c: dict, default_limit: int = 800) -> str:
         prefix += f" (关联:{c['via_link']})"
     if c.get("via_concept"):
         prefix += f" (效果:{c['via_concept']})"
+    if c.get("via_graph"):
+        prefix += f" (图谱:{c['via_graph']})"
     return prefix + " " + text[:limit]
 
 
