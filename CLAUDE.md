@@ -159,8 +159,59 @@ Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
 | Target | Detail |
 |------|------|
 | **SSH** | `ssh -p 2212 skc@192.168.110.26` |
+| **Password** | `SKChaidao@123` |
 | **Path** | `/volume1/docker/PoE2LI` |
 | **Sync** | `git fetch origin && git reset --hard origin/main` |
+| **Deploy** | `python deploy_nas.py` (uses paramiko SSH, runs `docker compose up -d --build --force-recreate`) |
+| **Docker binary** | `/usr/local/bin/docker` (may need PATH) |
+
+### How to check logs (paramiko Python pattern)
+```python
+import paramiko
+client = paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+client.connect('192.168.110.26', 2212, 'skc', 'SKChaidao@123', timeout=10)
+
+# Check backend logs
+cmd = '/usr/local/bin/docker logs poe2li-backend --tail 30 2>&1'
+stdin, stdout, stderr = client.exec_command(cmd, timeout=15)
+stdout.channel.recv_exit_status()
+print(stdout.read().decode('utf-8', errors='replace'))
+
+# Filter chat logs
+cmd2 = '/usr/local/bin/docker logs poe2li-backend 2>&1 | grep -E "CHAT|POST /api/chat" | tail -15'
+stdin2, stdout2, stderr2 = client.exec_command(cmd2, timeout=15)
+stdout2.channel.recv_exit_status()
+print(stdout2.read().decode('utf-8', errors='replace'))
+
+# Check container status
+cmd3 = '/usr/local/bin/docker ps --format "{{.Names}} {{.Status}}"'
+# ...exec and read output...
+
+client.close()
+```
+
+**IMPORTANT**: Do NOT use multi-line Python strings with `"""` inside paramiko `exec_command()` — the nested quoting breaks. Always write scripts to files on NAS first, then run them. Use `chr()` encoding for CJK characters when inlining.
+
+### Docker operations on NAS
+```bash
+# Rebuild backend with latest code
+cd /volume1/docker/PoE2LI && git fetch origin && git reset --hard origin/main
+/usr/local/bin/docker compose build --no-cache backend
+/usr/local/bin/docker compose up -d --force-recreate backend
+
+# Copy single file into running container
+/usr/local/bin/docker cp /volume1/docker/PoE2LI/backend/scripts/xxx.py poe2li-backend:/app/scripts/xxx.py
+
+# Run script in container  
+/usr/local/bin/docker exec poe2li-backend python3 /app/scripts/xxx.py
+
+# Restart
+/usr/local/bin/docker restart poe2li-backend
+
+# Full deploy
+python deploy_nas.py
+```
 
 ## Trade Search & AI Chat — Implementation Notes
 
