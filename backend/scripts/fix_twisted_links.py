@@ -15,9 +15,19 @@ if ta:
     data = json.loads(ta.content)
     st = data.get("search_text", "?")
     links = compute_links(st, "item")
-    ta.links = json.dumps(links, ensure_ascii=False)
-    print(f"TA links ({len(links)}):")
-    for l in links:
+    # Force correct links (compute_links may miss due to text format)
+    forced_links = [
+        "concept:delirium:wiki:delirium encounter mechanic",
+        "concept:notable:passive:notable passive skill enchant",
+        "concept:instilled:wiki:instilled notable anoint",
+        "concept:prefix:mod:prefix modifier affix",
+        "concept:modifier allowed:mod:prefix suffix modifier slot limit",
+        "concept:base type:item:base item",
+        "type:item",
+    ]
+    ta.links = json.dumps(forced_links, ensure_ascii=False)
+    print(f"TA links ({len(forced_links)}):")
+    for l in forced_links:
         print(f"  {l}")
 
 # 2. Fix Instilled Notables to passive
