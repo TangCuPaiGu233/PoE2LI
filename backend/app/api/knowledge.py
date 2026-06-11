@@ -313,6 +313,84 @@ class ChatRequest(BaseModel):
     stream: bool = True
 
 
+
+
+def _conversation_snippet(messages: list[dict], max_turns: int = 4) -> str:
+    """Recent turns (excluding current user message) for follow-up context."""
+    if not messages or len(messages) <= 1:
+        return ""
+    prior = messages[:-1][-max_turns:]
+    parts: list[str] = []
+    for m in prior:
+        content = (m.get("content") or "").strip()
+        if not content:
+            continue
+        role = m.get("role", "user")
+        label = "\u7528\u6237" if role == "user" else "\u52a9\u624b"
+        parts.append(f"{label}: {content[:500]}")
+    return "\n".join(parts)
+
+
+def _parse_keyword_lines(raw: str) -> list[str]:
+    keywords: list[str] = []
+    for line in raw.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        line = re.sub(r"^[\-\*\u2022\d]+[\.\)\:\s]+", "", line).strip()
+        line = re.sub(r"^[\-\*\u2022]+\s*", "", line).strip()
+        if line:
+            keywords.append(line)
+    return keywords[:5]
+
+
+def _generate_search_keywords(
+    llm_client,
+    user_msg: str,
+    messages: list[dict],
+    alias_keywords: list[str],
+    timeout_s: float = 12.0,
+) -> list[str]:
+    fallback = [user_msg, *(alias_keywords or [])][:5]
+    context = _conversation_snippet(messages, max_turns=4)
+    plan_prompt = (
+        "\u7528\u6237\u95ee\u4e86 Path of Exile 2 \u76f8\u5173\u95ee\u9898\u3002\u5217\u51fa 3-5 \u4e2a\u82f1\u6587\u68c0\u7d22\u5173\u952e\u8bcd\uff0c\u4e00\u884c\u4e00\u4e2a\uff0c\u4e0d\u8981\u5176\u4ed6\u6587\u5b57\u3002\n"
+    )
+    if context:
+        plan_prompt += f"\n\u8fd1\u671f\u5bf9\u8bdd:\n{context}\n"
+    plan_prompt += f"\n\u5f53\u524d\u95ee\u9898: {user_msg}"
+
+    t0 = time.time()
+    try:
+        resp = llm_client.chat.completions.create(
+            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
+            messages=[{"role": "user", "content": plan_prompt}],
+            temperature=0.1,
+            max_tokens=200,
+            timeout=timeout_s,
+        )
+        raw = (resp.choices[0].message.content or "").strip()
+        search_keywords = _parse_keyword_lines(raw)
+        if not search_keywords:
+            search_keywords = fallback
+        elapsed = time.time() - t0
+        logger.info(
+            "[CHAT] keyword_plan ok in %.2fs: %s",
+            elapsed,
+            search_keywords[:5],
+        )
+        return search_keywords
+    except Exception as e:
+        elapsed = time.time() - t0
+        logger.warning(
+            "[CHAT] keyword_plan failed in %.2fs (%s), fallback=%s",
+            elapsed,
+            e,
+            fallback[:5],
+        )
+        return fallback
+
+
 async def _stream_chat(messages: list[dict]):
     """Skill-based router: classify intent → dispatch to matching Skill."""
     from app.skills.router import route
@@ -403,26 +481,13 @@ async def _stream_chat(messages: list[dict]):
     if alias_keywords:
         logger.info(f"[CHAT] alias_resolved: {alias_keywords[:8]}")
 
-    # ── Phase 1: Model thinks, decides what to search ──
+    # ── Phase 1: Fast keyword planning (no thinking mode) ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析需要查什么...'})}\n\n"
 
-    plan_prompt = (
-        "用户问了一个 PoE2 问题。你需要列出检索关键词来查找相关资料。\n"
-        "输出 3-5 个英文检索关键词，一行一个，不要其他文字。\n\n"
-        "用户问题: " + user_msg
+    search_keywords = _generate_search_keywords(
+        llm_client, user_msg, messages, alias_keywords,
     )
-    try:
-        resp = llm_client.chat.completions.create(
-            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
-            messages=[{"role": "user", "content": plan_prompt}],
-            temperature=0.1, max_tokens=200,
-            extra_body={'thinking': {'type': 'enabled'}},
-        )
-        search_keywords = resp.choices[0].message.content.strip().split('\n')
-        search_keywords = [k.strip() for k in search_keywords if k.strip()][:5]
-        yield f"data: {json.dumps({'type': 'thinking', 'content': '搜索关键词: ' + ', '.join(search_keywords[:5])})}\n\n"
-    except Exception:
-        search_keywords = [user_msg]
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '搜索关键词: ' + ', '.join(search_keywords[:5])})}\n\n"
 
     # ── Fuzzy-correct LLM keywords against known entity names ──
     from app.services.entity_resolver import correct_keywords, find_asc_for_notable
