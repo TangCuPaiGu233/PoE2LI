@@ -60,10 +60,18 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
     for cn, en in asc_en_map.items():
         _add(cn, en, "ascendancy")
 
-    # 4. Class names
+    # 5. Class names
     from app.services.entity_dict import CLASS_CN_TO_EN as class_en_map
     for cn, en in class_en_map.items():
         _add(cn, en, "class")
+
+    # 6. CraftofExile CN mod aliases (fallback, lowest priority)
+    coe_path = os.path.join(data_dir, "coe_cn_aliases.json")
+    if os.path.exists(coe_path):
+        with open(coe_path, "r", encoding="utf-8") as f:
+            coe = json.load(f)
+        for en, cn in coe.items():
+            _add(cn, en, "mod")
 
     # 5. Ascendancy notables — extract from DB (EN only, for spell-check)
     _load_notables()
