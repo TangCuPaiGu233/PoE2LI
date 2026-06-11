@@ -14,14 +14,18 @@ content = soup.find("div", class_="mw-parser-output")
 tables = content.find_all("table") if content else []
 
 notables = []
+# Table 2 = notable passives (header starts with "Name")
 for t in tables:
-    for row in t.find_all("tr")[1:]:  # Skip header
-        cells = row.find_all(["td", "th"])
-        if len(cells) >= 2:
-            name = cells[0].get_text(strip=True)
-            effect = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-            if name and len(name) > 2:
-                notables.append({"name": name, "effect": effect})
+    first_header = t.find("th")
+    if first_header and first_header.get_text(strip=True).lower() == "name":
+        for row in t.find_all("tr")[1:]:
+            cells = row.find_all(["td", "th"])
+            if cells:
+                name = cells[0].get_text(strip=True)
+                effect = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                if name and len(name) > 2:
+                    notables.append({"name": name, "effect": effect})
+        break  # Only process the first "Name" table
 
 print(f"Found {len(notables)} instilled notables")
 for n in notables[:5]:
