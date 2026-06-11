@@ -696,24 +696,30 @@ async def _stream_chat(messages: list[dict]):
     else:
         chunks = _retrieve_knowledge(search_query, 5, classify_text=user_msg, q_embedding=q_embedding)
 
-    # ── Structured lookup: if user asks about a specific ascendancy, direct DB fetch ──
-    direct_chunk = None
-    if resolved_asc_en:
+    # ── Structured lookup: for resolved entities, direct DB fetch ──
+    direct_chunks = []
+    resolved_entities = [("ascendancy", resolved_asc_en, "asc_nodes")] if resolved_asc_en else []
+    resolved_entities += [(etype, en_name, etype) for en_name, cn_name, etype in extra_entities
+                          if etype in ("item", "skill") and en_name != resolved_asc_en]
+
+    if resolved_entities:
         db_lookup = SessionLocal()
         try:
-            direct_chunk = (
-                db_lookup.query(KnowledgeChunk)
-                .filter(
-                    KnowledgeChunk.chunk_type == "asc_nodes",
-                    KnowledgeChunk.content.ilike(f"%{resolved_asc_en}%")
-                )
-                .first()
-            )
-            if direct_chunk:
-                logger.info(f"[CHAT] structured_lookup: found asc_nodes for {resolved_asc_en}")
-                chunks = [_chunk_to_dict(direct_chunk)] + [
-                    c for c in chunks if c.get("chunk_type") != "asc_nodes"
-                ]
+            for etype, en_name, chunk_type_filter in resolved_entities:
+                filters = [KnowledgeChunk.content.ilike(f"%{en_name}%")]
+                if chunk_type_filter == "asc_nodes":
+                    filters.append(KnowledgeChunk.chunk_type == "asc_nodes")
+                direct = db_lookup.query(KnowledgeChunk).filter(*filters).first()
+                if direct:
+                    logger.info(f"[CHAT] structured_lookup: found {etype} data for {en_name}")
+                    direct_chunks.append(_chunk_to_dict(direct))
+            if direct_chunks:
+                # Prepend direct results, dedup
+                existing_ids = {c.get("content", "")[:100] for c in chunks}
+                for dc in direct_chunks:
+                    if dc["content"][:100] not in existing_ids:
+                        existing_ids.add(dc["content"][:100])
+                        chunks = [dc] + chunks
         finally:
             db_lookup.close()
 
