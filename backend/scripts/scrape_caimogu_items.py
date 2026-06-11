@@ -1,24 +1,42 @@
-"""scrape_caimogu_items.py — 从踩蘑菇抓取暗金物品国服中文译名。
+# Scrape caimogu unique item CN names from per-item pages.
+from __future__ import annotations
 
-策略：
-  1. 从 knowledge_chunks 提取 poe2db 物品的英文名（用作 URL slug）
-  2. 逐页抓取 https://poe2cn.caimogu.cc/p/{EN_NAME}.html
-  3. 从 <title> 标签提取 CN 名（格式: "CN名 物品类型 - ..."）
-  4. 保存 game_aliases_caimogu_items.json
-"""
 import json
+import os
 import re
 import sys
-import os
 import time
+from dataclasses import dataclass
 
 import requests
 
 CAIMOGU_BASE = "https://poe2cn.caimogu.cc"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ),
     "Referer": "https://poe2cn.caimogu.cc/",
+}
+MIN_PAGE_LEN = 15000
+
+NON_ITEMS = {
+    "skill gems", "support gems", "spirit gems", "lineage supports",
+    "desecrated modifiers", "keywords", "crafting", "quest",
+    "ascendancy classes", "act", "waystones", "patreon", "modifiers",
+    "unique item", "items",
+}
+
+BASE_TYPES = {
+    "vest", "robe", "circlet", "belt", "ring", "amulet", "boots",
+    "gloves", "gauntlets", "helm", "helmet", "shield", "sword", "axe",
+    "mace", "bow", "wand", "sceptre", "staff", "spear", "crossbow",
+    "quiver", "flask", "jewel", "cuisses", "greaves", "sollerets",
+    "coat", "mail", "plate", "mask", "crown", "hood", "shroud", "sash",
+    "talisman", "spirit", "diamond", "pearl", "coral", "tiara", "buckle",
+    "clasp", "torque", "charm", "focus", "buckler", "targe", "kite",
+    "tower", "dagger", "claw", "flail", "halberd", "javelin", "musket",
+    "pistol", "warstaff", "body", "armour", "armor",
 }
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -26,172 +44,226 @@ from app.core.database import SessionLocal
 from app.models.build import KnowledgeChunk
 
 
-def get_item_slugs() -> list[tuple[str, str]]:
-    """Extract (en_name, slug) pairs from poe2db item chunks.
+@dataclass
+class ItemRecord:
+    key: str
+    name_en: str
+    slugs: list[str]
 
-    Returns list of (name_en, url_slug).
-    Filters out index pages (Skill Gems, Support Gems, etc.)
-    """
-    NON_ITEMS = {
-        "skill gems", "support gems", "spirit gems", "lineage supports",
-        "desecrated modifiers", "keywords", "crafting", "quest",
-        "ascendancy classes", "act", "waystones", "patreon",
-        "modifiers", "unique item", "items",
-    }
+
+def _split_camel_name(name_en: str) -> str:
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", name_en)
+    words = spaced.split()
+    while len(words) > 1 and words[-1].lower() in BASE_TYPES:
+        words = words[:-1]
+    return " ".join(words).strip() or name_en.strip()
+
+
+def _path_to_slug(path: str) -> str:
+    path = path.strip().strip("/")
+    if not path:
+        return ""
+    if "/" in path:
+        path = path.rsplit("/", 1)[-1]
+    if path.endswith(".html"):
+        path = path[:-5]
+    return path
+
+
+def _slug_variants_from_name(name: str) -> list[str]:
+    if not name:
+        return []
+    out: list[str] = []
+
+    def add(raw: str) -> None:
+        s = _path_to_slug(raw)
+        if s and s not in out:
+            out.append(s)
+
+    add(name)
+    compact = name.replace(" ", "_")
+    add(compact)
+    add(compact.replace("'", ""))
+    add(compact.replace("'", "_"))
+    add(re.sub(r"[^A-Za-z0-9_]+", "", compact.replace("'", "")))
+    add(re.sub(r"[^A-Za-z0-9_]+", "_", compact.replace("'", "")))
+    return out
+
+
+def _proper_en_name(data: dict) -> str:
+    en_data_raw = data.get("en_data")
+    if isinstance(en_data_raw, str) and en_data_raw.strip().startswith("{"):
+        try:
+            en_name = json.loads(en_data_raw).get("name", "").strip()
+            if en_name:
+                return en_name
+        except json.JSONDecodeError:
+            pass
+    name_en = (data.get("name_en") or "").strip()
+    if name_en:
+        return _split_camel_name(name_en)
+    path = data.get("detail_path") or data.get("item_path") or ""
+    if path:
+        return _path_to_slug(path).replace("_", " ")
+    return ""
+
+
+def _item_key(data: dict, name_en: str) -> str:
+    for field in ("detail_path", "item_path", "chunk_id"):
+        val = (data.get(field) or "").strip()
+        if val:
+            return val.lower()
+    return name_en.lower()
+
+
+def _collect_slug_candidates(data: dict, name_en: str) -> list[str]:
+    slugs: list[str] = []
+    for field in ("detail_path", "item_path", "href"):
+        raw = data.get(field)
+        if isinstance(raw, str) and raw.strip():
+            slug = _path_to_slug(raw)
+            if slug and slug not in slugs:
+                slugs.append(slug)
+    for variant in _slug_variants_from_name(_split_camel_name(name_en)):
+        if variant not in slugs:
+            slugs.append(variant)
+    for variant in _slug_variants_from_name(name_en):
+        if variant not in slugs:
+            slugs.append(variant)
+    return slugs
+
+
+def load_item_records() -> list[ItemRecord]:
     db = SessionLocal()
     try:
-        chunks = db.query(KnowledgeChunk).filter(
-            KnowledgeChunk.source == "poe2db",
-            KnowledgeChunk.chunk_type == "item"
-        ).all()
-        pairs = []
-        for c in chunks:
+        chunks = (
+            db.query(KnowledgeChunk)
+            .filter(
+                KnowledgeChunk.source == "poe2db",
+                KnowledgeChunk.chunk_type == "item",
+            )
+            .all()
+        )
+        records: list[ItemRecord] = []
+        seen_keys: set[str] = set()
+        for chunk in chunks:
             try:
-                data = json.loads(c.content)
-                name_en = data.get("name_en", "").strip()
-                if not name_en or name_en.lower() in NON_ITEMS:
-                    continue
-                # name_en may contain item name + base type concatenated
-                # e.g., "Sands of SilkShrouded Vest" → extract "Sands of Silk"
-                # Check if cn_data has a proper name
-                slug = _name_to_slug(name_en)
-                if slug:
-                    pairs.append((name_en, slug))
-            except Exception:
-                pass
-        db.close()
-        # Dedup by slug
-        seen = set()
-        unique = []
-        for name_en, slug in pairs:
-            if slug not in seen:
-                seen.add(slug)
-                unique.append((name_en, slug))
-        return unique
+                data = json.loads(chunk.content)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            raw_name = (data.get("name_en") or "").strip()
+            if not raw_name or raw_name.lower() in NON_ITEMS:
+                continue
+            name_en = _proper_en_name(data)
+            if not name_en:
+                continue
+            key = _item_key(data, name_en)
+            if key in seen_keys:
+                continue
+            slugs = _collect_slug_candidates(data, raw_name)
+            if not slugs:
+                continue
+            seen_keys.add(key)
+            records.append(ItemRecord(key=key, name_en=name_en, slugs=slugs))
+        return records
     finally:
         db.close()
 
 
-def _name_to_slug(name_en: str) -> str:
-    """Convert an English item name to a caimogu URL slug.
-
-    Caimogu uses the item name with spaces and apostrophes preserved,
-    special chars stripped. e.g., "Atziri's Disdain" → "Atziris_Disdain"
-    """
-    import re
-    # Remove base type concatenation: split on uppercase following lowercase
-    # "Sands of SilkShrouded Vest" → first part before a lowercase→UPPERCASE boundary
-    # that follows a non-space
-    slug = re.sub(r"([a-z])([A-Z])", lambda m: m.group(1) + " " + m.group(2), name_en)
-    # Take first part if name seems to have base type appended
-    # Heuristic: if >3 words, the last 1-2 words might be base type
-    words = slug.split()
-    if len(words) > 3:
-        # Common base types to strip
-        base_types = {
-            "vest", "robe", "circlet", "belt", "ring", "amulet", "boots",
-            "gloves", "gauntlets", "helm", "helmet", "shield",
-            "sword", "axe", "mace", "bow", "wand", "sceptre", "staff",
-            "spear", "crossbow", "quiver", "flask", "jewel",
-            "cuisses", "greaves", "sollerets", "coat", "mail", "plate",
-            "mask", "crown", "hood", "shroud", "sash", "talisman",
-            "spirit", "diamond", "pearl", "coral",
-        }
-        # Strip trailing base type words
-        while len(words) > 1 and words[-1].lower() in base_types:
-            words = words[:-1]
-        slug = " ".join(words)
-    return slug.replace(" ", "_").replace("'", "").replace('"', "").replace(".", "")
+def _parse_cn_from_title(title: str) -> str | None:
+    if title.startswith("\u6d41\u653e\u4e4b\u8def") or title.startswith("\u8e29\u83c7\u83c7"):
+        return None
+    name_part = title.split(" - ", 1)[0].strip()
+    if not name_part:
+        return None
+    cn_name = name_part.split()[0]
+    if not re.search(r"[\u4e00-\u9fff]", cn_name):
+        return None
+    return cn_name
 
 
 def scrape_item_page(slug: str) -> dict | None:
-    """Fetch a caimogu item page and extract CN name."""
     url = f"{CAIMOGU_BASE}/p/{slug}.html"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
-        if resp.status_code != 200:
-            return None
-        text = resp.text
-
-        # Check for "page not found" pattern
-        if "页面不存在" in text or len(text) < 5000:
-            return None
-
-        # Extract CN name from <title>: "CN名 物品类型 - 流放之路：降临资料站 ..."
-        title_match = re.search(r"<title>([^<]+)</title>", text)
-        if not title_match:
-            return None
-        title = title_match.group(1)
-
-        # Skip pages where the title starts with site name (invalid/missing item)
-        if title.startswith("流放之路") or title.startswith("踩蘑菇"):
-            return None
-
-        # Split: "猎首 重革腰带 - 流放之路：降临资料站 ..."
-        parts = title.split(" - ")
-        name_part = parts[0].strip() if parts else title
-
-        # "猎首 重革腰带" → CN name = "猎首", base type = "重革腰带"
-        name_words = name_part.split()
-        if len(name_words) >= 2:
-            cn_name = name_words[0]
-            base_type = name_words[1]
-        else:
-            cn_name = name_part
-            base_type = ""
-
-        # Validate: CN name should contain CJK characters
-        if not re.search(r'[一-鿿]', cn_name):
-            return None
-
-        return {
-            "cn": cn_name,
-            "en": slug,
-            "base_type": base_type,
-            "source": "caimogu",
-            "type": "item",
-        }
-    except Exception:
+        resp = requests.get(url, headers=HEADERS, timeout=20)
+    except requests.RequestException:
         return None
+    if resp.status_code != 200:
+        return None
+    text = resp.text
+    if "\u9875\u9762\u4e0d\u5b58\u5728" in text or len(text) < MIN_PAGE_LEN:
+        return None
+    title_match = re.search(r"<title>([^<]+)</title>", text)
+    if not title_match:
+        return None
+    cn = _parse_cn_from_title(title_match.group(1).strip())
+    if not cn:
+        return None
+    return {"cn": cn, "slug": slug}
 
 
-def scrape_all(output_dir: str = "/app/data"):
-    """Main: extract slugs → scrape pages → save aliases."""
+def _load_existing(path: str) -> dict[str, dict]:
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    by_key: dict[str, dict] = {}
+    for item in raw:
+        key = (item.get("key") or item.get("en") or "").strip().lower()
+        if not key:
+            continue
+        normalized = dict(item)
+        normalized.setdefault("key", key)
+        by_key[key] = normalized
+    return by_key
+
+
+def _save_items(items: list[dict], path: str) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+
+def scrape_all(output_dir: str = "/app/data") -> list[dict]:
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "caimogu_items.json")
 
-    # Resume support
-    existing = {}
-    if os.path.exists(output_path):
-        with open(output_path, "r", encoding="utf-8") as f:
-            existing = {item["en"]: item for item in json.load(f)}
-        print(f"Resume: {len(existing)} already scraped")
+    by_key = _load_existing(output_path)
+    print(f"Resume: {len(by_key)} items already saved")
 
-    slugs = get_item_slugs()
-    print(f"Total poe2db item slugs: {len(slugs)}")
+    records = load_item_records()
+    print(f"Total poe2db unique items: {len(records)}")
 
-    pending = [(name_en, slug) for name_en, slug in slugs if slug not in existing]
+    pending = [r for r in records if r.key not in by_key]
     print(f"Pending: {len(pending)}")
 
-    items = list(existing.values())
-    for i, (name_en, slug) in enumerate(pending):
-        result = scrape_item_page(slug)
-        if result:
-            result["name_en_raw"] = name_en
-            items.append(result)
-            if (i + 1) % 20 == 0:
-                _save(items, output_path)
-                print(f"  [{i+1}/{len(pending)}] {len(items)} items")
-        time.sleep(0.5)  # Rate limit
+    for i, rec in enumerate(pending):
+        found = None
+        winning_slug = ""
+        for slug in rec.slugs:
+            hit = scrape_item_page(slug)
+            if hit:
+                found = hit
+                winning_slug = slug
+                break
+            time.sleep(0.12)
+        if found:
+            by_key[rec.key] = {
+                "cn": found["cn"],
+                "en": rec.name_en,
+                "type": "item",
+                "source": "caimogu",
+                "slug": winning_slug,
+                "key": rec.key,
+            }
+        if (i + 1) % 25 == 0:
+            _save_items(list(by_key.values()), output_path)
+            print(f"  [{i + 1}/{len(pending)}] total {len(by_key)} items")
+        time.sleep(0.3)
 
-    _save(items, output_path)
-    print(f"\nDone: {len(items)} items → {output_path}")
+    items = list(by_key.values())
+    _save_items(items, output_path)
+    print(f"Done: {len(items)} items -> {output_path}")
     return items
-
-
-def _save(items, path):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
