@@ -16,6 +16,7 @@ from app.services.embedding_service import get_embedding
 from app.services.retrieval_pipeline import (
     RetrievalOptions,
     retrieve_knowledge,
+    retrieve_dual_path,
     extract_alias_keywords,
     build_search_query,
     build_context,
@@ -391,6 +392,44 @@ def _generate_search_keywords(
         return fallback
 
 
+
+
+def _rewrite_standalone_question(
+    llm_client,
+    user_msg: str,
+    messages: list[dict],
+    timeout_s: float = 12.0,
+) -> str:
+    """Rewrite the current question as a self-contained English search sentence."""
+    context = _conversation_snippet(messages, max_turns=2)
+    prompt = (
+        "Rewrite the user's CURRENT Path of Exile 2 question as one self-contained "
+        "English encyclopedia search sentence. Output exactly one line, no bullets.\n"
+    )
+    if context:
+        prompt += f"\nRecent conversation:\n{context}\n"
+    prompt += f"\nCurrent question: {user_msg}"
+
+    t0 = time.time()
+    try:
+        resp = llm_client.chat.completions.create(
+            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=120,
+            timeout=timeout_s,
+        )
+        raw = (resp.choices[0].message.content or "").strip()
+        rewrite = raw.split("\n")[0].strip()
+        rewrite = re.sub(r'^["\']|["\']$', "", rewrite).strip()
+        if rewrite:
+            logger.info("[CHAT] rewrite ok in %.2fs: %s", time.time() - t0, rewrite[:120])
+            return rewrite
+    except Exception as e:
+        logger.warning("[CHAT] rewrite failed in %.2fs (%s)", time.time() - t0, e)
+    return user_msg
+
+
 async def _stream_chat(messages: list[dict]):
     """Skill-based router: classify intent → dispatch to matching Skill."""
     from app.skills.router import route
@@ -481,33 +520,26 @@ async def _stream_chat(messages: list[dict]):
     if alias_keywords:
         logger.info(f"[CHAT] alias_resolved: {alias_keywords[:8]}")
 
-    # ── Phase 1: Fast keyword planning (no thinking mode) ──
+    # ── Phase 1: Rewrite current question as standalone EN search sentence ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析需要查什么...'})}\n\n"
 
-    search_keywords = _generate_search_keywords(
-        llm_client, user_msg, messages, alias_keywords,
-    )
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '搜索关键词: ' + ', '.join(search_keywords[:5])})}\n\n"
+    rewrite_query = _rewrite_standalone_question(llm_client, user_msg, messages)
+    yield f"data: {json.dumps({'type': 'thinking', 'content': '检索句: ' + rewrite_query[:120]})}\n\n"
 
-    # ── Fuzzy-correct LLM keywords against known entity names ──
-    from app.services.entity_resolver import correct_keywords, find_asc_for_notable
-    search_keywords = correct_keywords(search_keywords)
-
-    # If any keyword matches a known notable, resolve its ascendancy for structured lookup
-    # Only for build_design (where ascendancy context is relevant), not encyclopedia
+    from app.services.entity_resolver import find_asc_for_notable
     if skill.name == "build_design":
-        notable_asc = find_asc_for_notable(search_keywords)
+        notable_asc = find_asc_for_notable([rewrite_query])
         if notable_asc and not resolved_asc_en:
             resolved_asc_en = notable_asc
             resolved_asc_cn = resolved_asc_cn or notable_asc
             logger.info(f"[CHAT] notable_resolved: asc={notable_asc}")
 
-    # ── Phase 2: Multi-source retrieval using model's keywords + original query ──
+    # ── Phase 2: Dual-path retrieval (original + rewritten query) ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
 
-    search_query = build_search_query(user_msg, alias_keywords, search_keywords)
+    search_query = build_search_query(user_msg, alias_keywords, [rewrite_query])
     content_types = classify_question(user_msg)
-    logger.info(f"[CHAT] search: keywords={search_keywords[:5]} alias={alias_keywords} content_types={content_types}")
+    logger.info(f"[CHAT] search: rewrite={rewrite_query[:80]} alias={alias_keywords} content_types={content_types}")
 
     q_embedding = get_embedding(search_query)
     if not q_embedding:
@@ -516,8 +548,9 @@ async def _stream_chat(messages: list[dict]):
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return
 
-    retrieval = retrieve_knowledge(
-        search_query,
+    retrieval = retrieve_dual_path(
+        user_msg,
+        rewrite_query,
         RetrievalOptions(
             top_k=5,
             classify_text=user_msg,

@@ -16,6 +16,7 @@ _proj_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _proj_root)
 from app.core.database import SessionLocal
 from app.models.build import KnowledgeChunk
+from app.services.name_validation import validate_name_en
 
 
 def extract_poe2db_item(content_json: dict) -> dict | None:
@@ -28,8 +29,9 @@ def extract_poe2db_item(content_json: dict) -> dict | None:
         cn_data = json.loads(cn_data_raw) if isinstance(cn_data_raw, str) else cn_data_raw
         name_cn = cn_data.get("name", "")
         if name_cn and _has_cjk(name_cn):
-            # Clean EN name (may have concatenated suffixes)
-            clean_en = name_en.strip()
+            ok, clean_en = validate_name_en(name_en.strip(), name_en.strip())
+            if not ok:
+                return None
             return {"cn": name_cn.strip(), "en": clean_en}
     except (json.JSONDecodeError, TypeError):
         pass

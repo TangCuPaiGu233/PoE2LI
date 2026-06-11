@@ -10,12 +10,14 @@ import os
 import re
 from difflib import get_close_matches
 
+from app.services.name_validation import is_trusted_en_name
+
 # ── Lazy-loaded alias maps ──
-_cn_to_en: dict[str, tuple[str, str]] | None = None
+_cn_to_en: dict[str, tuple[str, str, int, str]] | None = None
 _all_en_names: list[str] | None = None  # All known EN entity names for fuzzy matching
 
 
-def _load_aliases() -> dict[str, tuple[str, str]]:
+def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
     global _cn_to_en, _all_en_names
     if _cn_to_en is not None:
         return _cn_to_en
@@ -27,30 +29,38 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
     if not os.path.isdir(data_dir):
         data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 
-    def _add(cn, en, etype):
-        if cn and en and cn not in _cn_to_en:
-            _cn_to_en[cn] = (en, etype)
-            if en not in _all_en_names:
-                _all_en_names.append(en)
+    def _add(cn, en, etype, confidence=50, source="unknown"):
+        if not cn or not en:
+            return
+        if confidence < 85 and not is_trusted_en_name(en):
+            return
+        existing = _cn_to_en.get(cn)
+        if existing and confidence < existing[2]:
+            return
+        _cn_to_en[cn] = (en, etype, confidence, source)
+        if en not in _all_en_names:
+            _all_en_names.append(en)
 
     # 1. Caimogu skills
     skills_path = os.path.join(data_dir, "caimogu_skills.json")
     if os.path.exists(skills_path):
         with open(skills_path, "r", encoding="utf-8") as f:
             for s in json.load(f):
-                _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill")
+                _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill",
+                     confidence=90, source="caimogu_skill")
 
     # 2. Curated item colloquial names (扭曲项链 → Twisted Amulet, etc.)
     from app.services.entity_dict import ITEM_CN_ALIASES
     for cn, en in ITEM_CN_ALIASES.items():
-        _add(cn, en, "item")
+        _add(cn, en, "item", confidence=95, source="curated_item")
 
     # 3. Caimogu items (Tencent-aligned CN, loaded BEFORE poe2db)
     items_path = os.path.join(data_dir, "caimogu_items.json")
     if os.path.exists(items_path):
         with open(items_path, "r", encoding="utf-8") as f:
             for s in json.load(f):
-                _add(s.get("cn", "").strip(), s.get("en", "").strip(), "item")
+                _add(s.get("cn", "").strip(), s.get("en", "").strip(), "item",
+                     confidence=92, source="caimogu_item")
 
     # 4. game_aliases.json (poe2db items/mods — fallback)
     aliases_path = os.path.join(data_dir, "game_aliases.json")
@@ -58,17 +68,18 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
         with open(aliases_path, "r", encoding="utf-8") as f:
             aliases = json.load(f)
         for cn, info in aliases.get("cn_to_en", {}).items():
-            _add(cn, info.get("en", ""), info.get("type", "item"))
+            _add(cn, info.get("en", ""), info.get("type", "item"),
+                 confidence=70, source="game_aliases")
 
     # 5. Ascendancy names
     from app.services.entity_dict import ASCENDANCY_CN_TO_EN as asc_en_map
     for cn, en in asc_en_map.items():
-        _add(cn, en, "ascendancy")
+        _add(cn, en, "ascendancy", confidence=98, source="ascendancy")
 
     # 6. Class names
     from app.services.entity_dict import CLASS_CN_TO_EN as class_en_map
     for cn, en in class_en_map.items():
-        _add(cn, en, "class")
+        _add(cn, en, "class", confidence=98, source="class")
 
     # 7. CraftofExile CN mod aliases (fallback, lowest priority)
     coe_path = os.path.join(data_dir, "coe_cn_aliases.json")
@@ -76,7 +87,7 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
         with open(coe_path, "r", encoding="utf-8") as f:
             coe = json.load(f)
         for en, cn in coe.items():
-            _add(cn, en, "mod")
+            _add(cn, en, "mod", confidence=60, source="craftofexile")
 
     # 5. Ascendancy notables — extract from DB (EN only, for spell-check)
     _load_notables()
@@ -123,7 +134,7 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
     sorted_cn = sorted(aliases.keys(), key=len, reverse=True)
     for cn_name in sorted_cn:
         if cn_name in text and cn_name not in found:
-            en_name, etype = aliases[cn_name]
+            en_name, etype, _, _ = aliases[cn_name]
             found[cn_name] = (en_name, cn_name, etype)
 
     # Strategy 2: CJK bigram scoring — require 2+ shared bigrams
@@ -149,7 +160,7 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
                 for overlap, _, cn_name in scored:
                     if overlap < best_overlap:
                         break
-                    en_name, etype = aliases[cn_name]
+                    en_name, etype, _, _ = aliases[cn_name]
                     found[cn_name] = (en_name, cn_name, etype)
 
     return list(found.values())
@@ -234,8 +245,8 @@ def _normalize(text: str) -> str:
     return text
 
 
-def resolve_entity(cn_name: str) -> tuple[str, str] | None:
-    """Look up a single CN entity name. Returns (en_name, type) or None."""
+def resolve_entity(cn_name: str) -> tuple[str, str, int, str] | None:
+    """Look up a single CN entity name. Returns (en_name, type, confidence, source) or None."""
     aliases = _load_aliases()
     return aliases.get(cn_name)
 

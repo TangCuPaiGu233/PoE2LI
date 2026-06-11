@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -228,6 +228,34 @@ def chunk_to_dict(c: KnowledgeChunk, similarity: float = 1.0) -> dict:
     """Convert ORM row to retrieval dict (structured direct lookup)."""
     return _chunk_row_to_dict(c, similarity)
 
+
+
+
+def _chunk_parent_id(c: dict) -> str | None:
+    try:
+        data = json.loads(c.get("content", "{}"))
+        return data.get("parent_entity_id") or data.get("chunk_id")
+    except Exception:
+        return None
+
+
+def dedup_by_parent_entity(chunks: list[dict], max_per_parent: int = 1) -> list[dict]:
+    """Keep best-scoring chunk per parent_entity_id (multi-base uniques)."""
+    grouped: dict[str, list[dict]] = {}
+    orphans: list[dict] = []
+    for c in chunks:
+        parent = _chunk_parent_id(c)
+        if parent and parent.startswith("unique_"):
+            grouped.setdefault(parent, []).append(c)
+        else:
+            orphans.append(c)
+    merged: list[dict] = []
+    for group in grouped.values():
+        group.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+        merged.extend(group[:max_per_parent])
+    merged.extend(orphans)
+    merged.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+    return merged
 
 def _base_filters(league: str | None, game_version: str | None) -> list:
     filters = [
@@ -479,6 +507,7 @@ def retrieve_knowledge(
                     chunks, max_new=opts.max_concept_chunks, league=league, game_version=game_version,
                 )
                 chunks = chunks + concept_chunks
+            chunks = dedup_by_parent_entity(chunks)
             return RetrievalResult(
                 chunks=chunks,
                 intent=intent,
@@ -516,6 +545,7 @@ def retrieve_knowledge(
             )
             chunks = chunks + concept_chunks
 
+        chunks = dedup_by_parent_entity(chunks)
         return RetrievalResult(
             chunks=chunks,
             intent=intent,
@@ -525,6 +555,45 @@ def retrieve_knowledge(
         )
     finally:
         db.close()
+
+
+def retrieve_dual_path(
+    original_query: str,
+    rewrite_query: str,
+    options: RetrievalOptions | None = None,
+) -> RetrievalResult:
+    opts = options or RetrievalOptions()
+    emb_orig = opts.q_embedding or get_embedding(original_query)
+    if not emb_orig:
+        return RetrievalResult(chunks=[], intent="encyclopedia", search_query=original_query)
+    r1 = retrieve_knowledge(
+        original_query,
+        replace(opts, q_embedding=emb_orig, expand_concepts=False),
+    )
+    chunks_by_id: dict[int, dict] = {c["id"]: c for c in r1.chunks if c.get("id")}
+    if rewrite_query.strip().lower() != original_query.strip().lower():
+        emb_rw = get_embedding(rewrite_query)
+        if emb_rw:
+            r2 = retrieve_knowledge(
+                rewrite_query,
+                replace(opts, q_embedding=emb_rw, expand_concepts=False),
+            )
+            for c in r2.chunks:
+                cid = c.get("id")
+                if cid and cid in chunks_by_id:
+                    if c.get("similarity", 0) > chunks_by_id[cid].get("similarity", 0):
+                        chunks_by_id[cid] = c
+                elif cid:
+                    chunks_by_id[cid] = c
+    merged = dedup_by_parent_entity(
+        sorted(chunks_by_id.values(), key=lambda x: x.get("similarity", 0), reverse=True)
+    )
+    return RetrievalResult(
+        chunks=merged[: opts.top_k],
+        intent=r1.intent,
+        search_query=rewrite_query,
+        matched_concepts=r1.matched_concepts,
+    )
 
 
 def build_search_query(
