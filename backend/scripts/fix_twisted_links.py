@@ -26,13 +26,15 @@ if ta:
         "type:item",
     ]
     ta.links = json.dumps(forced_links, ensure_ascii=False)
+    ta.chunk_type = "item"
     print(f"TA links ({len(forced_links)}):")
     for l in forced_links:
         print(f"  {l}")
 
-# 2. Fix Instilled Notables to passive
+# 2. Fix Instilled Notables to passive (exclude merged TA chunk)
 for cn in db.query(KnowledgeChunk).filter(
-    KnowledgeChunk.content.ilike("%Instilled Notables%")
+    KnowledgeChunk.content.ilike("%Instilled Notables%"),
+    KnowledgeChunk.content.notilike("%Twisted Amulet%"),
 ).all():
     old = cn.chunk_type
     cn.chunk_type = "passive"

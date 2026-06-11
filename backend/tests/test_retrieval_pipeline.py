@@ -56,3 +56,17 @@ def test_chunk_text_for_context_minion_limit():
     out = chunk_text_for_context(c)
     assert "[pob/minion]" in out
     assert len(out) < 4000
+
+
+def test_chunk_text_for_context_instilled_notables_limit():
+    import json
+
+    body = "x" * 500 + "\n## Possible Instilled Notables\n" + "- Notable: effect\n" * 200
+    c = {
+        "content": json.dumps({"search_text": body}),
+        "chunk_type": "item",
+        "source": "poe2wiki",
+    }
+    out = chunk_text_for_context(c)
+    assert "Possible Instilled Notables" in out
+    assert len(out) > 1500

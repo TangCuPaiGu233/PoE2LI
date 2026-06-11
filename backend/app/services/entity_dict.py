@@ -105,6 +105,11 @@ CLASS_CN_TO_EN: dict[str, str] = {
 }
 
 # ═══════════════════════════════════════════════════════════════════
+ITEM_CN_ALIASES: dict[str, str] = {
+    "扭曲项链": "Twisted Amulet",
+    "扭曲护身符": "Twisted Amulet",
+}
+
 # 流派原型（Archetype）
 # ═══════════════════════════════════════════════════════════════════
 ARCHETYPE_HINTS: dict[str, dict] = {

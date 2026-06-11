@@ -40,14 +40,19 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
             for s in json.load(f):
                 _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill")
 
-    # 2. Caimogu items (Tencent-aligned CN, loaded BEFORE poe2db)
+    # 2. Curated item colloquial names (扭曲项链 → Twisted Amulet, etc.)
+    from app.services.entity_dict import ITEM_CN_ALIASES
+    for cn, en in ITEM_CN_ALIASES.items():
+        _add(cn, en, "item")
+
+    # 3. Caimogu items (Tencent-aligned CN, loaded BEFORE poe2db)
     items_path = os.path.join(data_dir, "caimogu_items.json")
     if os.path.exists(items_path):
         with open(items_path, "r", encoding="utf-8") as f:
             for s in json.load(f):
                 _add(s.get("cn", "").strip(), s.get("en", "").strip(), "item")
 
-    # 3. game_aliases.json (poe2db items/mods — fallback)
+    # 4. game_aliases.json (poe2db items/mods — fallback)
     aliases_path = os.path.join(data_dir, "game_aliases.json")
     if os.path.exists(aliases_path):
         with open(aliases_path, "r", encoding="utf-8") as f:
@@ -55,17 +60,17 @@ def _load_aliases() -> dict[str, tuple[str, str]]:
         for cn, info in aliases.get("cn_to_en", {}).items():
             _add(cn, info.get("en", ""), info.get("type", "item"))
 
-    # 4. Ascendancy names
+    # 5. Ascendancy names
     from app.services.entity_dict import ASCENDANCY_CN_TO_EN as asc_en_map
     for cn, en in asc_en_map.items():
         _add(cn, en, "ascendancy")
 
-    # 5. Class names
+    # 6. Class names
     from app.services.entity_dict import CLASS_CN_TO_EN as class_en_map
     for cn, en in class_en_map.items():
         _add(cn, en, "class")
 
-    # 6. CraftofExile CN mod aliases (fallback, lowest priority)
+    # 7. CraftofExile CN mod aliases (fallback, lowest priority)
     coe_path = os.path.join(data_dir, "coe_cn_aliases.json")
     if os.path.exists(coe_path):
         with open(coe_path, "r", encoding="utf-8") as f:
@@ -121,23 +126,29 @@ def resolve_all_entities(text: str) -> list[tuple[str, str, str]]:
             en_name, etype = aliases[cn_name]
             found[cn_name] = (en_name, cn_name, etype)
 
-    # Strategy 2: if no exact match, try CJK bigram matching
+    # Strategy 2: CJK bigram scoring — require 2+ shared bigrams
     if not found:
         def _bigrams(s):
             result = set()
             for i in range(len(s) - 1):
-                c1, c2 = s[i], s[i+1]
-                if '一' <= c1 <= '鿿' and '一' <= c2 <= '鿿':
+                c1, c2 = s[i], s[i + 1]
+                if "一" <= c1 <= "鿿" and "一" <= c2 <= "鿿":
                     result.add(c1 + c2)
             return result
+
         user_bigrams = _bigrams(text)
         if user_bigrams:
+            scored: list[tuple[int, int, str]] = []
             for cn_name in sorted_cn:
-                if cn_name in found:
-                    continue
-                alias_bigrams = _bigrams(cn_name)
-                common = user_bigrams & alias_bigrams
-                if len(common) >= 1:
+                overlap = len(user_bigrams & _bigrams(cn_name))
+                if overlap >= 2:
+                    scored.append((overlap, len(cn_name), cn_name))
+            if scored:
+                scored.sort(reverse=True)
+                best_overlap = scored[0][0]
+                for overlap, _, cn_name in scored:
+                    if overlap < best_overlap:
+                        break
                     en_name, etype = aliases[cn_name]
                     found[cn_name] = (en_name, cn_name, etype)
 

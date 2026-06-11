@@ -43,7 +43,7 @@ TEXT_PAGES = [
     ("Quest", "quest"),
     ("Act", "quest"),
     ("Crafting", "mechanic"),
-    ("Keywords", "mechanic"),
+    # Keywords: use scrape_poe2db_keywords.py (per-keyword chunks)
     ("Waystones", "map"),
 ]
 

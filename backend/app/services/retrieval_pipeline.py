@@ -579,7 +579,12 @@ def chunk_text_for_context(c: dict, default_limit: int = 800) -> str:
         text = data.get("search_text", c["content"])
     except Exception:
         text = c["content"]
-    limit = 3000 if c.get("chunk_type") in ("asc_nodes", "build_summary", "minion") else default_limit
+    if c.get("chunk_type") in ("asc_nodes", "build_summary", "minion"):
+        limit = 3000
+    elif "Instilled Notables" in text or "Possible Instilled Notables" in text:
+        limit = 8000
+    else:
+        limit = default_limit
     prefix = f"[{c.get('source', '?')}/{c.get('chunk_type', '?')}]"
     if c.get("via_link"):
         prefix += f" (关联:{c['via_link']})"
