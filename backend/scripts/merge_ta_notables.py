@@ -20,7 +20,10 @@ if not ta or not cn:
 ta_data = json.loads(ta.content)
 cn_data = json.loads(cn.content)
 old_st = ta_data.get("search_text", "?")
-cn_st = cn_data.get("search_text", "?")
+cn_st = cn_data.get("search_text", "") or cn_data.get("text", "") or cn_data.get("description", "")
+print(f"TA keys: {list(ta_data.keys())}")
+print(f"CN keys: {list(cn_data.keys())}")
+print(f"CN text length: {len(cn_st)}")
 
 # Merge: TA data + possible notables list
 new_st = old_st + "\n\n## Possible Instilled Notables\n" + cn_st
