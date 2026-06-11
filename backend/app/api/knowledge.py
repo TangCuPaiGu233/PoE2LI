@@ -13,6 +13,16 @@ from app.services.knowledge_service import (
     ingest_build, bulk_ingest, mark_stale, clear_stale, get_stats,
 )
 from app.services.embedding_service import get_embedding
+from app.services.retrieval_pipeline import (
+    RetrievalOptions,
+    retrieve_knowledge,
+    extract_alias_keywords,
+    build_search_query,
+    build_context,
+    classify_question,
+    default_league,
+    default_game_version,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +141,8 @@ qa_router = APIRouter(tags=["qa"])
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=2, description="Question about PoE2 mechanics")
     top_k: int = Field(5, ge=1, le=10, description="Number of knowledge chunks to retrieve")
+    league: str | None = Field(None, description="League filter for retrieval")
+    game_version: str | None = Field(None, description="Game version filter for retrieval")
 
 
 class AskResponse(BaseModel):
@@ -138,251 +150,38 @@ class AskResponse(BaseModel):
     sources: list[dict]
 
 
-def _classify_intent(question: str) -> str:
-    """Classify user intent to route retrieval."""
-    q = question.lower()
-    bd_keywords = ['bd', 'build', '构建', '配装', '开荒', '转型', '升级', '加点',
-                    '天赋怎么点', '技能搭配', '装备搭配', '怎么玩', '设计', '配一套',
-                    '给我配', '帮我配', '怎么做', '玩法', 'builds', '攻略']
-    recommend_keywords = ['推荐', '哪个好', '选哪个', '对比', '更适合', '最好']
-    trade_keywords = ['搜', '找装备', '买', '卖', '价格', '交易']
-
-    if any(k in q for k in bd_keywords):
-        return "build_design"
-    if any(k in q for k in recommend_keywords):
-        return "recommend"
-    if any(k in q for k in trade_keywords):
-        return "trade"
-    return "encyclopedia"
-
-
-def _classify_question(question: str) -> list[str] | None:
-    """Quick keyword-based content type filter to narrow vector search scope.
-
-    Returns a LIST of chunk_type values matching how data was actually ingested:
-    PoB chunks use 'gem'/'passive'/'asc_nodes'/'item'/'mod', poe2db uses
-    'skill'/'item'/'mod'/'quest'/'map', poe2wiki uses 'wiki', homework uses
-    'build_summary' etc. A single-type equality filter silently excluded most
-    of the corpus (e.g. gems, ascendancy node lists, waystone/map data).
-
-    IMPORTANT: accumulates ALL matching types instead of early-returning —
-    "升华技能" must match BOTH asc_nodes AND skill, not just skill first.
-    """
-    q = question.lower()
-    types: list[str] = []
-    if any(w in q for w in ['skill', 'gem', 'herald', 'aura', 'attack', 'spell',
-                              '技能', '宝石', '光环', '攻击', '法术', '召唤']):
-        types.extend(['skill', 'gem', 'wiki'])
-    if any(w in q for w in ['unique', 'item', 'weapon', 'armour', 'sword', 'bow',
-                              '暗金', '装备', '武器', '防具', '传奇', '项链', '戒指']):
-        types.extend(['item', 'mod'])
-    if any(w in q for w in ['mod', 'affix', 'prefix', 'suffix', 'enchant',
-                              '词缀', '前缀', '后缀', '附魔']):
-        types.extend(['mod', 'item'])
-    if any(w in q for w in ['quest', 'act', 'boss', 'map', 'waystone',
-                              '任务', '章节', 'boss', '首领', '地图']):
-        types.extend(['quest', 'map'])
-    if any(w in q for w in ['passive', 'ascendancy', 'tree', 'node',
-                              '天赋', '升华', '节点']):
-        types.extend(['passive', 'asc_nodes'])
-    return list(dict.fromkeys(types)) or None  # dedup, keep order
-
-
-def _vector_search(db, q_embedding, filters: list, top_k: int,
-                   min_similarity: float = 0.3) -> list[dict]:
-    """Run a vector similarity search with the given filters."""
-    db_url = str(db.get_bind().url)
-    is_sqlite = db_url.startswith("sqlite")
-
-    if is_sqlite:
-        chunks = db.query(KnowledgeChunk).filter(*filters).all()
-        scored = []
-        for c in chunks:
-            emb = c.embedding
-            if isinstance(emb, str):
-                emb = json.loads(emb)
-            sim = _cosine_sim(q_embedding, emb)
-            scored.append((sim, c))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [{"content": c.content, "chunk_type": c.chunk_type,
-                 "source": c.source, "links": c.links, "similarity": round(s, 3)}
-                for s, c in scored[:top_k] if s > min_similarity]
-    else:
-        dist = KnowledgeChunk.embedding.cosine_distance(q_embedding).label("distance")
-        rows = (
-            db.query(KnowledgeChunk, dist)
-            .filter(*filters)
-            .order_by(dist)
-            .limit(top_k)
-            .all()
-        )
-        return [
-            {"content": c.content, "chunk_type": c.chunk_type,
-             "source": c.source, "links": c.links, "similarity": round(1.0 - d, 3)}
-            for c, d in rows if (1.0 - d) > min_similarity
-        ]
-
-
 def _retrieve_knowledge(question: str, top_k: int = 5,
                         classify_text: str | None = None,
-                        q_embedding: list[float] | None = None) -> list[dict]:
-    """Retrieve relevant knowledge chunks using vector similarity.
-
-    Args:
-        question: text to embed for the vector search (may include LLM keywords)
-        classify_text: text used for intent / content-type classification.
-            Defaults to `question`. The chat flow passes the raw user message
-            here so LLM-generated English keywords (e.g. "skill gem", "map")
-            don't accidentally trigger the wrong pre-filter.
-        q_embedding: optional precomputed embedding (avoids duplicate API calls)
-
-    The chunk_type pre-filter is a soft optimization: if the filtered search
-    yields nothing, we retry without the filter instead of returning empty.
-    """
-    db = SessionLocal()
-    try:
-        if q_embedding is None:
-            q_embedding = get_embedding(question)
-        if not q_embedding:
-            logger.error("RAG retrieval aborted: query embedding unavailable "
-                         "(check EMBEDDING_API_KEY / embedding service)")
-            return []
-
-        base_filters = [
-            KnowledgeChunk.embedding != None,  # noqa: E711
-            KnowledgeChunk.stale == False,  # noqa: E712
-        ]
-
-        cls_text = classify_text if classify_text is not None else question
-        filters = list(base_filters)
-
-        # Intent-based content-type narrowing
-        intent = _classify_intent(cls_text)
-        if intent == "recommend":
-            filters.append(KnowledgeChunk.chunk_type.in_(["item", "skill", "gem", "mod"]))
-
-        content_types = _classify_question(cls_text)
-        if content_types:
-            filters.append(KnowledgeChunk.chunk_type.in_(content_types))
-
-        results = _vector_search(db, q_embedding, filters, top_k)
-
-        # Soft-filter fallback: pre-filter may have excluded the right chunks
-        if not results and len(filters) > len(base_filters):
-            logger.info("Pre-filtered retrieval empty, retrying without chunk_type filter")
-            results = _vector_search(db, q_embedding, base_filters, top_k)
-
-        return results
-    finally:
-        db.close()
+                        q_embedding: list[float] | None = None,
+                        league: str | None = None,
+                        game_version: str | None = None,
+                        alias_keywords: list[str] | None = None,
+                        expand_concepts: bool = True,
+                        multi_source: bool = False) -> list[dict]:
+    """Backward-compatible wrapper around unified retrieval pipeline."""
+    result = retrieve_knowledge(
+        question,
+        RetrievalOptions(
+            top_k=top_k,
+            classify_text=classify_text,
+            q_embedding=q_embedding,
+            league=league or default_league(),
+            game_version=game_version or default_game_version(),
+            alias_keywords=alias_keywords or [],
+            expand_concepts=expand_concepts,
+            multi_source=multi_source,
+        ),
+    )
+    return result.chunks
 
 
-def _cosine_sim(a, b):
-    # embeddings may arrive as numpy arrays (pgvector on sqlite) — normalize to list
-    if a is not None and not isinstance(a, (list, tuple)):
-        a = list(a)
-    if b is not None and not isinstance(b, (list, tuple)):
-        b = list(b)
-    if not a or not b:
-        return 0
-    dot = sum(x * y for x, y in zip(a, b))
-    na = sum(x * x for x in a) ** 0.5
-    nb = sum(x * x for x in b) ** 0.5
-    return dot / (na * nb) if na and nb else 0
-
-
-def _expand_concepts(chunks: list[dict], q_embedding, max_new: int = 8) -> list[dict]:
-    """Follow concept links from retrieved chunks. Reads the 'links' field
-    (computed at ingest time) and does secondary vector searches."""
-    from app.services.concept_links import parse_link, expand_query_for_link
-
-    # Collect all links from retrieved chunks (stored in DB column, not content JSON)
-    all_links: list[str] = []
-    seen_links: set[str] = set()
-    for c in chunks:
-        raw = c.get("links", "")
-        if not raw:
-            continue
-        try:
-            link_list = json.loads(raw) if isinstance(raw, str) else raw
-        except (json.JSONDecodeError, TypeError):
-            continue
-        for link in link_list:
-            if link not in seen_links:
-                seen_links.add(link)
-                all_links.append(link)
-
-    if not all_links:
-        return []
-
-    # For each link, do a targeted vector search
-    db = SessionLocal()
-    try:
-        all_new = []
-        seen_contents = {c.get("content", "")[:100] for c in chunks}
-
-        for link in all_links[:3]:  # Max 3 links
-            if len(all_new) >= max_new:
-                break
-            ctype_filter, search_kw = expand_query_for_link(link)
-            if not search_kw:
-                continue
-
-            # Build filter
-            filters = [
-                KnowledgeChunk.embedding.isnot(None),
-                KnowledgeChunk.stale == False,
-            ]
-            if ctype_filter:
-                filters.append(KnowledgeChunk.chunk_type == ctype_filter)
-
-            # Get concept-specific embedding, not original query embedding
-            concept_emb = get_embedding(search_kw)
-            if not concept_emb:
-                continue
-            dist = KnowledgeChunk.embedding.cosine_distance(concept_emb).label("distance")
-            rows = (
-                db.query(KnowledgeChunk, dist)
-                .filter(*filters)
-                .order_by(dist)
-                .limit(2)
-                .all()
-            )
-            for c, d in rows:
-                if len(all_new) >= max_new:
-                    break
-                content_preview = c.content[:100] if c.content else ""
-                if content_preview not in seen_contents:
-                    seen_contents.add(content_preview)
-                    info = parse_link(link)
-                    all_new.append({
-                        "content": c.content,
-                        "chunk_type": c.chunk_type,
-                        "source": c.source or "db",
-                        "similarity": round(1.0 - d, 3),
-                        "via_link": info.get("key", link),
-                    })
-
-        return all_new[:max_new]
-    finally:
-        db.close()
-
-
-def _chunk_to_dict(c: KnowledgeChunk) -> dict:
-    """Convert an ORM KnowledgeChunk to the dict format expected by _stream_chat."""
-    return {
-        "content": c.content,
-        "chunk_type": c.chunk_type,
-        "source": c.source or "db",
-        "links": c.links,
-        "similarity": 1.0,  # direct lookup, not vector match
-    }
-
-
-def _get_cache_key(question: str, top_k: int) -> str:
+def _get_cache_key(question: str, top_k: int,
+                   league: str | None = None, game_version: str | None = None) -> str:
     """Generate a stable cache key for a QA query."""
-    import hashlib
-    raw = f"qa:{question.strip().lower()}:{top_k}"
+    raw = (
+        f"qa:{question.strip().lower()}:{top_k}:"
+        f"{league or ''}:{game_version or ''}"
+    )
     return f"qa_cache:{hashlib.md5(raw.encode()).hexdigest()[:16]}"
 
 
@@ -392,8 +191,11 @@ async def ask_question(req: AskRequest):
     import time
     t_start = time.time()
 
+    league = req.league or default_league()
+    game_version = req.game_version or default_game_version()
+
     # Redis cache check
-    cache_key = _get_cache_key(req.question, req.top_k)
+    cache_key = _get_cache_key(req.question, req.top_k, league, game_version)
     try:
         from app.core.redis_client import get_redis
         r = get_redis()
@@ -405,25 +207,49 @@ async def ask_question(req: AskRequest):
     except Exception:
         pass  # Redis unavailable, continue without cache
 
-    # Retrieve relevant chunks
-    chunks = _retrieve_knowledge(req.question, req.top_k)
+    # Entity resolution + unified retrieval (reverse lookup + concept expansion)
+    alias_keywords, resolved_entities = extract_alias_keywords(req.question)
+    search_query = build_search_query(req.question, alias_keywords=alias_keywords)
+    retrieval = retrieve_knowledge(
+        search_query,
+        RetrievalOptions(
+            top_k=req.top_k,
+            classify_text=req.question,
+            league=league,
+            game_version=game_version,
+            alias_keywords=alias_keywords,
+            expand_concepts=True,
+            max_concept_chunks=6,
+        ),
+    )
+    chunks = retrieval.chunks
+
+    if resolved_entities:
+        db_lookup = SessionLocal()
+        try:
+            from app.services.retrieval_pipeline import structured_entity_lookup
+            direct_chunks = structured_entity_lookup(
+                db_lookup, resolved_entities, league=league, game_version=game_version,
+            )
+            if direct_chunks:
+                existing = {c.get("content", "")[:100] for c in chunks}
+                for dc in direct_chunks:
+                    if dc["content"][:100] not in existing:
+                        chunks = [dc] + chunks
+        finally:
+            db_lookup.close()
+
     if not chunks:
         return AskResponse(
             answer="未找到相关知识。poe2db 知识库中暂无与此问题匹配的内容。",
             sources=[],
         )
 
-    # Build context from retrieved chunks
-    context_parts = []
-    for i, c in enumerate(chunks):
-        try:
-            data = json.loads(c["content"])
-            search = data.get("search_text", "")[:800]
-        except Exception:
-            search = c["content"][:800]
-        context_parts.append(f"[{i+1}] {search}")
-
-    context = "\n\n".join(context_parts)
+    context = build_context(chunks)
+    intent_hint = ""
+    if retrieval.intent == "reverse_lookup":
+        concepts = ", ".join(retrieval.matched_concepts) or "相关效果"
+        intent_hint = f"\n用户在进行反向查询（通过效果找装备/词缀）。已识别效果概念：{concepts}。请列出能提供该效果的装备类型、词缀或技能，并说明出处。\n"
 
     # Ask LLM to answer
     llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
@@ -434,12 +260,13 @@ async def ask_question(req: AskRequest):
     client = OpenAI(base_url=llm_url, api_key=llm_key)
 
     sys_prompt = f"""你是流放之路2 (Path of Exile 2) 知识助手。基于以下来自 poe2db 百科的数据回答用户问题。
-
+{intent_hint}
 规则：
--只基于提供的资料回答，不要编造
+- 只基于提供的资料回答，不要编造
 - 如果资料不足以回答，明确说明
 - 回答尽量简洁准确
 - 如果资料包含中文和英文，优先用中文回答
+- 若资料包含关联概念（via_link / 关联），请一并解释相关术语定义
 
 参考资料：
 {context}"""
@@ -612,32 +439,16 @@ async def _stream_chat(messages: list[dict]):
         return
 
     # ── RAG-based Skills: entity resolution → keyword gen → retrieve → answer ──
-    from app.services.entity_dict import (
-        normalize_class, normalize_ascendancy,
-        resolve_ascendancy_en, resolve_class_en,
-    )
-    from app.services.entity_resolver import resolve_all_entities
+    from app.services.entity_dict import normalize_ascendancy, resolve_ascendancy_en
+    from app.services.retrieval_pipeline import structured_entity_lookup
 
-    resolved_class_en = normalize_class(user_msg)
+    alias_keywords, resolved_entities = extract_alias_keywords(user_msg)
     resolved_asc_cn = normalize_ascendancy(user_msg)
     resolved_asc_en = resolve_ascendancy_en(resolved_asc_cn) if resolved_asc_cn else None
-    alias_keywords = []
-    if resolved_class_en:
-        alias_keywords.append(resolved_class_en)
-    if resolved_asc_en:
-        alias_keywords.append(resolved_asc_en)
-    if resolved_asc_cn:
-        alias_keywords.append(resolved_asc_cn)
-
-    # Also resolve items/skills/notables from the comprehensive alias table
-    extra_entities = resolve_all_entities(user_msg)
-    for en_name, cn_name, etype in extra_entities:
-        alias_keywords.append(en_name)
-        alias_keywords.append(cn_name)
-    if extra_entities:
-        logger.info(f"[CHAT] entity_resolved: {[(e,c,t) for e,c,t in extra_entities[:5]]}")
+    league = default_league()
+    game_version = default_game_version()
     if alias_keywords:
-        logger.info(f"[CHAT] alias_resolved: class={resolved_class_en} asc={resolved_asc_cn}({resolved_asc_en})")
+        logger.info(f"[CHAT] alias_resolved: {alias_keywords[:8]}")
 
     # ── Phase 1: Model thinks, decides what to search ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析需要查什么...'})}\n\n"
@@ -676,12 +487,10 @@ async def _stream_chat(messages: list[dict]):
     # ── Phase 2: Multi-source retrieval using model's keywords + original query ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
 
-    # Combine: alias-resolved names + model's English keywords + user's original Chinese
-    search_query = user_msg + " " + " ".join(alias_keywords + search_keywords)
-    content_types = _classify_question(user_msg)
+    search_query = build_search_query(user_msg, alias_keywords, search_keywords)
+    content_types = classify_question(user_msg)
     logger.info(f"[CHAT] search: keywords={search_keywords[:5]} alias={alias_keywords} content_types={content_types}")
 
-    # Embed once; surface embedding-service failures instead of pretending "no results"
     q_embedding = get_embedding(search_query)
     if not q_embedding:
         logger.error("Chat retrieval failed: embedding service unavailable")
@@ -689,32 +498,28 @@ async def _stream_chat(messages: list[dict]):
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return
 
-    # NOTE: classify on the raw user message, not the LLM-keyword-augmented query —
-    # English keywords like "item"/"map" used to mis-trigger chunk_type pre-filters.
-    if skill.name == "build_design":
-        chunks = _retrieve_multi_source(search_query, q_embedding=q_embedding)
-    else:
-        chunks = _retrieve_knowledge(search_query, 5, classify_text=user_msg, q_embedding=q_embedding)
-
-    # ── Structured lookup: for resolved entities, direct DB fetch ──
-    direct_chunks = []
-    resolved_entities = [("ascendancy", resolved_asc_en, "asc_nodes")] if resolved_asc_en else []
-    resolved_entities += [(etype, en_name, etype) for en_name, cn_name, etype in extra_entities
-                          if etype in ("item", "skill") and en_name != resolved_asc_en]
+    retrieval = retrieve_knowledge(
+        search_query,
+        RetrievalOptions(
+            top_k=5,
+            classify_text=user_msg,
+            q_embedding=q_embedding,
+            league=league,
+            game_version=game_version,
+            alias_keywords=alias_keywords,
+            expand_concepts=False,
+            multi_source=(skill.name == "build_design"),
+        ),
+    )
+    chunks = retrieval.chunks
 
     if resolved_entities:
         db_lookup = SessionLocal()
         try:
-            for etype, en_name, chunk_type_filter in resolved_entities:
-                filters = [KnowledgeChunk.content.ilike(f"%{en_name}%")]
-                if chunk_type_filter == "asc_nodes":
-                    filters.append(KnowledgeChunk.chunk_type == "asc_nodes")
-                direct = db_lookup.query(KnowledgeChunk).filter(*filters).first()
-                if direct:
-                    logger.info(f"[CHAT] structured_lookup: found {etype} data for {en_name}")
-                    direct_chunks.append(_chunk_to_dict(direct))
+            direct_chunks = structured_entity_lookup(
+                db_lookup, resolved_entities, league=league, game_version=game_version,
+            )
             if direct_chunks:
-                # Prepend direct results, dedup
                 existing_ids = {c.get("content", "")[:100] for c in chunks}
                 for dc in direct_chunks:
                     if dc["content"][:100] not in existing_ids:
@@ -741,24 +546,16 @@ async def _stream_chat(messages: list[dict]):
     # ── Concept-link expansion: follow pointers from retrieved text ──
     if skill.name != "trade_search":
         yield f"data: {json.dumps({'type': 'thinking', 'content': '扩展关联概念...'})}\n\n"
-        concept_chunks = _expand_concepts(chunks, q_embedding, max_new=4)
+        from app.services.retrieval_pipeline import expand_concepts
+        concept_chunks = expand_concepts(
+            chunks, max_new=6, league=league, game_version=game_version,
+        )
         logger.info(f"[CHAT] concept_expand: found {len(concept_chunks)} related chunks "
                      f"(chunks_have_links={sum(1 for c in chunks if c.get('links'))}/{len(chunks)})")
         if concept_chunks:
             chunks = chunks + concept_chunks
 
-    # Build context
-    ctx_parts = []
-    for c in chunks:
-        try:
-            data = json.loads(c["content"])
-            text = data.get("search_text", c["content"])
-            # asc_nodes and homework need full context (node lists, build details)
-            limit = 3000 if c.get("chunk_type") in ("asc_nodes", "build_summary") else 800
-            ctx_parts.append("[" + c.get("source", "?") + "/" + c.get("chunk_type", "?") + "] " + text[:limit])
-        except Exception:
-            ctx_parts.append(c["content"][:800])
-    context = "\n\n".join(ctx_parts)
+    context = build_context(chunks)
 
     # ── Phase 3: Model thinks about results + answers ──
     yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析回答...'})}\n\n"
@@ -795,52 +592,6 @@ async def _stream_chat(messages: list[dict]):
                  "preview": c.get("content", "")[:100]} for c in chunks[:5]]
     yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-
-def _retrieve_multi_source(question: str, per_source: int = 5,
-                           q_embedding: list[float] | None = None) -> list[dict]:
-    """Multi-source: homework + pob + poe2db + poe2wiki.
-
-    Sources are discovered from the DB (DISTINCT) rather than hardcoded, so
-    chunks ingested with unexpected source values are still searchable.
-    Falls back to a source-agnostic search if per-source retrieval is empty.
-    """
-    db = SessionLocal()
-    try:
-        if q_embedding is None:
-            q_embedding = get_embedding(question)
-        if not q_embedding:
-            logger.error("Multi-source retrieval aborted: query embedding unavailable")
-            return []
-
-        sources = [
-            row[0] for row in db.query(KnowledgeChunk.source)
-            .filter(KnowledgeChunk.stale == False)  # noqa: E712
-            .distinct().all() if row[0]
-        ] or ["homework", "pob", "poe2db", "poe2wiki"]
-
-        all_chunks = []
-        for source in sources:
-            filters = [
-                KnowledgeChunk.embedding != None,  # noqa: E711
-                KnowledgeChunk.source == source,
-                KnowledgeChunk.stale == False,  # noqa: E712
-            ]
-            all_chunks.extend(_vector_search(db, q_embedding, filters, per_source))
-
-        if not all_chunks:
-            logger.info("Multi-source empty, falling back to source-agnostic search")
-            fallback_filters = [
-                KnowledgeChunk.embedding != None,  # noqa: E711
-                KnowledgeChunk.stale == False,  # noqa: E712
-            ]
-            all_chunks = _vector_search(db, q_embedding, fallback_filters, 10)
-
-        all_chunks.sort(key=lambda x: x["similarity"], reverse=True)
-        logger.info(f"Multi-source: {len(all_chunks)} chunks from sources={sources}")
-        return all_chunks[:20]
-    finally:
-        db.close()
 
 
 @qa_router.post("/api/chat")

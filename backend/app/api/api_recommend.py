@@ -183,11 +183,33 @@ async def recommend(req: RecommendRequest):
     intent = route_intent(req.question, has_cand)
 
     if intent == "encyclopedia":
-        # Forward to RAG QA logic
-        from app.api.knowledge import _retrieve_knowledge
+        from app.services.retrieval_pipeline import (
+            RetrievalOptions,
+            retrieve_knowledge,
+            extract_alias_keywords,
+            build_search_query,
+            build_context,
+            default_league,
+            default_game_version,
+        )
         import os as _os
 
-        chunks = _retrieve_knowledge(req.question, 5)
+        league = req.league or default_league()
+        game_version = req.game_version or default_game_version()
+        alias_keywords, _ = extract_alias_keywords(req.question)
+        search_query = build_search_query(req.question, alias_keywords=alias_keywords)
+        result = retrieve_knowledge(
+            search_query,
+            RetrievalOptions(
+                top_k=5,
+                classify_text=req.question,
+                league=league,
+                game_version=game_version,
+                alias_keywords=alias_keywords,
+                expand_concepts=True,
+            ),
+        )
+        chunks = result.chunks
         if not chunks:
             return RecommendResponse(
                 intent="encyclopedia", resolved={"source": "rag"},
@@ -196,14 +218,7 @@ async def recommend(req: RecommendRequest):
                 disclaimer="基于 poe2db 当前赛季数据。",
             )
 
-        ctx_parts = []
-        for c in chunks:
-            try:
-                data = json.loads(c["content"])
-                ctx_parts.append(data.get("search_text", c["content"])[:800])
-            except Exception:
-                ctx_parts.append(c["content"][:800])
-        context = "\n\n".join(ctx_parts)
+        context = build_context(chunks)
 
         client = _get_llm()
         resp = client.chat.completions.create(

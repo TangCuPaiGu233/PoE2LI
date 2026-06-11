@@ -66,6 +66,14 @@ CONCEPT_HOOKS: dict[str, tuple[str, str]] = {
     "预兆": ("wiki", "omen crafting"),
     "omen": ("wiki", "omen crafting"),
 
+    # ── 召唤物 / Minion ──
+    "召唤兽": ("minion", "minion companion summon"),
+    "召唤物": ("minion", "minion companion summon"),
+    "仆从": ("minion", "minion companion"),
+    "minion": ("minion", "minion companion summon"),
+    "summon": ("minion", "summon minion companion"),
+    "companion": ("minion", "companion minion"),
+
     # ── 宝石系统 ──
     "辅助宝石": ("skill", "support gem"),
     "support gem": ("skill", "support gem link"),
