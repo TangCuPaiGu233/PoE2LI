@@ -1,4 +1,4 @@
-﻿"""Entity mention detection and tooltip payloads for chat UI."""
+"""Entity mention detection and tooltip payloads for chat UI."""
 
 from __future__ import annotations
 
@@ -21,6 +21,84 @@ ICON_RE = re.compile(
 )
 RARITY_RE = re.compile(r"Rarity:\s*(UNIQUE|RARE|MAGIC|NORMAL)", re.IGNORECASE)
 
+FENCED_CODE_RE = re.compile(r"```[\s\S]*?```")
+INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+
+ALLOWED_MENTION_ETYPES = frozenset({"item", "skill", "ascendancy"})
+MIN_MENTION_CONFIDENCE = 85
+MAX_MENTIONS = 12
+MAX_MENTIONS_PER_LABEL = 2
+
+MENTION_SKIP = frozenset(
+    {
+        "女巫",
+        "法师",
+        "巫师",
+        "战士",
+        "野蛮人",
+        "游侠",
+        "僧侣",
+        "佣兵",
+        "女猎手",
+        "闪电",
+        "火焰",
+        "冰霜",
+        "混沌",
+        "物理",
+        "暴击",
+        "攻击",
+        "法术",
+        "技能",
+        "天赋",
+        "装备",
+        "武器",
+        "护甲",
+        "项链",
+        "戒指",
+        "腰带",
+    },
+)
+
+
+def _is_continuation_char(ch: str) -> bool:
+    if not ch:
+        return False
+    if ch.isalnum():
+        return True
+    o = ord(ch)
+    return 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF
+
+
+def _valid_mention_boundaries(text: str, start: int, end: int) -> bool:
+    if start > 0 and _is_continuation_char(text[start - 1]):
+        return False
+    if end < len(text) and _is_continuation_char(text[end]):
+        return False
+    return True
+
+
+def _mask_code_spans(text: str, occupied: list[bool]) -> None:
+    for pattern in (FENCED_CODE_RE, INLINE_CODE_RE):
+        for match in pattern.finditer(text):
+            for i in range(match.start(), match.end()):
+                occupied[i] = True
+
+
+def _alias_eligible_for_mention(cn: str, meta: tuple[str, str, int, str]) -> bool:
+    _en, etype, confidence, source = meta
+    if etype not in ALLOWED_MENTION_ETYPES:
+        return False
+    if confidence < MIN_MENTION_CONFIDENCE:
+        return False
+    if cn in MENTION_SKIP:
+        return False
+    if len(cn) < 3:
+        return False
+    if len(cn) < 4 and source != "curated_item":
+        return False
+    return True
+
+
 POE2DB_TYPE_PATH = {
     "item": "Unique_item",
     "skill": "Skill_Gems",
@@ -35,20 +113,31 @@ def find_mentions(text: str) -> list[dict[str, Any]]:
     if not text:
         return []
     aliases = _load_aliases()
-    sorted_cn = sorted(aliases.keys(), key=len, reverse=True)
+    eligible = [
+        cn for cn in aliases if _alias_eligible_for_mention(cn, aliases[cn])
+    ]
+    sorted_cn = sorted(eligible, key=len, reverse=True)
     occupied = [False] * len(text)
+    _mask_code_spans(text, occupied)
     mentions: list[dict[str, Any]] = []
+    label_counts: dict[str, int] = {}
 
     for cn in sorted_cn:
-        if len(cn) < 2:
-            continue
+        if len(mentions) >= MAX_MENTIONS:
+            break
         start = 0
-        while True:
+        while len(mentions) < MAX_MENTIONS:
             idx = text.find(cn, start)
             if idx < 0:
                 break
             end = idx + len(cn)
-            if not any(occupied[idx:end]):
+            if label_counts.get(cn, 0) >= MAX_MENTIONS_PER_LABEL:
+                start = idx + 1
+                continue
+            if (
+                not any(occupied[idx:end])
+                and _valid_mention_boundaries(text, idx, end)
+            ):
                 for i in range(idx, end):
                     occupied[i] = True
                 en_name, etype, _, _ = aliases[cn]
@@ -61,10 +150,11 @@ def find_mentions(text: str) -> list[dict[str, Any]]:
                         "type": etype,
                     },
                 )
+                label_counts[cn] = label_counts.get(cn, 0) + 1
             start = idx + 1
 
     mentions.sort(key=lambda m: m["start"])
-    return mentions
+    return mentions[:MAX_MENTIONS][:MAX_MENTIONS]
 
 
 def _resolve_entity(name: str) -> tuple[str, str, str] | None:

@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -15,54 +15,71 @@ export interface EntityMention {
   type: string;
 }
 
+/** Private delimiter — unlikely in PoE chat text. */
+const MARKER_RE = /\x00POE\x01([^\x02]+)\x02([^\x03]+)\x03([^\x04]+)\x04/g;
+
 function apiUrl() {
   if (typeof window === "undefined") return "http://localhost:8000";
   return `${window.location.protocol}//${window.location.hostname}:8000`;
 }
 
-function mentionize(text: string, mentions: EntityMention[]): React.ReactNode[] {
-  if (!text || !mentions.length) return [text];
-  const sorted = mentions
-    .filter((m) => m.end > m.start)
-    .sort((a, b) => a.start - b.start);
-  const out: React.ReactNode[] = [];
-  let cursor = 0;
-  sorted.forEach((m, idx) => {
-    if (m.start < cursor) return;
-    if (m.start > cursor) out.push(text.slice(cursor, m.start));
-    out.push(
-      <PoeEntityChip
-        key={`${m.start}-${m.label}-${idx}`}
-        label={m.label}
-        nameEn={m.name_en}
-        entityType={m.type}
-      />,
-    );
-    cursor = m.end;
-  });
-  if (cursor < text.length) out.push(text.slice(cursor));
-  return out.length ? out : [text];
+function applyMentionMarkers(raw: string, mentions: EntityMention[]): string {
+  const sorted = [...mentions]
+    .filter((m) => m.end > m.start && m.start >= 0 && m.end <= raw.length)
+    .sort((a, b) => b.start - a.start);
+  let s = raw;
+  for (const m of sorted) {
+    const token = `\x00POE\x01${m.label}\x02${m.name_en}\x03${m.type}\x04`;
+    s = s.slice(0, m.start) + token + s.slice(m.end);
+  }
+  return s;
 }
 
-function processChildren(children: React.ReactNode, mentions: EntityMention[]): React.ReactNode {
-  if (typeof children === "string") return mentionize(children, mentions);
-  if (Array.isArray(children)) {
-    return children.map((child, i) => (
-      <React.Fragment key={i}>{processChildren(child, mentions)}</React.Fragment>
-    ));
+function parseEntityMarkers(text: string): React.ReactNode {
+  MARKER_RE.lastIndex = 0;
+  if (!MARKER_RE.test(text)) {
+    MARKER_RE.lastIndex = 0;
+    return text;
   }
-  return children;
+  MARKER_RE.lastIndex = 0;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = MARKER_RE.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <PoeEntityChip
+        key={`chip-${match.index}-${idx}`}
+        label={match[1]}
+        nameEn={match[2]}
+        entityType={match[3]}
+      />,
+    );
+    last = match.index + match[0].length;
+    idx += 1;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
+function normalizeContent(content: string): string {
+  return content.replace(/\[资料\]/g, "`资料`").replace(/\[推测\]/g, "**[推测]**");
 }
 
 interface ChatMarkdownProps {
   content: string;
+  /** Only assistant answers — never user input. */
+  enableEntityChips?: boolean;
 }
 
-export default function ChatMarkdown({ content }: ChatMarkdownProps) {
+export default function ChatMarkdown({ content, enableEntityChips = false }: ChatMarkdownProps) {
   const [mentions, setMentions] = useState<EntityMention[]>([]);
 
+  const normalized = useMemo(() => normalizeContent(content), [content]);
+
   useEffect(() => {
-    if (!content.trim()) {
+    if (!enableEntityChips || !normalized.trim()) {
       setMentions([]);
       return;
     }
@@ -71,7 +88,7 @@ export default function ChatMarkdown({ content }: ChatMarkdownProps) {
         const res = await fetch(`${apiUrl()}/api/entities/mentions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: content }),
+          body: JSON.stringify({ text: normalized }),
         });
         if (res.ok) {
           const data = (await res.json()) as { mentions?: EntityMention[] };
@@ -80,25 +97,25 @@ export default function ChatMarkdown({ content }: ChatMarkdownProps) {
       } catch {
         /* ignore */
       }
-    }, 280);
+    }, 320);
     return () => window.clearTimeout(timer);
-  }, [content]);
+  }, [normalized, enableEntityChips]);
 
-  const withMentions = useCallback(
-    (children: React.ReactNode) => processChildren(children, mentions),
-    [mentions],
-  );
+  const markdownSource = useMemo(() => {
+    if (!enableEntityChips || !mentions.length) return normalized;
+    return applyMentionMarkers(normalized, mentions);
+  }, [normalized, mentions, enableEntityChips]);
 
   const components: Components = useMemo(
     () => ({
-      p: ({ children }) => <p className="md-p">{withMentions(children)}</p>,
-      li: ({ children }) => <li className="md-li">{withMentions(children)}</li>,
-      strong: ({ children }) => <strong className="md-bold">{withMentions(children)}</strong>,
-      em: ({ children }) => <em className="md-em">{withMentions(children)}</em>,
-      h1: ({ children }) => <h2 className="md-h1">{withMentions(children)}</h2>,
-      h2: ({ children }) => <h2 className="md-h2">{withMentions(children)}</h2>,
-      h3: ({ children }) => <h3 className="md-h3">{withMentions(children)}</h3>,
-      h4: ({ children }) => <h4 className="md-h4">{withMentions(children)}</h4>,
+      p: ({ children }) => <p className="md-p">{children}</p>,
+      li: ({ children }) => <li className="md-li">{children}</li>,
+      strong: ({ children }) => <strong className="md-bold">{children}</strong>,
+      em: ({ children }) => <em className="md-em">{children}</em>,
+      h1: ({ children }) => <h2 className="md-h1">{children}</h2>,
+      h2: ({ children }) => <h2 className="md-h2">{children}</h2>,
+      h3: ({ children }) => <h3 className="md-h3">{children}</h3>,
+      h4: ({ children }) => <h4 className="md-h4">{children}</h4>,
       blockquote: ({ children }) => <blockquote className="md-quote">{children}</blockquote>,
       hr: () => <hr className="md-hr" />,
       code: ({ children }) => <code className="md-code">{children}</code>,
@@ -115,20 +132,23 @@ export default function ChatMarkdown({ content }: ChatMarkdownProps) {
       thead: ({ children }) => <thead className="md-thead">{children}</thead>,
       tbody: ({ children }) => <tbody>{children}</tbody>,
       tr: ({ children }) => <tr className="md-tr">{children}</tr>,
-      th: ({ children }) => <th className="md-th">{withMentions(children)}</th>,
-      td: ({ children }) => <td className="md-td">{withMentions(children)}</td>,
+      th: ({ children }) => <th className="md-th">{children}</th>,
+      td: ({ children }) => <td className="md-td">{children}</td>,
+      ...(enableEntityChips
+        ? {
+            text: ({ children }) => (
+              <>{parseEntityMarkers(String(children ?? ""))}</>
+            ),
+          }
+        : {}),
     }),
-    [withMentions],
+    [enableEntityChips],
   );
-
-  const normalized = content
-    .replace(/\[资料\]/g, "`资料`")
-    .replace(/\[推测\]/g, "**[推测]**");
 
   return (
     <div className="chat-markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {normalized}
+        {markdownSource}
       </ReactMarkdown>
     </div>
   );

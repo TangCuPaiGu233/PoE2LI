@@ -186,7 +186,13 @@ export default function ChatPage() {
                     ? "bg-amber-950/15 border border-amber-800/20 text-amber-50/80"
                     : "bg-zinc-900/50 border border-zinc-800/40 text-zinc-300"
                 }`}>
-                  <div className="msg-content"><ChatMarkdown content={m.content} /></div>
+                  <div className="msg-content">
+                  {m.role === "user" ? (
+                    <p className="md-p whitespace-pre-wrap">{m.content}</p>
+                  ) : (
+                    <ChatMarkdown content={m.content} enableEntityChips />
+                  )}
+                </div>
 
                   {m.trade && (
                     <div className="mt-3 pt-3 border-t border-zinc-800">
