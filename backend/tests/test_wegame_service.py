@@ -10,6 +10,17 @@ SHARE = "xEirsfy4dp9CjlH7ypenSETLRK6nTQFnOPnlMpc0KipcY1Ie6W7mQADv1ed33hU8"
 URL = f"https://www.wegame.com.cn/helper/poe2/#/share/{SHARE}"
 
 
+def test_extract_wegame_share_id_from_url_with_dashes():
+    url = (
+        "https://www.wegame.com.cn/helper/poe2/#/share/"
+        "11CqvpN5q7Ly0gQ9rVxl5rK1-8cu0DMZnfTxI_isBVxVVOQYi56-wjAqQS2qfagO"
+    )
+    assert (
+        extract_wegame_share_id(url)
+        == "11CqvpN5q7Ly0gQ9rVxl5rK1-8cu0DMZnfTxI_isBVxVVOQYi56-wjAqQS2qfagO"
+    )
+
+
 def test_extract_wegame_share_id_from_url():
     assert extract_wegame_share_id(URL) == SHARE
 

@@ -27,7 +27,7 @@ from app.services.retrieval_pipeline import (
 logger = logging.getLogger(__name__)
 
 POB_INPUT_RE = re.compile(
-    r"(https?://(?:pobb\.in|poe\.ninja|www\.wegame\.com\.cn/helper/poe2)[^\s]*|[A-Za-z0-9]{40,}|eN[a-zA-Z0-9+/_-]{20,})",
+    r"(https?://(?:pobb\.in|poe\.ninja|www\.wegame\.com\.cn/helper/poe2)[^\s]*|[A-Za-z0-9_-]{40,}|eN[a-zA-Z0-9+/_-]{20,})",
     re.IGNORECASE,
 )
 

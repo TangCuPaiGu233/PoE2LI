@@ -21,10 +21,10 @@ from app.models.schemas import (
 WEGAME_BASE = "https://www.wegame.com.cn"
 WEGAME_API_PREFIX = "/api/v1/wegame.pallas.poe2.Profile/"
 WEGAME_SHARE_PATH_RE = re.compile(
-    r"wegame\.com\.cn/helper/poe2(?:/[^#\s]*)?#/share/([A-Za-z0-9]+)",
+    r"wegame\.com\.cn/helper/poe2(?:/[^#\s]*)?#/share/([A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
-WEGAME_BARE_TOKEN_RE = re.compile(r"^[A-Za-z0-9]{40,}$")
+WEGAME_BARE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{40,}$")
 
 _RARITY_TO_POB = {
     "Unique": "UNIQUE",
@@ -45,7 +45,7 @@ def extract_wegame_share_id(text: str) -> str | None:
         return m.group(1)
 
     m2 = re.search(
-        r"wegame\.com\.cn/helper/poe2[^\s]*/share/([A-Za-z0-9]+)",
+        r"wegame\.com\.cn/helper/poe2[^\s]*/share/([A-Za-z0-9_-]+)",
         raw,
         re.IGNORECASE,
     )
