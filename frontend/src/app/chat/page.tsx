@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import ChatMarkdown from "@/components/chat/ChatMarkdown";
 
 // ── types ──
 interface TradeMatch { label: string; url: string; count: number }
@@ -42,44 +43,6 @@ const CHIPS = [
   "灵魂行者有哪些升华技能",
   "扭曲项链都能提供什么词条",
 ];
-
-// ── markdown render (handles common patterns) ──
-function md(s: string): string {
-  let h = s;
-  // Escape HTML first
-  h = h.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  // Headings
-  h = h.replace(/^#### (.+)$/gm, '<h4 class="md-h4">$1</h4>');
-  h = h.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
-  h = h.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
-  h = h.replace(/^# (.+)$/gm, '<h2 class="md-h1">$1</h2>');
-  // Horizontal rule
-  h = h.replace(/^---$/gm, '<hr class="md-hr" />');
-  // Bold and italic
-  h = h.replace(/\*\*(.+?)\*\*/g, '<strong class="md-bold">$1</strong>');
-  h = h.replace(/\*(.+?)\*/g, '<em class="md-em">$1</em>');
-  // Inline code
-  h = h.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
-  // Links
-  h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="md-link">$1</a>');
-  // Blockquote
-  h = h.replace(/^&gt; (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>');
-  // Ordered lists (lines starting with "1. " "2. " etc)
-  h = h.replace(/^(\d+)\. (.+)$/gm, '<li class="md-li-ol">$2</li>');
-  // Unordered lists
-  h = h.replace(/^[-*] (.+)$/gm, '<li class="md-li">$1</li>');
-  // Paragraphs: double newline
-  h = h.replace(/\n\n/g, '</p><p class="md-p">');
-  // Wrap in paragraph
-  h = '<p class="md-p">' + h + '</p>';
-  // Clean empty paragraphs
-  h = h.replace(/<p class="md-p"><\/p>/g, '');
-  h = h.replace(/<p class="md-p">(\s*)<\/p>/g, '');
-  // Tags
-  h = h.replace(/\[资料\]/g, '<span class="md-tag">资料</span>');
-  h = h.replace(/\[推测\]/g, '<span class="md-tag md-tag-guess">推测</span>');
-  return h;
-}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -223,7 +186,7 @@ export default function ChatPage() {
                     ? "bg-amber-950/15 border border-amber-800/20 text-amber-50/80"
                     : "bg-zinc-900/50 border border-zinc-800/40 text-zinc-300"
                 }`}>
-                  <div className="msg-content" dangerouslySetInnerHTML={{ __html: md(m.content) }} />
+                  <div className="msg-content"><ChatMarkdown content={m.content} /></div>
 
                   {m.trade && (
                     <div className="mt-3 pt-3 border-t border-zinc-800">
@@ -326,6 +289,14 @@ export default function ChatPage() {
         .msg-content .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 0.6rem 0; }
         .msg-content .md-tag { font-size: 0.65rem; color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); padding: 0 2px; border-radius: 2px; margin: 0 1px; }
         .msg-content .md-tag-guess { color: rgba(252,211,77,0.32); background: rgba(252,211,77,0.04); }
+
+        .msg-content .md-table-wrap { overflow-x: auto; margin: 0.65rem 0; border: 1px solid rgba(255,255,255,0.08); border-radius: 0.5rem; }
+        .msg-content .md-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        .msg-content .md-thead { background: rgba(255,255,255,0.04); }
+        .msg-content .md-th, .msg-content .md-td { padding: 0.45rem 0.65rem; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; vertical-align: top; }
+        .msg-content .md-th { color: rgba(252,211,77,0.75); font-weight: 600; }
+        .msg-content .md-td { color: rgba(255,255,255,0.55); }
+        .msg-content .md-tr:last-child .md-td { border-bottom: none; }
       `}</style>
     </div>
   );

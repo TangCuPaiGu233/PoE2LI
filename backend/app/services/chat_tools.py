@@ -40,6 +40,7 @@ class ChatToolContext:
     last_sources: list[dict] = field(default_factory=list)
     last_trade: dict | None = None
     last_recommend: dict | None = None
+    rag_search_calls: int = 0
 
 
 @dataclass
@@ -237,7 +238,9 @@ def _run_entity_resolve(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunRe
 
 
 def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
-    query = (args.get("query") or ctx.user_msg or "").strip()
+    query = (args.get("query") or "").strip()
+    if not query:
+        query = (ctx.user_msg or "")[:200]
     expand = args.get("expand_concepts", True)
     aliases, entities = extract_alias_keywords(ctx.user_msg)
     search_query = build_search_query(ctx.user_msg, aliases, [query])
@@ -332,7 +335,9 @@ def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResul
 def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
     from app.services.trade_agent import run_agent as trade_run_agent
 
-    query = (args.get("query") or ctx.user_msg or "").strip()
+    query = (args.get("query") or "").strip()
+    if not query:
+        query = (ctx.user_msg or "")[:200]
     trade_result = trade_run_agent(query)
     best = trade_result.get("best_match")
     alts = trade_result.get("alternatives", [])
@@ -387,6 +392,14 @@ async def execute_tool(
     if name == "entity_resolve":
         return _run_entity_resolve(args, ctx)
     if name == "rag_search":
+        if ctx.rag_search_calls >= 3:
+            return ToolRunResult(
+                content=json.dumps(
+                    {"error": "rag_search_limit", "message": "max 3 rag_search per turn"},
+                    ensure_ascii=False,
+                ),
+            )
+        ctx.rag_search_calls += 1
         return _run_rag_search(args, ctx)
     if name == "decode_pob":
         return _run_decode_pob(args, ctx)

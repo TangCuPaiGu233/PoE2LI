@@ -1,0 +1,52 @@
+﻿.chat-markdown .md-table-wrap {
+  overflow-x: auto;
+  margin: 0.65rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+}
+
+.chat-markdown .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.chat-markdown .md-thead {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-markdown .md-th,
+.chat-markdown .md-td {
+  padding: 0.45rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: left;
+  vertical-align: top;
+}
+
+.chat-markdown .md-th {
+  color: rgba(252, 211, 77, 0.75);
+  font-weight: 600;
+}
+
+.chat-markdown .md-td {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.chat-markdown .md-tr:last-child .md-td {
+  border-bottom: none;
+}
+
+.entity-popover {
+  animation: entityPop 0.12s ease-out;
+}
+
+@keyframes entityPop {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

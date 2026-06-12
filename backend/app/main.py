@@ -17,6 +17,7 @@ from app.api.builds import router as builds_router
 from app.api.knowledge import router as knowledge_router, qa_router
 from app.api.trade import router as trade_router
 from app.api.api_recommend import router as recommend_router
+from app.api.entities import router as entities_router
 
 
 @asynccontextmanager
@@ -50,6 +51,7 @@ app.include_router(knowledge_router)
 app.include_router(trade_router)
 app.include_router(qa_router)
 app.include_router(recommend_router)
+app.include_router(entities_router)
 
 
 @app.get("/health")
