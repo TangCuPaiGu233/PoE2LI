@@ -1,20 +1,18 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { apiUrl } from "@/lib/apiUrl";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface EntityTooltip {
   label: string;
   name_en: string;
   type: string;
+  type_label?: string;
   rarity?: string | null;
+  rarity_label?: string | null;
   description?: string;
   icon_url?: string | null;
   poe2db_url?: string | null;
-}
-
-function apiUrl() {
-  if (typeof window === "undefined") return "http://localhost:8000";
-  return `${window.location.protocol}//${window.location.hostname}:8000`;
 }
 
 const TYPE_BORDER: Record<string, string> = {
@@ -33,13 +31,17 @@ interface PoeEntityChipProps {
   label: string;
   nameEn: string;
   entityType: string;
+  initialIconUrl?: string | null;
 }
 
-export default function PoeEntityChip({ label, nameEn, entityType }: PoeEntityChipProps) {
+export default function PoeEntityChip({ label, nameEn, entityType, initialIconUrl }: PoeEntityChipProps) {
   const [open, setOpen] = useState(false);
   const [tip, setTip] = useState<EntityTooltip | null>(null);
   const [loading, setLoading] = useState(false);
+  const [iconVisible, setIconVisible] = useState(false);
   const fetched = useRef(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const iconSrc = `${apiUrl()}/api/entities/icon-image?name=${encodeURIComponent(label || nameEn)}`;
 
   const border = TYPE_BORDER[entityType] ?? "border-zinc-600/50 bg-zinc-900/40";
   const badge = TYPE_BADGE[entityType] ?? "bg-zinc-800 text-zinc-300";
@@ -49,10 +51,19 @@ export default function PoeEntityChip({ label, nameEn, entityType }: PoeEntityCh
     setLoading(true);
     try {
       const q = encodeURIComponent(label || nameEn);
-      const res = await fetch(`${apiUrl()}/api/entities/tooltip?name=${q}`);
+      const res = await fetch(`${apiUrl()}/api/entities/tooltip?name=${q}&lang=cn`);
       if (res.ok) {
         const data = (await res.json()) as EntityTooltip;
+        if (!data.icon_url && initialIconUrl) data.icon_url = initialIconUrl;
         setTip(data);
+        fetched.current = true;
+      } else if (initialIconUrl) {
+        setTip({
+          label,
+          name_en: nameEn,
+          type: entityType,
+          icon_url: initialIconUrl,
+        });
         fetched.current = true;
       }
     } catch {
@@ -60,9 +71,15 @@ export default function PoeEntityChip({ label, nameEn, entityType }: PoeEntityCh
     } finally {
       setLoading(false);
     }
-  }, [label, nameEn]);
+  }, [label, nameEn, entityType, initialIconUrl]);
 
-  const icon = tip?.icon_url;
+  useEffect(() => {
+    setIconVisible(false);
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setIconVisible(true);
+    }
+  }, [iconSrc]);
 
   return (
     <span
@@ -77,42 +94,38 @@ export default function PoeEntityChip({ label, nameEn, entityType }: PoeEntityCh
       <span
         className={`entity-chip inline-flex items-center gap-1 rounded border px-1 py-0.5 text-[0.92em] leading-tight text-zinc-100/90 ${border}`}
       >
-        {icon ? (
+        <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-zinc-900/70 ring-1 ring-white/10">
           <img
-            src={icon}
-            alt=""
-            width={20}
-            height={20}
-            className="h-5 w-5 shrink-0 object-contain"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
-          />
-        ) : (
-          <span className="inline-block h-5 w-5 shrink-0 rounded bg-zinc-800/80" aria-hidden />
-        )}
+          ref={imgRef}
+          src={iconSrc}
+          alt=""
+          width={24}
+          height={24}
+          className={`h-6 w-6 object-contain transition-opacity ${iconVisible ? "opacity-100" : "opacity-0"}`}
+          onLoad={() => setIconVisible(true)}
+          onError={() => setIconVisible(false)}
+        />
+        </span>
         <span>{label}</span>
       </span>
 
       {open && (
         <span className="entity-popover pointer-events-none absolute bottom-full left-0 z-50 mb-2 block w-[min(18rem,80vw)] rounded-lg border border-zinc-700/80 bg-[#0d0f14] p-3 text-left shadow-2xl shadow-black/60">
           <span className="flex items-start gap-2.5">
-            {icon ? (
-              <img src={icon} alt="" className="mt-0.5 h-10 w-10 shrink-0 object-contain" />
-            ) : (
-              <span className="mt-0.5 h-10 w-10 shrink-0 rounded bg-zinc-800" aria-hidden />
-            )}
+            <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded bg-zinc-900/70 ring-1 ring-white/10">
+              <img src={iconSrc} alt="" className={`h-10 w-10 object-contain transition-opacity ${iconVisible ? "opacity-100" : "opacity-0"}`} />
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-zinc-100">{tip?.label ?? label}</span>
               <span className="block truncate text-xs text-zinc-500">{tip?.name_en ?? nameEn}</span>
               <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${badge}`}>
-                {tip?.type ?? entityType}
-                {tip?.rarity ? ` · ${tip.rarity}` : ""}
+                {tip?.type_label ?? tip?.type ?? entityType}
+                {tip?.rarity_label || tip?.rarity ? ` · ${tip?.rarity_label ?? tip?.rarity}` : ""}
               </span>
             </span>
           </span>
           <span className="mt-2 block text-xs leading-relaxed text-zinc-400">
-            {loading && !tip ? "Loading..." : tip?.description || "No description"}
+            {loading && !tip ? "加载中…" : tip?.description || "暂无说明"}
           </span>
           {tip?.poe2db_url ? (
             <a

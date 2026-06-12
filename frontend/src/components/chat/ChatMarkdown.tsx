@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
+import { apiUrl } from "@/lib/apiUrl";
 import PoeEntityChip from "./PoeEntityChip";
 import "./chat-markdown.css";
 
@@ -13,14 +14,10 @@ export interface EntityMention {
   label: string;
   name_en: string;
   type: string;
+  icon_url?: string | null;
 }
 
 const MARKER_RE = /⟦poe:([^|]+)\|([^|]+)\|([^⟧]+)⟧/g;
-
-function apiUrl() {
-  if (typeof window === "undefined") return "http://localhost:8000";
-  return `${window.location.protocol}//${window.location.hostname}:8000`;
-}
 
 function applyMentionMarkers(raw: string, mentions: EntityMention[]): string {
   const sorted = [...mentions]
@@ -34,7 +31,7 @@ function applyMentionMarkers(raw: string, mentions: EntityMention[]): string {
   return s;
 }
 
-function parseEntityMarkers(text: string): React.ReactNode {
+function parseEntityMarkers(text: string, iconByLabel: Map<string, string>): React.ReactNode {
   MARKER_RE.lastIndex = 0;
   if (!MARKER_RE.test(text)) {
     MARKER_RE.lastIndex = 0;
@@ -53,6 +50,7 @@ function parseEntityMarkers(text: string): React.ReactNode {
         label={match[1]}
         nameEn={match[2]}
         entityType={match[3]}
+        initialIconUrl={iconByLabel.get(match[1]) ?? null}
       />,
     );
     last = match.index + match[0].length;
@@ -62,13 +60,13 @@ function parseEntityMarkers(text: string): React.ReactNode {
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
-function renderChips(children: React.ReactNode): React.ReactNode {
+function renderChips(children: React.ReactNode, iconByLabel: Map<string, string>): React.ReactNode {
   return React.Children.map(children, (child) => {
-    if (typeof child === "string") return parseEntityMarkers(child);
+    if (typeof child === "string") return parseEntityMarkers(child, iconByLabel);
     if (React.isValidElement(child)) {
       const props = child.props as { children?: React.ReactNode };
       if (props.children != null) {
-        return React.cloneElement(child, {}, renderChips(props.children));
+        return React.cloneElement(child, {}, renderChips(props.children, iconByLabel));
       }
     }
     return child;
@@ -89,6 +87,14 @@ export default function ChatMarkdown({ content, enableEntityChips = false }: Cha
   const [mentions, setMentions] = useState<EntityMention[]>([]);
 
   const normalized = useMemo(() => normalizeContent(content), [content]);
+
+  const iconByLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mention of mentions) {
+      if (mention.icon_url) m.set(mention.label, mention.icon_url);
+    }
+    return m;
+  }, [mentions]);
 
   useEffect(() => {
     if (!enableEntityChips || !normalized.trim()) {
@@ -119,7 +125,7 @@ export default function ChatMarkdown({ content, enableEntityChips = false }: Cha
   }, [normalized, mentions, enableEntityChips]);
 
   const wrapChips = (children: React.ReactNode) =>
-    enableEntityChips ? renderChips(children) : children;
+    enableEntityChips ? renderChips(children, iconByLabel) : children;
 
   const components: Components = useMemo(
     () => ({
@@ -150,7 +156,7 @@ export default function ChatMarkdown({ content, enableEntityChips = false }: Cha
       th: ({ children }) => <th className="md-th">{wrapChips(children)}</th>,
       td: ({ children }) => <td className="md-td">{wrapChips(children)}</td>,
     }),
-    [enableEntityChips],
+    [enableEntityChips, iconByLabel],
   );
 
   return (

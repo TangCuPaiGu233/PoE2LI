@@ -135,6 +135,7 @@ def fetch_wegame_build(share_id: str) -> dict[str, Any] | ErrorResponse:
         "area": role.get("area", 0),
         "openid": role.get("openid"),
         "role_id": role.get("role_id"),
+        "from_src": "share",
     }
 
     endpoints: list[tuple[str, str]] = [
@@ -166,6 +167,22 @@ def fetch_wegame_build(share_id: str) -> dict[str, Any] | ErrorResponse:
     if isinstance(profile_resp, ErrorResponse):
         return profile_resp
     out["profile"] = profile_resp
+
+    key_resp = _api_post(WEGAME_API_PREFIX + "GetRoleKeyData", dict(ctx))
+    if isinstance(key_resp, ErrorResponse):
+        out["key_data"] = {}
+    else:
+        out["key_data"] = key_resp.get("data") or {}
+
+    summary_resp = _api_post(WEGAME_API_PREFIX + "GetRoleSummary", dict(ctx))
+    if isinstance(summary_resp, ErrorResponse):
+        out["role_summary"] = {}
+    else:
+        out["role_summary"] = {
+            "title": summary_resp.get("summary_title") or "",
+            "content": summary_resp.get("summary_content") or "",
+            "time_bd": summary_resp.get("time_bd") or "",
+        }
 
     return out
 
@@ -238,8 +255,56 @@ def _skill_gems(skills: list[dict[str, Any]]) -> list[Gem]:
     return gems
 
 
+def _int_from_wegame(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    digits = re.sub(r"[^\d]", "", str(value).split("/")[0])
+    return int(digits) if digits else None
+
+
+def _stats_from_key_data(key_data: dict[str, Any]) -> dict[str, int | float | str]:
+    """Panel survival/output stats from GetRoleKeyData (matches WeGame share page)."""
+    stats: dict[str, int | float | str] = {}
+    life = _int_from_wegame(key_data.get("life"))
+    if life is not None:
+        stats["Life"] = life
+    mana = _int_from_wegame(key_data.get("mana"))
+    if mana is not None:
+        stats["Mana"] = mana
+
+    defense = key_data.get("defense_attr") or {}
+    es = _int_from_wegame(defense.get("value"))
+    if es is not None:
+        stats["EnergyShield"] = es
+
+    resist = key_data.get("resist_attr") or {}
+    for src, dst in (
+        ("fire_resistance", "FireResist"),
+        ("cold_resistance", "ColdResist"),
+        ("lightning_resistance", "LightningResist"),
+        ("chaos_resistance", "ChaosResist"),
+    ):
+        raw = resist.get(src)
+        if raw:
+            stats[dst] = str(raw).strip()
+
+    abilities = key_data.get("abilities") or {}
+    for src, dst in (
+        ("strength", "Strength"),
+        ("dexterity", "Dexterity"),
+        ("intelligence", "Intelligence"),
+    ):
+        val = _int_from_wegame(abilities.get(src))
+        if val is not None:
+            stats[dst] = val
+
+    return stats
+
+
 def _player_stats(data: dict[str, Any]) -> dict[str, int | float | str]:
     stats: dict[str, int | float | str] = {}
+    stats.update(_stats_from_key_data(data.get("key_data") or {}))
+
     profile = data.get("profile") or {}
     dps_values: list[float] = []
     for sk in profile.get("skills") or []:
@@ -292,11 +357,14 @@ def wegame_to_decode_response(data: dict[str, Any]) -> DecodeResponse:
     items = _equipped_items(data.get("equipments") or [])
     player_stats = _player_stats(data)
 
+    role_summary = data.get("role_summary") or {}
     config = {
         "source": "wegame",
         "share_id": data.get("share_id") or "",
         "role_name": role.get("name") or "",
         "account_name": role.get("account_name") or "",
+        "bd_title": role_summary.get("title") or "",
+        "wegame_ai_summary": role_summary.get("content") or "",
     }
 
     return DecodeResponse(
@@ -320,9 +388,26 @@ def format_wegame_build_summary(data: dict[str, Any]) -> str:
         f"account: {role.get('account_name') or '?'}",
     ]
 
+    role_summary = data.get("role_summary") or {}
+    if role_summary.get("title"):
+        lines.append(f"bd_title: {role_summary['title']}")
+
     stats = _player_stats(data)
-    if stats.get("TotalDPS"):
-        lines.append(f"TotalDPS: {stats['TotalDPS']}")
+    panel_bits = []
+    for label, key in (
+        ("Life", "Life"),
+        ("Mana", "Mana"),
+        ("ES", "EnergyShield"),
+        ("FireRes", "FireResist"),
+        ("ColdRes", "ColdResist"),
+        ("LightningRes", "LightningResist"),
+        ("ChaosRes", "ChaosResist"),
+        ("DPS", "TotalDPS"),
+    ):
+        if stats.get(key):
+            panel_bits.append(f"{label}={stats[key]}")
+    if panel_bits:
+        lines.append("panel: " + ", ".join(panel_bits))
 
     skill_names = []
     for sk in data.get("skills") or []:

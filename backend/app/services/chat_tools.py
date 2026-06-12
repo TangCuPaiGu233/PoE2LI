@@ -206,16 +206,26 @@ def detect_input_signals(text: str) -> list[str]:
 def format_build_summary(data: DecodeResponse) -> str:
     """Compact build summary for LLM tool results."""
     b = data.build
+    cfg = data.config or {}
     lines = [
         f"class: {b.className or '?'}",
         f"ascendancy: {b.ascendClassName or '?'}",
         f"level: {b.level or '?'}",
     ]
+    if cfg.get("bd_title"):
+        lines.append(f"bd_title: {cfg['bd_title']}")
+    if cfg.get("role_name"):
+        lines.append(f"character: {cfg['role_name']}")
     stats = data.playerStats or {}
     stat_bits = []
     for label, key in [
         ("Life", "Life"),
+        ("Mana", "Mana"),
         ("ES", "EnergyShield"),
+        ("FireRes", "FireResist"),
+        ("ColdRes", "ColdResist"),
+        ("LightningRes", "LightningResist"),
+        ("ChaosRes", "ChaosResist"),
         ("DPS", "TotalDPS"),
         ("EHP", "TotalEHP"),
     ]:

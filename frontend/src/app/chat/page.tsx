@@ -1,5 +1,6 @@
 "use client";
 
+import { apiUrl } from "@/lib/apiUrl";
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMarkdown from "@/components/chat/ChatMarkdown";
 
@@ -7,11 +8,6 @@ import ChatMarkdown from "@/components/chat/ChatMarkdown";
 interface TradeMatch { label: string; url: string; count: number }
 interface TradeResult { best_match: TradeMatch | null; alternatives: TradeMatch[]; explanation: string }
 interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult }
-
-function apiUrl() {
-  if (typeof window === "undefined") return "http://localhost:8000";
-  return `${window.location.protocol}//${window.location.hostname}:8000`;
-}
 
 const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
 

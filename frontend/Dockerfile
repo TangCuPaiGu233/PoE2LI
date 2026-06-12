@@ -9,6 +9,8 @@ RUN npm install
 # Copy application
 COPY . .
 
+ARG NEXT_PUBLIC_API_URL=http://192.168.110.26:8000
+ENV NEXT_PUBLIC_API_URL=\n
 # Build
 RUN npm run build
 
