@@ -41,6 +41,7 @@ class ChatToolContext:
     last_trade: dict | None = None
     last_recommend: dict | None = None
     rag_search_calls: int = 0
+    last_build_summary: str | None = None
 
 
 @dataclass
@@ -334,6 +335,7 @@ def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResul
         )
 
     summary = format_build_summary(result)
+    _ctx.last_build_summary = summary
     payload = {
         "ok": True,
         "summary": summary,
