@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import json, re, time, sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from app.services.name_validation import validate_name_en, normalize_en_name
+from app.services.name_validation import resolve_unique_name
 
 _scraper = None
 
@@ -173,10 +173,12 @@ def scrape():
         if not en_variants:
             continue
 
-        ok, canonical_en = validate_name_en(entry["name_en"], entry["name_en"])
-        if not ok:
-            print(f"  SKIP dirty index name: {entry['name_en']}")
-            continue
+        scraped_name = en_variants[0].get("name") if en_variants else None
+        canonical_en = resolve_unique_name(
+            entry["name_en"], entry["path"], scraped_name,
+        )
+        if canonical_en != entry["name_en"]:
+            print(f"  FIX index name: {entry['name_en']} -> {canonical_en}")
 
         parent_id = f"unique_{entry['path']}"
         parent_cn = cn_variants[0].get("name") if cn_variants else None

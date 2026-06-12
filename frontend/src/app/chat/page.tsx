@@ -14,6 +14,28 @@ function apiUrl() {
 
 const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
 
+const TOOL_LABELS: Record<string, string> = {
+  entity_resolve: "解析游戏实体名",
+  rag_search: "检索知识库",
+  decode_pob: "解析 PoB / 导入 BD",
+  trade_search: "搜索交易市场",
+  recommend: "对比推荐装备",
+};
+
+function detectStreamSkill(text: string, toolName?: string, current = "idle"): string {
+  if (toolName === "trade_search" || text.includes("交易市场")) return "trade_search";
+  if (
+    toolName === "decode_pob" ||
+    /PoB|pobb\.in|decode_pob|decode/i.test(text) ||
+    text.includes("导入 BD") ||
+    text.includes("解析 PoB")
+  )
+    return "build_design";
+  if (toolName === "rag_search" || text.includes("检索") || text.includes("知识库")) return "encyclopedia";
+  if (text.includes("分析")) return "encyclopedia";
+  return current;
+}
+
 const CHIPS = [
   "帮我配一个召唤女巫的开荒BD",
   "帮我找一条加2召唤技能等级的项链",
@@ -97,8 +119,36 @@ export default function ChatPage() {
           if (!line.startsWith("data: ")) continue;
           try {
             const ev = JSON.parse(line.slice(6));
-            if (ev.type === "thinking") { const t = ev.content || ""; if (t.includes("交易市场")) sk = "trade_search"; else if (t.includes("分析")) sk = "encyclopedia"; setSkill(sk); setThinking(p => [...p, t]); }
-            else if (ev.type === "reasoning") setReasoning(p => p + ev.content);
+            if (ev.type === "thinking") {
+              const t = ev.content || "";
+              sk = detectStreamSkill(t, undefined, sk);
+              setSkill(sk);
+              setThinking(p => [...p, t]);
+            } else if (ev.type === "tool_use") {
+              const c = ev.content || {};
+              const name = typeof c.name === "string" ? c.name : "";
+              const label = TOOL_LABELS[name] || name || "工具调用";
+              sk = detectStreamSkill(label, name, sk);
+              setSkill(sk);
+              const args = c.arguments;
+              let argsHint = "";
+              if (args && typeof args === "object") {
+                argsHint = Object.entries(args as Record<string, unknown>)
+                  .slice(0, 2)
+                  .map(([k, v]) => `${k}: ${String(v).slice(0, 60)}`)
+                  .join(", ");
+              }
+              setThinking(p => [...p, argsHint ? `工具调用 · ${label} (${argsHint})` : `工具调用 · ${label}`]);
+            } else if (ev.type === "tool_result") {
+              const c = ev.content || {};
+              const name = typeof c.name === "string" ? c.name : "";
+              const label = TOOL_LABELS[name] || name || "工具";
+              sk = detectStreamSkill(label, name, sk);
+              setSkill(sk);
+              const preview = typeof c.preview === "string" ? c.preview : "";
+              const prefix = c.ok === false ? "工具失败" : "工具完成";
+              setThinking(p => [...p, `${prefix} · ${label}: ${preview}`]);
+            } else if (ev.type === "reasoning") setReasoning(p => p + ev.content);
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
             else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, trade: ev.content }] : [...p, { role: "assistant", content: "", trade: ev.content }]; }); }
             else if (ev.type === "sources") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: l.content, sources: ev.content }] : p; }); }

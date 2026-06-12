@@ -1,0 +1,2682 @@
+{
+  "version": 1,
+  "total": 446,
+  "cn_to_en": {
+    "布琳翰德印记": {
+      "en": "Brynhands Mark",
+      "path": "Brynhands_Mark",
+      "base_cn": "木棒",
+      "source": "poe2db_index"
+    },
+    "霜息": {
+      "en": "Frostbreath",
+      "path": "Frostbreath",
+      "base_cn": "细柄钉锤",
+      "source": "poe2db_index"
+    },
+    "战壕砥柱": {
+      "en": "Trenchtimbre",
+      "path": "Trenchtimbre",
+      "base_cn": "钝钉木棒",
+      "source": "poe2db_index"
+    },
+    "雕琢的苦难": {
+      "en": "Sculpted Suffering",
+      "path": "Sculpted_Suffering",
+      "base_cn": "战镐",
+      "source": "poe2db_index"
+    },
+    "布鲁特斯的刑具": {
+      "en": "Brutus Lead Sprinkler",
+      "path": "Brutus_Lead_Sprinkler",
+      "base_cn": "流星锤",
+      "source": "poe2db_index"
+    },
+    "尼布洛克": {
+      "en": "Nebuloch",
+      "path": "Nebuloch",
+      "base_cn": "秽咒之锤",
+      "source": "poe2db_index"
+    },
+    "沉默之雷": {
+      "en": "Mjölner",
+      "path": "Mj%C3%B6lner",
+      "base_cn": "劫难战棒",
+      "source": "poe2db_index"
+    },
+    "欧罗瓦萨拉": {
+      "en": "Olrovasara",
+      "path": "Olrovasara",
+      "base_cn": "劫难战棒",
+      "source": "poe2db_index"
+    },
+    "瑟尔的坚毅": {
+      "en": "Serles Grit",
+      "path": "Serles_Grit",
+      "base_cn": "卡古兰锻造锤",
+      "source": "poe2db_index"
+    },
+    "猎猪大棒": {
+      "en": "Hoghunt",
+      "path": "Hoghunt",
+      "base_cn": "伐采巨棍",
+      "source": "poe2db_index"
+    },
+    "雷姆诺的夺命凶器": {
+      "en": "Hrimnors Hymn",
+      "path": "Hrimnors_Hymn",
+      "base_cn": "橡木大锤",
+      "source": "poe2db_index"
+    },
+    "穿洞奇械": {
+      "en": "Trephina",
+      "path": "Trephina",
+      "base_cn": "锻炉巨锤",
+      "source": "poe2db_index"
+    },
+    "脑乱者": {
+      "en": "Brain Rattler",
+      "path": "Brain_Rattler",
+      "base_cn": "镶钉巨棍",
+      "source": "poe2db_index"
+    },
+    "空荡怒吼": {
+      "en": "The Empty Roar",
+      "path": "The_Empty_Roar",
+      "base_cn": "教徒大锤",
+      "source": "poe2db_index"
+    },
+    "席亚巴": {
+      "en": "Shyaba",
+      "path": "Shyaba",
+      "base_cn": "神殿巨锤",
+      "source": "poe2db_index"
+    },
+    "忠诚之锤": {
+      "en": "Chober Chaber",
+      "path": "Chober_Chaber",
+      "base_cn": "灌铅大锤",
+      "source": "poe2db_index"
+    },
+    "重击之锤": {
+      "en": "Quecholli",
+      "path": "Quecholli",
+      "base_cn": "摧枯巨锤",
+      "source": "poe2db_index"
+    },
+    "局势逆转者": {
+      "en": "Tidebreaker",
+      "path": "Tidebreaker",
+      "base_cn": "钉头巨锤",
+      "source": "poe2db_index"
+    },
+    "尔奇的巨灵之锤": {
+      "en": "Marohi Erqi",
+      "path": "Marohi_Erqi",
+      "base_cn": "图腾巨棍",
+      "source": "poe2db_index"
+    },
+    "信仰之锤": {
+      "en": "The Hammer of Faith",
+      "path": "The_Hammer_of_Faith",
+      "base_cn": "伟岸巨锤",
+      "source": "poe2db_index"
+    },
+    "罗瑞塔的破片": {
+      "en": "Splinter of Lorrata",
+      "path": "Splinter_of_Lorrata",
+      "base_cn": "硬木长矛",
+      "source": "poe2db_index"
+    },
+    "暴政之握": {
+      "en": "Tyrannys Grip",
+      "path": "Tyrannys_Grip",
+      "base_cn": "铁头长矛",
+      "source": "poe2db_index"
+    },
+    "缚链之针": {
+      "en": "Chainsting",
+      "path": "Chainsting",
+      "base_cn": "狩猎长矛",
+      "source": "poe2db_index"
+    },
+    "苍穹裂片": {
+      "en": "Skysliver",
+      "path": "Skysliver",
+      "base_cn": "飞翼长矛",
+      "source": "poe2db_index"
+    },
+    "戴瓦塔的幻风": {
+      "en": "Daevatas Wind",
+      "path": "Daevatas_Wind",
+      "base_cn": "历战长矛",
+      "source": "poe2db_index"
+    },
+    "纠缠之舌": {
+      "en": "Tangletongue",
+      "path": "Tangletongue",
+      "base_cn": "分叉长矛",
+      "source": "poe2db_index"
+    },
+    "赛萨之矛": {
+      "en": "Saithas Spear",
+      "path": "Saithas_Spear",
+      "base_cn": "倒刺长矛",
+      "source": "poe2db_index"
+    },
+    "怨怒塔矛": {
+      "en": "Spire of Ire",
+      "path": "Spire_of_Ire",
+      "base_cn": "螺旋长矛",
+      "source": "poe2db_index"
+    },
+    "血棘": {
+      "en": "The Blood Thorn",
+      "path": "The_Blood_Thorn",
+      "base_cn": "裹布节杖",
+      "source": "poe2db_index"
+    },
+    "囚神杵": {
+      "en": "Pillar of the Caged God",
+      "path": "Pillar_of_the_Caged_God",
+      "base_cn": "长柄节杖",
+      "source": "poe2db_index"
+    },
+    "哨望": {
+      "en": "The Sentry",
+      "path": "The_Sentry",
+      "base_cn": "哥特节杖",
+      "source": "poe2db_index"
+    },
+    "摩蹉": {
+      "en": "Matsya",
+      "path": "Matsya",
+      "base_cn": "月牙节杖",
+      "source": "poe2db_index"
+    },
+    "纳吉尔的审判": {
+      "en": "Nazirs Judgement",
+      "path": "Nazirs_Judgement",
+      "base_cn": "钢缘节杖",
+      "source": "poe2db_index"
+    },
+    "崩塌视界": {
+      "en": "Collapsing Horizon",
+      "path": "Collapsing_Horizon",
+      "base_cn": "腾龙节杖",
+      "source": "poe2db_index"
+    },
+    "邪恶之翎": {
+      "en": "The Wicked Quill",
+      "path": "The_Wicked_Quill",
+      "base_cn": "凋零法杖",
+      "source": "poe2db_index"
+    },
+    "赤红占卜师": {
+      "en": "Sanguine Diviner",
+      "path": "Sanguine_Diviner",
+      "base_cn": "钙石法杖",
+      "source": "poe2db_index"
+    },
+    "生机之记": {
+      "en": "Lifesprig",
+      "path": "Lifesprig",
+      "base_cn": "调谐法杖",
+      "source": "poe2db_index"
+    },
+    "阿多尼娅的自我": {
+      "en": "Adonias Ego",
+      "path": "Adonias_Ego",
+      "base_cn": "虹吸法杖",
+      "source": "poe2db_index"
+    },
+    "恩纳尊的职责": {
+      "en": "Enezuns Charge",
+      "path": "Enezuns_Charge",
+      "base_cn": "易变法杖",
+      "source": "poe2db_index"
+    },
+    "刻咒": {
+      "en": "Cursecarver",
+      "path": "Cursecarver",
+      "base_cn": "刻薄法杖",
+      "source": "poe2db_index"
+    },
+    "阈限螺旋": {
+      "en": "Liminal Coil",
+      "path": "Liminal_Coil",
+      "base_cn": "扭曲法杖",
+      "source": "poe2db_index"
+    },
+    "符文猎手的呼唤": {
+      "en": "Runeseekers Call",
+      "path": "Runeseekers_Call",
+      "base_cn": "符文之叉",
+      "source": "poe2db_index"
+    },
+    "暮色守望": {
+      "en": "Dusk Vigil",
+      "path": "Dusk_Vigil",
+      "base_cn": "枯灰长杖",
+      "source": "poe2db_index"
+    },
+    "塔林的颤栗之语": {
+      "en": "Taryns Shiver",
+      "path": "Taryns_Shiver",
+      "base_cn": "冰寒长杖",
+      "source": "poe2db_index"
+    },
+    "地缚杖": {
+      "en": "Earthbound",
+      "path": "Earthbound",
+      "base_cn": "雷霆长杖",
+      "source": "poe2db_index"
+    },
+    "炽炎之使": {
+      "en": "The Searing Touch",
+      "path": "The_Searing_Touch",
+      "base_cn": "耐火长杖",
+      "source": "poe2db_index"
+    },
+    "破碎传承者": {
+      "en": "Sire of Shards",
+      "path": "Sire_of_Shards",
+      "base_cn": "鸣谐长杖",
+      "source": "poe2db_index"
+    },
+    "暗影的重负": {
+      "en": "The Burden of Shadows",
+      "path": "The_Burden_of_Shadows",
+      "base_cn": "鸣谐长杖",
+      "source": "poe2db_index"
+    },
+    "未生巫妖": {
+      "en": "The Unborn Lich",
+      "path": "The_Unborn_Lich",
+      "base_cn": "饕餮法杖",
+      "source": "poe2db_index"
+    },
+    "冰点低语": {
+      "en": "The Whispering Ice",
+      "path": "The_Whispering_Ice",
+      "base_cn": "永霜法杖",
+      "source": "poe2db_index"
+    },
+    "阿兹里的统治": {
+      "en": "Atziris Rule",
+      "path": "Atziris_Rule",
+      "base_cn": "反射长杖",
+      "source": "poe2db_index"
+    },
+    "渡鸦之群": {
+      "en": "The Ravens Flock",
+      "path": "The_Ravens_Flock",
+      "base_cn": "栖鸟长杖",
+      "source": "poe2db_index"
+    },
+    "遗孀之雹": {
+      "en": "Widowhail",
+      "path": "Widowhail",
+      "base_cn": "粗制弓",
+      "source": "poe2db_index"
+    },
+    "骤雨之弦": {
+      "en": "Quill Rain",
+      "path": "Quill_Rain",
+      "base_cn": "短弓",
+      "source": "poe2db_index"
+    },
+    "铁箍战弓": {
+      "en": "Ironbound",
+      "path": "Ironbound",
+      "base_cn": "监守弓",
+      "source": "poe2db_index"
+    },
+    "裂心之弦": {
+      "en": "Splinterheart",
+      "path": "Splinterheart",
+      "base_cn": "反曲弓",
+      "source": "poe2db_index"
+    },
+    "灭世": {
+      "en": "Doomfletch",
+      "path": "Doomfletch",
+      "base_cn": "复合弓",
+      "source": "poe2db_index"
+    },
+    "冥使之琴": {
+      "en": "Deaths Harp",
+      "path": "Deaths_Harp",
+      "base_cn": "双弦弓",
+      "source": "poe2db_index"
+    },
+    "白银之舌": {
+      "en": "Slivertongue",
+      "path": "Slivertongue",
+      "base_cn": "狂热弓",
+      "source": "poe2db_index"
+    },
+    "费尔的诅咒": {
+      "en": "Fairgraves Curse",
+      "path": "Fairgraves_Curse",
+      "base_cn": "轰击弓",
+      "source": "poe2db_index"
+    },
+    "狮眼的战弓": {
+      "en": "Lioneyes Glare",
+      "path": "Lioneyes_Glare",
+      "base_cn": "重装强弓",
+      "source": "poe2db_index"
+    },
+    "迷雾低语者": {
+      "en": "Mist Whisper",
+      "path": "Mist_Whisper",
+      "base_cn": "拼凑战弩",
+      "source": "poe2db_index"
+    },
+    "要塞的猛禽": {
+      "en": "Rampart Raptor",
+      "path": "Rampart_Raptor",
+      "base_cn": "紧弦战弩",
+      "source": "poe2db_index"
+    },
+    "双生视界": {
+      "en": "Double Vision",
+      "path": "Double_Vision",
+      "base_cn": "双联战弩",
+      "source": "poe2db_index"
+    },
+    "黑暗渎神": {
+      "en": "The Dark Defiler",
+      "path": "The_Dark_Defiler",
+      "base_cn": "罪孽权杖",
+      "source": "poe2db_index"
+    },
+    "森林灵像": {
+      "en": "Sylvans Effigy",
+      "path": "Sylvans_Effigy",
+      "base_cn": "克己权杖",
+      "source": "poe2db_index"
+    },
+    "力量的源泉": {
+      "en": "Font of Power",
+      "path": "Font_of_Power",
+      "base_cn": "预兆权杖",
+      "source": "poe2db_index"
+    },
+    "神圣之火": {
+      "en": "Sacred Flame",
+      "path": "Sacred_Flame",
+      "base_cn": "圣地权杖",
+      "source": "poe2db_index"
+    },
+    "心脏之指引之掌": {
+      "en": "Guiding Palm of the Heart",
+      "path": "Guiding_Palm_of_the_Heart",
+      "base_cn": "圣地权杖",
+      "source": "poe2db_index"
+    },
+    "眼目之指引之掌": {
+      "en": "Guiding Palm of the Eye",
+      "path": "Guiding_Palm_of_the_Eye",
+      "base_cn": "圣地权杖",
+      "source": "poe2db_index"
+    },
+    "意念之指引之掌": {
+      "en": "Guiding Palm of the Mind",
+      "path": "Guiding_Palm_of_the_Mind",
+      "base_cn": "圣地权杖",
+      "source": "poe2db_index"
+    },
+    "幻梦者之掌": {
+      "en": "Palm of the Dreamer",
+      "path": "Palm_of_the_Dreamer",
+      "base_cn": "圣地权杖",
+      "source": "poe2db_index"
+    },
+    "爱神曼陀罗": {
+      "en": "Amor Mandragora",
+      "path": "Amor_Mandragora",
+      "base_cn": "易形魔符",
+      "source": "poe2db_index"
+    },
+    "怨毒之花": {
+      "en": "Spiteful Floret",
+      "path": "Spiteful_Floret",
+      "base_cn": "荨麻魔符",
+      "source": "poe2db_index"
+    },
+    "西赛格之爪": {
+      "en": "Hyssegs Claw",
+      "path": "Hyssegs_Claw",
+      "base_cn": "血亲魔符",
+      "source": "poe2db_index"
+    },
+    "血肉傀儡": {
+      "en": "The Flesh Poppet",
+      "path": "The_Flesh_Poppet",
+      "base_cn": "凶恶魔符",
+      "source": "poe2db_index"
+    },
+    "奔涌潮汐": {
+      "en": "Surge of the Tide",
+      "path": "Surge_of_the_Tide",
+      "base_cn": "蹒跚魔符",
+      "source": "poe2db_index"
+    },
+    "迷星之锤": {
+      "en": "Seeing Stars",
+      "path": "Seeing_Stars",
+      "base_cn": "行军之锤",
+      "source": "poe2db_index"
+    },
+    "施虐者的慈悲": {
+      "en": "Sadists Mercy",
+      "path": "Sadists_Mercy",
+      "base_cn": "钉头锤",
+      "source": "poe2db_index"
+    },
+    "扭曲天穹": {
+      "en": "Twisted Empyrean",
+      "path": "Twisted_Empyrean",
+      "base_cn": "畸变巨锤",
+      "source": "poe2db_index"
+    },
+    "二元一体": {
+      "en": "Duality",
+      "path": "Duality",
+      "base_cn": "守护节杖",
+      "source": "poe2db_index"
+    },
+    "魔暴之痕": {
+      "en": "Voltaxic Rift",
+      "path": "Voltaxic_Rift",
+      "base_cn": "狂热之弓",
+      "source": "poe2db_index"
+    },
+    "边缘": {
+      "en": "Periphery",
+      "path": "Periphery",
+      "base_cn": "心木短弓",
+      "source": "poe2db_index"
+    },
+    "末后哀歌": {
+      "en": "The Last Lament",
+      "path": "The_Last_Lament",
+      "base_cn": "苍凉战弩",
+      "source": "poe2db_index"
+    },
+    "救赎": {
+      "en": "Redemption",
+      "path": "Redemption",
+      "base_cn": "特拉珊火炮",
+      "source": "poe2db_index"
+    },
+    "阿兹里的蔑视": {
+      "en": "Atziris Contempt",
+      "path": "Atziris_Contempt",
+      "base_cn": "叉尖战矛",
+      "source": "poe2db_index"
+    },
+    "天选之人": {
+      "en": "The Ordained",
+      "path": "The_Ordained",
+      "base_cn": "宏伟战矛",
+      "source": "poe2db_index"
+    },
+    "君王之怒": {
+      "en": "Fury of the King",
+      "path": "Fury_of_the_King",
+      "base_cn": "灰烬树皮魔符",
+      "source": "poe2db_index"
+    },
+    "刺棘宝甲": {
+      "en": "Bramblejack",
+      "path": "Bramblejack",
+      "base_cn": "锈蚀胸甲",
+      "source": "poe2db_index"
+    },
+    "黑髻": {
+      "en": "Blackbraid",
+      "path": "Blackbraid",
+      "base_cn": "覆皮之铠",
+      "source": "poe2db_index"
+    },
+    "艾丁的獠牙": {
+      "en": "Edyrns Tusks",
+      "path": "Edyrns_Tusks",
+      "base_cn": "铁锻胸甲",
+      "source": "poe2db_index"
+    },
+    "征途之士": {
+      "en": "The Road Warrior",
+      "path": "The_Road_Warrior",
+      "base_cn": "劫掠之铠",
+      "source": "poe2db_index"
+    },
+    "巨人灾星甲胄": {
+      "en": "Titanrot Cataphract",
+      "path": "Titanrot_Cataphract",
+      "base_cn": "马拉克斯胸甲",
+      "source": "poe2db_index"
+    },
+    "流浪圣柜": {
+      "en": "Wandering Reliquary",
+      "path": "Wandering_Reliquary",
+      "base_cn": "冷钢之铠",
+      "source": "poe2db_index"
+    },
+    "皇家卫甲": {
+      "en": "Kingsguard",
+      "path": "Kingsguard",
+      "base_cn": "连身铠甲",
+      "source": "poe2db_index"
+    },
+    "贪婪之拥": {
+      "en": "Greeds Embrace",
+      "path": "Greeds_Embrace",
+      "base_cn": "瓦尔胸甲",
+      "source": "poe2db_index"
+    },
+    "巨铜之顶": {
+      "en": "The Brass Dome",
+      "path": "The_Brass_Dome",
+      "base_cn": "冠军胸甲",
+      "source": "poe2db_index"
+    },
+    "冈姆的壮志": {
+      "en": "Kaoms Heart",
+      "path": "Kaoms_Heart",
+      "base_cn": "霸王战铠",
+      "source": "poe2db_index"
+    },
+    "棘体猪肤": {
+      "en": "Bristleboar",
+      "path": "Bristleboar",
+      "base_cn": "皮革背心",
+      "source": "poe2db_index"
+    },
+    "狐毛铠": {
+      "en": "Foxshade",
+      "path": "Foxshade",
+      "base_cn": "菱纹背心",
+      "source": "poe2db_index"
+    },
+    "拂烬": {
+      "en": "Ashrend",
+      "path": "Ashrend",
+      "base_cn": "寻路者外套",
+      "source": "poe2db_index"
+    },
+    "流丝之沙": {
+      "en": "Sands of Silk",
+      "path": "Sands_of_Silk",
+      "base_cn": "蔽影背心",
+      "source": "poe2db_index"
+    },
+    "荒途": {
+      "en": "Briskwrap",
+      "path": "Briskwrap",
+      "base_cn": "恐喙鸟皮外套",
+      "source": "poe2db_index"
+    },
+    "尘绽": {
+      "en": "Dustbloom",
+      "path": "Dustbloom",
+      "base_cn": "嵌饰背心",
+      "source": "poe2db_index"
+    },
+    "疫鼠囚笼": {
+      "en": "The Rat Cage",
+      "path": "The_Rat_Cage",
+      "base_cn": "斥候背心",
+      "source": "poe2db_index"
+    },
+    "羽蛇之带": {
+      "en": "Quatls Molt",
+      "path": "Quatls_Molt",
+      "base_cn": "蛇鳞外套",
+      "source": "poe2db_index"
+    },
+    "森林之后": {
+      "en": "Queen of the Forest",
+      "path": "Queen_of_the_Forest",
+      "base_cn": "走私者外套",
+      "source": "poe2db_index"
+    },
+    "伊瑞的精通": {
+      "en": "Yriels Fostering",
+      "path": "Yriels_Fostering",
+      "base_cn": "疾行者背心",
+      "source": "poe2db_index"
+    },
+    "占星师": {
+      "en": "The Auspex",
+      "path": "The_Auspex",
+      "base_cn": "浮华背心",
+      "source": "poe2db_index"
+    },
+    "西里的战衣": {
+      "en": "Hyrris Ire",
+      "path": "Hyrris_Ire",
+      "base_cn": "铠装背心",
+      "source": "poe2db_index"
+    },
+    "代笔人": {
+      "en": "Ghostwrithe",
+      "path": "Ghostwrithe",
+      "base_cn": "破烂长袍",
+      "source": "poe2db_index"
+    },
+    "苦涩之花": {
+      "en": "Bitterbloom",
+      "path": "Bitterbloom",
+      "base_cn": "羽饰长袍",
+      "source": "poe2db_index"
+    },
+    "疑心暗惑": {
+      "en": "The Black Doubt",
+      "path": "The_Black_Doubt",
+      "base_cn": "魔蛊长袍",
+      "source": "poe2db_index"
+    },
+    "通灵披风": {
+      "en": "Necromantle",
+      "path": "Necromantle",
+      "base_cn": "坠饰之衣",
+      "source": "poe2db_index"
+    },
+    "烈炎之袍": {
+      "en": "Cloak of Flame",
+      "path": "Cloak_of_Flame",
+      "base_cn": "丝质之袍",
+      "source": "poe2db_index"
+    },
+    "时空之肌": {
+      "en": "Temporalis",
+      "path": "Temporalis",
+      "base_cn": "丝质之袍",
+      "source": "poe2db_index"
+    },
+    "祈雨祷告": {
+      "en": "Prayers for Rain",
+      "path": "Prayers_for_Rain",
+      "base_cn": "克斯之衣",
+      "source": "poe2db_index"
+    },
+    "特兹拉波卡尔的欲望": {
+      "en": "Tetzlapokals Desire",
+      "path": "Tetzlapokals_Desire",
+      "base_cn": "奉愿之衣",
+      "source": "poe2db_index"
+    },
+    "血誓": {
+      "en": "The Covenant",
+      "path": "The_Covenant",
+      "base_cn": "祭坛长袍",
+      "source": "poe2db_index"
+    },
+    "薄暮罩袍": {
+      "en": "Gloamgown",
+      "path": "Gloamgown",
+      "base_cn": "元素使长袍",
+      "source": "poe2db_index"
+    },
+    "兀鸣": {
+      "en": "Vis Mortis",
+      "path": "Vis_Mortis",
+      "base_cn": "嵌板之衣",
+      "source": "poe2db_index"
+    },
+    "卫道之袍": {
+      "en": "Cloak of Defiance",
+      "path": "Cloak_of_Defiance",
+      "base_cn": "劫难之衣",
+      "source": "poe2db_index"
+    },
+    "敬奉之绸": {
+      "en": "Silks of Veneration",
+      "path": "Silks_of_Veneration",
+      "base_cn": "启迪长袍",
+      "source": "poe2db_index"
+    },
+    "赤红外套": {
+      "en": "Coat of Red",
+      "path": "Coat_of_Red",
+      "base_cn": "环锁甲",
+      "source": "poe2db_index"
+    },
+    "荒坟寄主": {
+      "en": "The Barrow Dweller",
+      "path": "The_Barrow_Dweller",
+      "base_cn": "盗贼护甲",
+      "source": "poe2db_index"
+    },
+    "铁腕": {
+      "en": "Irongrasp",
+      "path": "Irongrasp",
+      "base_cn": "漂泊者护甲",
+      "source": "poe2db_index"
+    },
+    "贱民之拥": {
+      "en": "Pariahs Embrace",
+      "path": "Pariahs_Embrace",
+      "base_cn": "披风锁甲",
+      "source": "poe2db_index"
+    },
+    "兽腹": {
+      "en": "Belly of the Beast",
+      "path": "Belly_of_the_Beast",
+      "base_cn": "探索者护甲",
+      "source": "poe2db_index"
+    },
+    "独断专行": {
+      "en": "Pragmatism",
+      "path": "Pragmatism",
+      "base_cn": "探索者护甲",
+      "source": "poe2db_index"
+    },
+    "多里亚尼的试作甲": {
+      "en": "Doryanis Prototype",
+      "path": "Doryanis_Prototype",
+      "base_cn": "嵌鳞锁甲",
+      "source": "poe2db_index"
+    },
+    "寡妇的统治": {
+      "en": "Widows Reign",
+      "path": "Widows_Reign",
+      "base_cn": "骑士护甲",
+      "source": "poe2db_index"
+    },
+    "背信弃义": {
+      "en": "Perfidy",
+      "path": "Perfidy",
+      "base_cn": "骑士护甲",
+      "source": "poe2db_index"
+    },
+    "沉没之舟": {
+      "en": "The Sunken Vessel",
+      "path": "The_Sunken_Vessel",
+      "base_cn": "骑士护甲",
+      "source": "poe2db_index"
+    },
+    "雷语": {
+      "en": "Lightning Coil",
+      "path": "Lightning_Coil",
+      "base_cn": "先祖锁甲",
+      "source": "poe2db_index"
+    },
+    "灵魂甲胄": {
+      "en": "The Coming Calamity",
+      "path": "The_Coming_Calamity",
+      "base_cn": "英武护甲",
+      "source": "poe2db_index"
+    },
+    "遍洒晨辉": {
+      "en": "Enfolding Dawn",
+      "path": "Enfolding_Dawn",
+      "base_cn": "朝圣者长衣",
+      "source": "poe2db_index"
+    },
+    "冰息": {
+      "en": "Icetomb",
+      "path": "Icetomb",
+      "base_cn": "锁子长衣",
+      "source": "poe2db_index"
+    },
+    "幻梦曲": {
+      "en": "Reverie",
+      "path": "Reverie",
+      "base_cn": "萨满斗篷",
+      "source": "poe2db_index"
+    },
+    "祖灵之约": {
+      "en": "Soul Mantle",
+      "path": "Soul_Mantle",
+      "base_cn": "献祭斗篷",
+      "source": "poe2db_index"
+    },
+    "易变星辰": {
+      "en": "The Mutable Star",
+      "path": "The_Mutable_Star",
+      "base_cn": "圣徒长衣",
+      "source": "poe2db_index"
+    },
+    "塑成惊涛": {
+      "en": "Waveshaper",
+      "path": "Waveshaper",
+      "base_cn": "潮贤斗篷",
+      "source": "poe2db_index"
+    },
+    "赤红礼装": {
+      "en": "Couture of Crimson",
+      "path": "Couture_of_Crimson",
+      "base_cn": "鎏金长衣",
+      "source": "poe2db_index"
+    },
+    "吉尔菲的圣殿": {
+      "en": "Geofris Sanctuary",
+      "path": "Geofris_Sanctuary",
+      "base_cn": "崇礼长衣",
+      "source": "poe2db_index"
+    },
+    "破禁者": {
+      "en": "The Unleashed",
+      "path": "The_Unleashed",
+      "base_cn": "崇礼长衣",
+      "source": "poe2db_index"
+    },
+    "奉圣庇护所": {
+      "en": "Sacrosanctum",
+      "path": "Sacrosanctum",
+      "base_cn": "灵鸦斗篷",
+      "source": "poe2db_index"
+    },
+    "满溢之甲": {
+      "en": "Loreweave",
+      "path": "Loreweave",
+      "base_cn": "华饰环甲",
+      "source": "poe2db_index"
+    },
+    "忠诚法令": {
+      "en": "Decree of Loyalty",
+      "path": "Decree_of_Loyalty",
+      "base_cn": "远古链甲",
+      "source": "poe2db_index"
+    },
+    "艾米兰的兜裙": {
+      "en": "Apron of Emiran",
+      "path": "Apron_of_Emiran",
+      "base_cn": "隐士束衣",
+      "source": "poe2db_index"
+    },
+    "幽邃之躯": {
+      "en": "Gloomform",
+      "path": "Gloomform",
+      "base_cn": "防水外衣",
+      "source": "poe2db_index"
+    },
+    "山岭的传承": {
+      "en": "Sierran Inheritance",
+      "path": "Sierran_Inheritance",
+      "base_cn": "遁世束衣",
+      "source": "poe2db_index"
+    },
+    "跃舞蜃影": {
+      "en": "The Dancing Mirage",
+      "path": "The_Dancing_Mirage",
+      "base_cn": "远行者外衣",
+      "source": "poe2db_index"
+    },
+    "赫耀导体": {
+      "en": "Redflare Conduit",
+      "path": "Redflare_Conduit",
+      "base_cn": "隐士束衣",
+      "source": "poe2db_index"
+    },
+    "泽佛伊的毛披肩": {
+      "en": "Zerphis Serape",
+      "path": "Zerphis_Serape",
+      "base_cn": "猎头者外衣",
+      "source": "poe2db_index"
+    },
+    "卡斯普里意志": {
+      "en": "Cospris Will",
+      "path": "Cospris_Will",
+      "base_cn": "暗影束衣",
+      "source": "poe2db_index"
+    },
+    "凯琳飞翼": {
+      "en": "Wings of Caelyn",
+      "path": "Wings_of_Caelyn",
+      "base_cn": "锈蚀巨盔",
+      "source": "poe2db_index"
+    },
+    "柏安登的犄角": {
+      "en": "Horns of Bynden",
+      "path": "Horns_of_Bynden",
+      "base_cn": "锈蚀巨盔",
+      "source": "poe2db_index"
+    },
+    "艾兹麦的荣光": {
+      "en": "Ezomyte Peak",
+      "path": "Ezomyte_Peak",
+      "base_cn": "兵卒巨盔",
+      "source": "poe2db_index"
+    },
+    "黑阳之冠": {
+      "en": "Black Sun Crest",
+      "path": "Black_Sun_Crest",
+      "base_cn": "裹布巨盔",
+      "source": "poe2db_index"
+    },
+    "惊险刺激": {
+      "en": "Thrillsteel",
+      "path": "Thrillsteel",
+      "base_cn": "螺旋巨盔",
+      "source": "poe2db_index"
+    },
+    "丧钟": {
+      "en": "Deidbell",
+      "path": "Deidbell",
+      "base_cn": "精锐巨盔",
+      "source": "poe2db_index"
+    },
+    "赤红艳阳之冠": {
+      "en": "Corona of the Red Sun",
+      "path": "Corona_of_the_Red_Sun",
+      "base_cn": "战士巨盔",
+      "source": "poe2db_index"
+    },
+    "血债": {
+      "en": "Blood Price",
+      "path": "Blood_Price",
+      "base_cn": "刚烈巨盔",
+      "source": "poe2db_index"
+    },
+    "印斯茅斯": {
+      "en": "Innsmouth",
+      "path": "Innsmouth",
+      "base_cn": "破旧兜帽",
+      "source": "poe2db_index"
+    },
+    "金缕帽": {
+      "en": "Goldrim",
+      "path": "Goldrim",
+      "base_cn": "毛毡帽",
+      "source": "poe2db_index"
+    },
+    "辉煌遗恨": {
+      "en": "Radiant Grief",
+      "path": "Radiant_Grief",
+      "base_cn": "花边兜帽",
+      "source": "poe2db_index"
+    },
+    "艾尔弗雷": {
+      "en": "Elevore",
+      "path": "Elevore",
+      "base_cn": "猎者兜帽",
+      "source": "poe2db_index"
+    },
+    "收缩指令": {
+      "en": "Constricting Command",
+      "path": "Constricting_Command",
+      "base_cn": "毒蝰帽",
+      "source": "poe2db_index"
+    },
+    "黑盗勋章": {
+      "en": "The Black Insignia",
+      "path": "The_Black_Insignia",
+      "base_cn": "海贼帽",
+      "source": "poe2db_index"
+    },
+    "斯塔空加之首": {
+      "en": "Starkonjas Head",
+      "path": "Starkonjas_Head",
+      "base_cn": "皮缚兜帽",
+      "source": "poe2db_index"
+    },
+    "寒焰": {
+      "en": "Heatshiver",
+      "path": "Heatshiver",
+      "base_cn": "丝绒帽",
+      "source": "poe2db_index"
+    },
+    "迈里斯之妇": {
+      "en": "Myris Uxor",
+      "path": "Myris_Uxor",
+      "base_cn": "匿踪兜帽",
+      "source": "poe2db_index"
+    },
+    "极地之眼": {
+      "en": "Alphas Howl",
+      "path": "Alphas_Howl",
+      "base_cn": "覆甲帽",
+      "source": "poe2db_index"
+    },
+    "刺棘之冠": {
+      "en": "Crown of Thorns",
+      "path": "Crown_of_Thorns",
+      "base_cn": "细枝头冠",
+      "source": "poe2db_index"
+    },
+    "吞噬者王冠": {
+      "en": "The Devouring Diadem",
+      "path": "The_Devouring_Diadem",
+      "base_cn": "柳枝冠冕",
+      "source": "poe2db_index"
+    },
+    "阿雅的面目": {
+      "en": "Visage of Ayah",
+      "path": "Visage_of_Ayah",
+      "base_cn": "珠饰头冠",
+      "source": "poe2db_index"
+    },
+    "禁域面容": {
+      "en": "Sandstorm Visage",
+      "path": "Sandstorm_Visage",
+      "base_cn": "锁链冠冕",
+      "source": "poe2db_index"
+    },
+    "缝合恶魔面罩": {
+      "en": "Mask of the Stitched Demon",
+      "path": "Mask_of_the_Stitched_Demon",
+      "base_cn": "羽饰冠冕",
+      "source": "poe2db_index"
+    },
+    "邪眼之冠": {
+      "en": "Crown of Eyes",
+      "path": "Crown_of_Eyes",
+      "base_cn": "朱砂头冠",
+      "source": "poe2db_index"
+    },
+    "禁语": {
+      "en": "Scolds Bridle",
+      "path": "Scolds_Bridle",
+      "base_cn": "翠玉冠冕",
+      "source": "poe2db_index"
+    },
+    "靛蓝之冠": {
+      "en": "Indigon",
+      "path": "Indigon",
+      "base_cn": "术士冠冕",
+      "source": "poe2db_index"
+    },
+    "苍髯皓首": {
+      "en": "Greymake",
+      "path": "Greymake",
+      "base_cn": "宽沿之盔",
+      "source": "poe2db_index"
+    },
+    "阿里安的拼凑": {
+      "en": "Erians Cobble",
+      "path": "Erians_Cobble",
+      "base_cn": "守护之盔",
+      "source": "poe2db_index"
+    },
+    "铁驭": {
+      "en": "Ironride",
+      "path": "Ironride",
+      "base_cn": "护面之盔",
+      "source": "poe2db_index"
+    },
+    "笑面骑士": {
+      "en": "The Smiling Knight",
+      "path": "The_Smiling_Knight",
+      "base_cn": "掩面之盔",
+      "source": "poe2db_index"
+    },
+    "厄难骑士": {
+      "en": "The Vile Knight",
+      "path": "The_Vile_Knight",
+      "base_cn": "卫护之盔",
+      "source": "poe2db_index"
+    },
+    "千里狙敌": {
+      "en": "Assailum",
+      "path": "Assailum",
+      "base_cn": "封闭之盔",
+      "source": "poe2db_index"
+    },
+    "祭礼之雨": {
+      "en": "The Bringer of Rain",
+      "path": "The_Bringer_of_Rain",
+      "base_cn": "华饰之盔",
+      "source": "poe2db_index"
+    },
+    "敏锐法令": {
+      "en": "Decree of Acuity",
+      "path": "Decree_of_Acuity",
+      "base_cn": "远古面甲",
+      "source": "poe2db_index"
+    },
+    "胜者桂冠": {
+      "en": "Crown of the Victor",
+      "path": "Crown_of_the_Victor",
+      "base_cn": "铁锻王冠",
+      "source": "poe2db_index"
+    },
+    "青铜须髯": {
+      "en": "Bronzebeard",
+      "path": "Bronzebeard",
+      "base_cn": "犄角王冠",
+      "source": "poe2db_index"
+    },
+    "殒皇之冠": {
+      "en": "Crown of the Pale King",
+      "path": "Crown_of_the_Pale_King",
+      "base_cn": "密教头冠",
+      "source": "poe2db_index"
+    },
+    "夜幕": {
+      "en": "Veil of the Night",
+      "path": "Veil_of_the_Night",
+      "base_cn": "英烈之冠",
+      "source": "poe2db_index"
+    },
+    "锋锥之帽": {
+      "en": "Cornathaum",
+      "path": "Cornathaum",
+      "base_cn": "沉重王冠",
+      "source": "poe2db_index"
+    },
+    "弧光守护者": {
+      "en": "Keeper of the Arc",
+      "path": "Keeper_of_the_Arc",
+      "base_cn": "灵骨王冠",
+      "source": "poe2db_index"
+    },
+    "黑暗残迹": {
+      "en": "Vestige of Darkness",
+      "path": "Vestige_of_Darkness",
+      "base_cn": "阴暗王冠",
+      "source": "poe2db_index"
+    },
+    "空洞面罩": {
+      "en": "The Hollow Mask",
+      "path": "The_Hollow_Mask",
+      "base_cn": "凿制之面",
+      "source": "poe2db_index"
+    },
+    "血咒师面罩": {
+      "en": "Mask of the Sanguimancer",
+      "path": "Mask_of_the_Sanguimancer",
+      "base_cn": "覆颜面具",
+      "source": "poe2db_index"
+    },
+    "共鸣之面": {
+      "en": "Leer Cast",
+      "path": "Leer_Cast",
+      "base_cn": "兜帽之面",
+      "source": "poe2db_index"
+    },
+    "阿萨克的凝视": {
+      "en": "Atsaks Sight",
+      "path": "Atsaks_Sight",
+      "base_cn": "蒙纱之面",
+      "source": "poe2db_index"
+    },
+    "谜容": {
+      "en": "The Vertex",
+      "path": "The_Vertex",
+      "base_cn": "部族之面",
+      "source": "poe2db_index"
+    },
+    "混沌一瞥": {
+      "en": "Glimpse of Chaos",
+      "path": "Glimpse_of_Chaos",
+      "base_cn": "部族之面",
+      "source": "poe2db_index"
+    },
+    "三龙战纪": {
+      "en": "The Three Dragons",
+      "path": "The_Three_Dragons",
+      "base_cn": "坚固之面",
+      "source": "poe2db_index"
+    },
+    "智者之秘": {
+      "en": "Mind of the Council",
+      "path": "Mind_of_the_Council",
+      "base_cn": "死神之面",
+      "source": "poe2db_index"
+    },
+    "毁面者": {
+      "en": "Facebreaker",
+      "path": "Facebreaker",
+      "base_cn": "敦实护手",
+      "source": "poe2db_index"
+    },
+    "树之指": {
+      "en": "Treefingers",
+      "path": "Treefingers",
+      "base_cn": "铆接护手",
+      "source": "poe2db_index"
+    },
+    "意识之缘": {
+      "en": "Lochtonial Caress",
+      "path": "Lochtonial_Caress",
+      "base_cn": "淬炼护手",
+      "source": "poe2db_index"
+    },
+    "恐惧之拳": {
+      "en": "Dreadfist",
+      "path": "Dreadfist",
+      "base_cn": "增固护手",
+      "source": "poe2db_index"
+    },
+    "阿兹里的捷思": {
+      "en": "Atziris Acuity",
+      "path": "Atziris_Acuity",
+      "base_cn": "铸锻护手",
+      "source": "poe2db_index"
+    },
+    "仇恨熔炉": {
+      "en": "Hateforge",
+      "path": "Hateforge",
+      "base_cn": "铸锻护手",
+      "source": "poe2db_index"
+    },
+    "帝国之掌": {
+      "en": "Empires Grasp",
+      "path": "Empires_Grasp",
+      "base_cn": "泰坦护手",
+      "source": "poe2db_index"
+    },
+    "北境凶爪": {
+      "en": "Northpaw",
+      "path": "Northpaw",
+      "base_cn": "绒皮护腕",
+      "source": "poe2db_index"
+    },
+    "凛冬之握": {
+      "en": "Grip of Winter",
+      "path": "Grip_of_Winter",
+      "base_cn": "牢固护腕",
+      "source": "poe2db_index"
+    },
+    "光阴虚度": {
+      "en": "Idle Hands",
+      "path": "Idle_Hands",
+      "base_cn": "截片护腕",
+      "source": "poe2db_index"
+    },
+    "蝮吻": {
+      "en": "Snakebite",
+      "path": "Snakebite",
+      "base_cn": "精纺护腕",
+      "source": "poe2db_index"
+    },
+    "马雷格罗的玫红手套": {
+      "en": "Maligaros Virtuosity",
+      "path": "Maligaros_Virtuosity",
+      "base_cn": "精工护腕",
+      "source": "poe2db_index"
+    },
+    "恐惧之翼": {
+      "en": "Horrors Flight",
+      "path": "Horrors_Flight",
+      "base_cn": "雕饰护腕",
+      "source": "poe2db_index"
+    },
+    "画师之侍": {
+      "en": "Painters Servant",
+      "path": "Painters_Servant",
+      "base_cn": "破碎手套",
+      "source": "poe2db_index"
+    },
+    "塑烛者": {
+      "en": "Candlemaker",
+      "path": "Candlemaker",
+      "base_cn": "肃穆手套",
+      "source": "poe2db_index"
+    },
+    "德瑞的精神手套": {
+      "en": "Doedres Tenure",
+      "path": "Doedres_Tenure",
+      "base_cn": "缝合手套",
+      "source": "poe2db_index"
+    },
+    "奇托克的洪流": {
+      "en": "Kitokos Current",
+      "path": "Kitokos_Current",
+      "base_cn": "宝石手套",
+      "source": "poe2db_index"
+    },
+    "恶魔缝补者": {
+      "en": "Demon Stitcher",
+      "path": "Demon_Stitcher",
+      "base_cn": "精致手套",
+      "source": "poe2db_index"
+    },
+    "夜鳞": {
+      "en": "Nightscale",
+      "path": "Nightscale",
+      "base_cn": "海灵鳞缀手套",
+      "source": "poe2db_index"
+    },
+    "利奥波德的赞许": {
+      "en": "Leopolds Applause",
+      "path": "Leopolds_Applause",
+      "base_cn": "刺绣手套",
+      "source": "poe2db_index"
+    },
+    "金石手甲": {
+      "en": "Jarngreipr",
+      "path": "Jarngreipr",
+      "base_cn": "环锁手甲",
+      "source": "poe2db_index"
+    },
+    "富贵之运": {
+      "en": "Aurseize",
+      "path": "Aurseize",
+      "base_cn": "垫层护手",
+      "source": "poe2db_index"
+    },
+    "死神的袭击": {
+      "en": "Deathblow",
+      "path": "Deathblow",
+      "base_cn": "合钢手甲",
+      "source": "poe2db_index"
+    },
+    "瓦拉库的离奇": {
+      "en": "Valakos Vice",
+      "path": "Valakos_Vice",
+      "base_cn": "铁板护手",
+      "source": "poe2db_index"
+    },
+    "艾瑞斯维恩之翼": {
+      "en": "Aerisvanes Wings",
+      "path": "Aerisvanes_Wings",
+      "base_cn": "冷芒手甲",
+      "source": "poe2db_index"
+    },
+    "死神铰链": {
+      "en": "Death Articulated",
+      "path": "Death_Articulated",
+      "base_cn": "华贵护手",
+      "source": "poe2db_index"
+    },
+    "坟场之链": {
+      "en": "Gravebind",
+      "path": "Gravebind",
+      "base_cn": "绳索袖带",
+      "source": "poe2db_index"
+    },
+    "悲运之缚": {
+      "en": "Shackles of the Wretched",
+      "path": "Shackles_of_the_Wretched",
+      "base_cn": "风霜袖带",
+      "source": "poe2db_index"
+    },
+    "蓝焰护腕": {
+      "en": "Blueflame Bracers",
+      "path": "Blueflame_Bracers",
+      "base_cn": "金索袖带",
+      "source": "poe2db_index"
+    },
+    "囚徒的镣铐": {
+      "en": "The Prisoners Manacles",
+      "path": "The_Prisoners_Manacles",
+      "base_cn": "卡古兰袖带",
+      "source": "poe2db_index"
+    },
+    "毒疫之指": {
+      "en": "Plaguefinger",
+      "path": "Plaguefinger",
+      "base_cn": "薄纱裹手",
+      "source": "poe2db_index"
+    },
+    "败兴灾星": {
+      "en": "Killjoy",
+      "path": "Killjoy",
+      "base_cn": "亚麻裹手",
+      "source": "poe2db_index"
+    },
+    "蒙福的羁绊": {
+      "en": "Blessed Bonds",
+      "path": "Blessed_Bonds",
+      "base_cn": "亚麻裹手",
+      "source": "poe2db_index"
+    },
+    "智行之手": {
+      "en": "Hand of Wisdom and Action",
+      "path": "Hand_of_Wisdom_and_Action",
+      "base_cn": "螺旋裹手",
+      "source": "poe2db_index"
+    },
+    "精华收割器": {
+      "en": "Essentia Sanguis",
+      "path": "Essentia_Sanguis",
+      "base_cn": "鬼祟裹手",
+      "source": "poe2db_index"
+    },
+    "雷拳": {
+      "en": "Thunderfist",
+      "path": "Thunderfist",
+      "base_cn": "万用裹手",
+      "source": "poe2db_index"
+    },
+    "军团的进击": {
+      "en": "Legionstride",
+      "path": "Legionstride",
+      "base_cn": "粗制胫甲",
+      "source": "poe2db_index"
+    },
+    "涉灵": {
+      "en": "Corpsewade",
+      "path": "Corpsewade",
+      "base_cn": "铁锻胫甲",
+      "source": "poe2db_index"
+    },
+    "无尽之距": {
+      "en": "The Infinite Pursuit",
+      "path": "The_Infinite_Pursuit",
+      "base_cn": "青铜胫甲",
+      "source": "poe2db_index"
+    },
+    "踏趾靴": {
+      "en": "Trampletoe",
+      "path": "Trampletoe",
+      "base_cn": "镶边胫甲",
+      "source": "poe2db_index"
+    },
+    "怒火降生": {
+      "en": "Birth of Fury",
+      "path": "Birth_of_Fury",
+      "base_cn": "坚石胫甲",
+      "source": "poe2db_index"
+    },
+    "荆皮护靴": {
+      "en": "Briarpatch",
+      "path": "Briarpatch",
+      "base_cn": "花边靴",
+      "source": "poe2db_index"
+    },
+    "博运步伐": {
+      "en": "Gamblesprint",
+      "path": "Gamblesprint",
+      "base_cn": "浮雕靴",
+      "source": "poe2db_index"
+    },
+    "踏林长靴": {
+      "en": "Bushwhack",
+      "path": "Bushwhack",
+      "base_cn": "蜥鳞靴",
+      "source": "poe2db_index"
+    },
+    "流光步履": {
+      "en": "Luminous Pace",
+      "path": "Luminous_Pace",
+      "base_cn": "稻草鞋履",
+      "source": "poe2db_index"
+    },
+    "苦行之履": {
+      "en": "Wanderlust",
+      "path": "Wanderlust",
+      "base_cn": "裹布鞋履",
+      "source": "poe2db_index"
+    },
+    "灵骸之履": {
+      "en": "Bones of Ullr",
+      "path": "Bones_of_Ullr",
+      "base_cn": "硬框鞋履",
+      "source": "poe2db_index"
+    },
+    "回光之迹": {
+      "en": "Wondertrap",
+      "path": "Wondertrap",
+      "base_cn": "丝绸便鞋",
+      "source": "poe2db_index"
+    },
+    "恶风足迹": {
+      "en": "Windscream",
+      "path": "Windscream",
+      "base_cn": "羽饰鞋履",
+      "source": "poe2db_index"
+    },
+    "豪侠骑士": {
+      "en": "The Knight-errant",
+      "path": "The_Knight-errant",
+      "base_cn": "锁链战靴",
+      "source": "poe2db_index"
+    },
+    "暗雷": {
+      "en": "Darkray Vectors",
+      "path": "Darkray_Vectors",
+      "base_cn": "加固战靴",
+      "source": "poe2db_index"
+    },
+    "欧本的壁垒": {
+      "en": "Oberns Bastion",
+      "path": "Oberns_Bastion",
+      "base_cn": "层钢战靴",
+      "source": "poe2db_index"
+    },
+    "藏锋": {
+      "en": "Shankgonne",
+      "path": "Shankgonne",
+      "base_cn": "掩护战靴",
+      "source": "poe2db_index"
+    },
+    "覆灭之兆": {
+      "en": "Wake of Destruction",
+      "path": "Wake_of_Destruction",
+      "base_cn": "牢靠绑腿",
+      "source": "poe2db_index"
+    },
+    "飞行法令": {
+      "en": "Decree of Flight",
+      "path": "Decree_of_Flight",
+      "base_cn": "远古护腿",
+      "source": "poe2db_index"
+    },
+    "鬼行": {
+      "en": "Ghostmarch",
+      "path": "Ghostmarch",
+      "base_cn": "线缝便鞋",
+      "source": "poe2db_index"
+    },
+    "神力靴": {
+      "en": "Powertread",
+      "path": "Powertread",
+      "base_cn": "狩猎便鞋",
+      "source": "poe2db_index"
+    },
+    "甲虫之口": {
+      "en": "Beetlebite",
+      "path": "Beetlebite",
+      "base_cn": "鹅绒便鞋",
+      "source": "poe2db_index"
+    },
+    "御身守卫": {
+      "en": "Dionadair",
+      "path": "Dionadair",
+      "base_cn": "朽木塔盾",
+      "source": "poe2db_index"
+    },
+    "伍夫之难": {
+      "en": "Wulfsbane",
+      "path": "Wulfsbane",
+      "base_cn": "彩绘塔盾",
+      "source": "poe2db_index"
+    },
+    "毁灭雄关": {
+      "en": "Doomgate",
+      "path": "Doomgate",
+      "base_cn": "加固塔盾",
+      "source": "poe2db_index"
+    },
+    "乐土之窗": {
+      "en": "Window to Paradise",
+      "path": "Window_to_Paradise",
+      "base_cn": "障壁塔盾",
+      "source": "poe2db_index"
+    },
+    "狼蛛": {
+      "en": "Lycosidae",
+      "path": "Lycosidae",
+      "base_cn": "壁垒塔盾",
+      "source": "poe2db_index"
+    },
+    "红刃旗帜": {
+      "en": "Redblade Banner",
+      "path": "Redblade_Banner",
+      "base_cn": "徽纹塔盾",
+      "source": "poe2db_index"
+    },
+    "斯瓦林": {
+      "en": "Svalinn",
+      "path": "Svalinn",
+      "base_cn": "熔铸塔盾",
+      "source": "poe2db_index"
+    },
+    "五芒屏障": {
+      "en": "Chernobogs Pillar",
+      "path": "Chernobogs_Pillar",
+      "base_cn": "黑钢塔盾",
+      "source": "poe2db_index"
+    },
+    "阿维尔之轮": {
+      "en": "Arvils Wheel",
+      "path": "Arvils_Wheel",
+      "base_cn": "硬木圆盾",
+      "source": "poe2db_index"
+    },
+    "乱羽金城": {
+      "en": "Feathered Fortress",
+      "path": "Feathered_Fortress",
+      "base_cn": "新月圆盾",
+      "source": "poe2db_index"
+    },
+    "神谕": {
+      "en": "Alkem Eira",
+      "path": "Alkem_Eira",
+      "base_cn": "饰印纹章盾",
+      "source": "poe2db_index"
+    },
+    "橡木盟誓": {
+      "en": "Oaksworn",
+      "path": "Oaksworn",
+      "base_cn": "魔印纹章盾",
+      "source": "poe2db_index"
+    },
+    "萨费尔的智慧": {
+      "en": "Saffells Frame",
+      "path": "Saffells_Frame",
+      "base_cn": "圣徽纹章盾",
+      "source": "poe2db_index"
+    },
+    "阿杜拉荣徽": {
+      "en": "Crest of Ardura",
+      "path": "Crest_of_Ardura",
+      "base_cn": "铃鸣纹章盾",
+      "source": "poe2db_index"
+    },
+    "马赫索托之诈": {
+      "en": "Mahuxotls Machination",
+      "path": "Mahuxotls_Machination",
+      "base_cn": "噩兆纹章盾",
+      "source": "poe2db_index"
+    },
+    "烈炎之翼": {
+      "en": "Rise of the Phoenix",
+      "path": "Rise_of_the_Phoenix",
+      "base_cn": "噩兆纹章盾",
+      "source": "poe2db_index"
+    },
+    "黑暗止步": {
+      "en": "Dunkelhalt",
+      "path": "Dunkelhalt",
+      "base_cn": "皮制轻盾",
+      "source": "poe2db_index"
+    },
+    "夜曲": {
+      "en": "Nocturne",
+      "path": "Nocturne",
+      "base_cn": "木制轻盾",
+      "source": "poe2db_index"
+    },
+    "艾佐的诗篇": {
+      "en": "Rondel de Ezo",
+      "path": "Rondel_de_Ezo",
+      "base_cn": "嵌板轻盾",
+      "source": "poe2db_index"
+    },
+    "血垒障壁": {
+      "en": "Bloodbarrier",
+      "path": "Bloodbarrier",
+      "base_cn": "锻铁轻盾",
+      "source": "poe2db_index"
+    },
+    "冰霜之镜": {
+      "en": "Kaltenhalt",
+      "path": "Kaltenhalt",
+      "base_cn": "凸脊轻盾",
+      "source": "poe2db_index"
+    },
+    "银芒荆棘": {
+      "en": "Silverthorne",
+      "path": "Silverthorne",
+      "base_cn": "尖刺轻盾",
+      "source": "poe2db_index"
+    },
+    "凯尔格拉的弧光": {
+      "en": "Calgyras Arc",
+      "path": "Calgyras_Arc",
+      "base_cn": "华丽轻盾",
+      "source": "poe2db_index"
+    },
+    "烈阳残片": {
+      "en": "Sunsplinter",
+      "path": "Sunsplinter",
+      "base_cn": "阵列轻盾",
+      "source": "poe2db_index"
+    },
+    "逝亡呢喃": {
+      "en": "Deathrattle",
+      "path": "Deathrattle",
+      "base_cn": "枝条法器",
+      "source": "poe2db_index"
+    },
+    "明光丝缕": {
+      "en": "Threaded Light",
+      "path": "Threaded_Light",
+      "base_cn": "织造法器",
+      "source": "poe2db_index"
+    },
+    "残酷雕塑": {
+      "en": "Effigy of Cruelty",
+      "path": "Effigy_of_Cruelty",
+      "base_cn": "鹿角法器",
+      "source": "poe2db_index"
+    },
+    "不洁召唤": {
+      "en": "Carrion Call",
+      "path": "Carrion_Call",
+      "base_cn": "铭刻法器",
+      "source": "poe2db_index"
+    },
+    "毒蛇的训诫": {
+      "en": "Serpents Lesson",
+      "path": "Serpents_Lesson",
+      "base_cn": "音调法器",
+      "source": "poe2db_index"
+    },
+    "永恒火花": {
+      "en": "The Eternal Spark",
+      "path": "The_Eternal_Spark",
+      "base_cn": "水晶法器",
+      "source": "poe2db_index"
+    },
+    "艾普的霸权": {
+      "en": "Apeps Supremacy",
+      "path": "Apeps_Supremacy",
+      "base_cn": "巫毒法器",
+      "source": "poe2db_index"
+    },
+    "无尽之衣": {
+      "en": "Tabula Rasa",
+      "path": "Tabula_Rasa",
+      "base_cn": "华服装束",
+      "source": "poe2db_index"
+    },
+    "忠诚之肤": {
+      "en": "Skin of the Loyal",
+      "path": "Skin_of_the_Loyal",
+      "base_cn": "华服装束",
+      "source": "poe2db_index"
+    },
+    "无生之辱": {
+      "en": "Morior Invictus",
+      "path": "Morior_Invictus",
+      "base_cn": "恢弘盛装",
+      "source": "poe2db_index"
+    },
+    "阿兹里的威权": {
+      "en": "Atziris Splendour",
+      "path": "Atziris_Splendour",
+      "base_cn": "献祭盛装",
+      "source": "poe2db_index"
+    },
+    "形单影只": {
+      "en": "Solus Ipse",
+      "path": "Solus_Ipse",
+      "base_cn": "恢弘面罩",
+      "source": "poe2db_index"
+    },
+    "公理不存": {
+      "en": "Sine Aequo",
+      "path": "Sine_Aequo",
+      "base_cn": "恢弘袖口",
+      "source": "poe2db_index"
+    },
+    "无始之时": {
+      "en": "Ab Aeterno",
+      "path": "Ab_Aeterno",
+      "base_cn": "恢弘腿甲",
+      "source": "poe2db_index"
+    },
+    "升华之美德": {
+      "en": "Demigods Virtue",
+      "path": "Demigods_Virtue",
+      "base_cn": "金色面具",
+      "source": "poe2db_index"
+    },
+    "福尔的战铠": {
+      "en": "Volls Protector",
+      "path": "Volls_Protector",
+      "base_cn": "嵌板长衣",
+      "source": "poe2db_index"
+    },
+    "遗忘守卫": {
+      "en": "Forgotten Warden",
+      "path": "Forgotten_Warden",
+      "base_cn": "原始印记",
+      "source": "poe2db_index"
+    },
+    "阿兹里的金履": {
+      "en": "Atziris Step",
+      "path": "Atziris_Step",
+      "base_cn": "束带长靴",
+      "source": "poe2db_index"
+    },
+    "夜临": {
+      "en": "Nightfall",
+      "path": "Nightfall",
+      "base_cn": "要塞塔盾",
+      "source": "poe2db_index"
+    },
+    "降伏": {
+      "en": "The Surrender",
+      "path": "The_Surrender",
+      "base_cn": "瓦尔塔盾",
+      "source": "poe2db_index"
+    },
+    "符父之眼": {
+      "en": "Eyes of the Runefather",
+      "path": "Eyes_of_the_Runefather",
+      "base_cn": "庄严护卫",
+      "source": "poe2db_index"
+    },
+    "元素的庇护": {
+      "en": "Prism Guardian",
+      "path": "Prism_Guardian",
+      "base_cn": "精巧纹章盾",
+      "source": "poe2db_index"
+    },
+    "献祭之心": {
+      "en": "Rathpith Globe",
+      "path": "Rathpith_Globe",
+      "base_cn": "圣洁法器",
+      "source": "poe2db_index"
+    },
+    "英雄的悲歌": {
+      "en": "Heroic Tragedy",
+      "path": "Heroic_Tragedy",
+      "base_cn": "永恒珠宝",
+      "source": "poe2db_index"
+    },
+    "不朽之恨": {
+      "en": "Undying Hate",
+      "path": "Undying_Hate",
+      "base_cn": "永恒珠宝",
+      "source": "poe2db_index"
+    },
+    "聚光之石": {
+      "en": "Grand Spectrum",
+      "path": "Grand_Spectrum",
+      "base_cn": "红玉",
+      "source": "poe2db_index"
+    },
+    "人格分裂": {
+      "en": "Split Personality",
+      "path": "Split_Personality",
+      "base_cn": "红玉",
+      "source": "poe2db_index"
+    },
+    "天神之音": {
+      "en": "Voices",
+      "path": "Voices",
+      "base_cn": "蓝玉",
+      "source": "poe2db_index"
+    },
+    "妄想症": {
+      "en": "Megalomaniac",
+      "path": "Megalomaniac",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "无根之源": {
+      "en": "From Nothing",
+      "path": "From_Nothing",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "可控变形": {
+      "en": "Controlled Metamorphosis",
+      "path": "Controlled_Metamorphosis",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "信念的棱镜": {
+      "en": "Prism of Belief",
+      "path": "Prism_of_Belief",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "浮华": {
+      "en": "The Adorned",
+      "path": "The_Adorned",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "泉井之心": {
+      "en": "Heart of the Well",
+      "path": "Heart_of_the_Well",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "血肉玄炉": {
+      "en": "Flesh Crucible",
+      "path": "Flesh_Crucible",
+      "base_cn": "宝钻",
+      "source": "poe2db_index"
+    },
+    "抗衡黑暗": {
+      "en": "Against the Darkness",
+      "path": "Against_the_Darkness",
+      "base_cn": "失落的宝钻",
+      "source": "poe2db_index"
+    },
+    "求和者的饮剂": {
+      "en": "The Peacemakers Draught",
+      "path": "The_Peacemakers_Draught",
+      "base_cn": "土罐遗物",
+      "source": "poe2db_index"
+    },
+    "绝境同盟": {
+      "en": "The Desperate Alliance",
+      "path": "The_Desperate_Alliance",
+      "base_cn": "花瓶遗物",
+      "source": "poe2db_index"
+    },
+    "季节变迁": {
+      "en": "The Changing Seasons",
+      "path": "The_Changing_Seasons",
+      "base_cn": "封印遗物",
+      "source": "poe2db_index"
+    },
+    "领袖的重负": {
+      "en": "The Burden of Leadership",
+      "path": "The_Burden_of_Leadership",
+      "base_cn": "挂毯遗物",
+      "source": "poe2db_index"
+    },
+    "终末之火": {
+      "en": "The Last Flame",
+      "path": "The_Last_Flame",
+      "base_cn": "熏香遗物",
+      "source": "poe2db_index"
+    },
+    "冰灵之吼": {
+      "en": "Asphyxias Wrath",
+      "path": "Asphyxias_Wrath",
+      "base_cn": "宽矢箭袋",
+      "source": "poe2db_index"
+    },
+    "黑炎之芒": {
+      "en": "Blackgleam",
+      "path": "Blackgleam",
+      "base_cn": "火灵箭袋",
+      "source": "poe2db_index"
+    },
+    "攫命": {
+      "en": "The Lethal Draw",
+      "path": "The_Lethal_Draw",
+      "base_cn": "圣骨箭袋",
+      "source": "poe2db_index"
+    },
+    "寒锋之卫": {
+      "en": "Rearguard",
+      "path": "Rearguard",
+      "base_cn": "钝矢箭袋",
+      "source": "poe2db_index"
+    },
+    "沉郁之棍": {
+      "en": "Murkshaft",
+      "path": "Murkshaft",
+      "base_cn": "淬毒箭袋",
+      "source": "poe2db_index"
+    },
+    "卡迪罗的赌局": {
+      "en": "Cadiros Gambit",
+      "path": "Cadiros_Gambit",
+      "base_cn": "精工箭袋",
+      "source": "poe2db_index"
+    },
+    "穿心": {
+      "en": "Drillneck",
+      "path": "Drillneck",
+      "base_cn": "穿射箭袋",
+      "source": "poe2db_index"
+    },
+    "望而不及": {
+      "en": "Beyond Reach",
+      "path": "Beyond_Reach",
+      "base_cn": "贯心箭袋",
+      "source": "poe2db_index"
+    },
+    "燃印": {
+      "en": "Igniferis",
+      "path": "Igniferis",
+      "base_cn": "赤红项链",
+      "source": "poe2db_index"
+    },
+    "乌尔顿的雕像": {
+      "en": "Idol of Uldurn",
+      "path": "Idol_of_Uldurn",
+      "base_cn": "赤红项链",
+      "source": "poe2db_index"
+    },
+    "永恒凝望": {
+      "en": "The Everlasting Gaze",
+      "path": "The_Everlasting_Gaze",
+      "base_cn": "碧蓝项链",
+      "source": "poe2db_index"
+    },
+    "恩吉尔的和谐": {
+      "en": "Ungils Harmony",
+      "path": "Ungils_Harmony",
+      "base_cn": "碧蓝项链",
+      "source": "poe2db_index"
+    },
+    "神圣树脂": {
+      "en": "Revered Resin",
+      "path": "Revered_Resin",
+      "base_cn": "琥珀项链",
+      "source": "poe2db_index"
+    },
+    "屠戮之心": {
+      "en": "Carnage Heart",
+      "path": "Carnage_Heart",
+      "base_cn": "琥珀项链",
+      "source": "poe2db_index"
+    },
+    "索伏之血": {
+      "en": "Xophs Blood",
+      "path": "Xophs_Blood",
+      "base_cn": "琥珀项链",
+      "source": "poe2db_index"
+    },
+    "稳步法印": {
+      "en": "Surefooted Sigil",
+      "path": "Surefooted_Sigil",
+      "base_cn": "翠玉项链",
+      "source": "poe2db_index"
+    },
+    "暴风之语": {
+      "en": "Choir of the Storm",
+      "path": "Choir_of_the_Storm",
+      "base_cn": "翠玉项链",
+      "source": "poe2db_index"
+    },
+    "命运之抗争": {
+      "en": "Defiance of Destiny",
+      "path": "Defiance_of_Destiny",
+      "base_cn": "翠玉项链",
+      "source": "poe2db_index"
+    },
+    "猞利子护符": {
+      "en": "Ligurium Talisman",
+      "path": "Ligurium_Talisman",
+      "base_cn": "海玉项链",
+      "source": "poe2db_index"
+    },
+    "群魔殿": {
+      "en": "The Pandemonius",
+      "path": "The_Pandemonius",
+      "base_cn": "海玉项链",
+      "source": "poe2db_index"
+    },
+    "拉兹瓦的灵石": {
+      "en": "Stone of Lazhwar",
+      "path": "Stone_of_Lazhwar",
+      "base_cn": "海玉项链",
+      "source": "poe2db_index"
+    },
+    "脆弱的诗文": {
+      "en": "Rondel of Fragility",
+      "path": "Rondel_of_Fragility",
+      "base_cn": "月影项链",
+      "source": "poe2db_index"
+    },
+    "信念之砧": {
+      "en": "The Anvil",
+      "path": "The_Anvil",
+      "base_cn": "血岩项链",
+      "source": "poe2db_index"
+    },
+    "苦难羁绊": {
+      "en": "Yoke of Suffering",
+      "path": "Yoke_of_Suffering",
+      "base_cn": "血岩项链",
+      "source": "poe2db_index"
+    },
+    "均衡之符": {
+      "en": "Astramentis",
+      "path": "Astramentis",
+      "base_cn": "星辉项链",
+      "source": "poe2db_index"
+    },
+    "伊克斯的专注": {
+      "en": "Fixation of Yix",
+      "path": "Fixation_of_Yix",
+      "base_cn": "星辉项链",
+      "source": "poe2db_index"
+    },
+    "困苦尖啸": {
+      "en": "Strugglescream",
+      "path": "Strugglescream",
+      "base_cn": "星辉项链",
+      "source": "poe2db_index"
+    },
+    "辛格拉的凝视": {
+      "en": "Hinekoras Sight",
+      "path": "Hinekoras_Sight",
+      "base_cn": "星辉项链",
+      "source": "poe2db_index"
+    },
+    "阿吉斯的道标": {
+      "en": "Beacon of Azis",
+      "path": "Beacon_of_Azis",
+      "base_cn": "日曜项链",
+      "source": "poe2db_index"
+    },
+    "烈火繁花": {
+      "en": "Fireflower",
+      "path": "Fireflower",
+      "base_cn": "日曜项链",
+      "source": "poe2db_index"
+    },
+    "完美信条": {
+      "en": "Immaculate Adherence",
+      "path": "Immaculate_Adherence",
+      "base_cn": "日曜项链",
+      "source": "poe2db_index"
+    },
+    "寻宝者的心眼": {
+      "en": "Eye of Chayula",
+      "path": "Eye_of_Chayula",
+      "base_cn": "帝金项链",
+      "source": "poe2db_index"
+    },
+    "毒蛇之卵": {
+      "en": "Serpents Egg",
+      "path": "Serpents_Egg",
+      "base_cn": "帝金项链",
+      "source": "poe2db_index"
+    },
+    "黄昏花瓣": {
+      "en": "Eventide Petals",
+      "path": "Eventide_Petals",
+      "base_cn": "真相之链",
+      "source": "poe2db_index"
+    },
+    "幽暗之语": {
+      "en": "Blackheart",
+      "path": "Blackheart",
+      "base_cn": "锻铁戒指",
+      "source": "poe2db_index"
+    },
+    "冰牙指环": {
+      "en": "Icefang Orbit",
+      "path": "Icefang_Orbit",
+      "base_cn": "锻铁戒指",
+      "source": "poe2db_index"
+    },
+    "珍藏的痛苦": {
+      "en": "Prized Pain",
+      "path": "Prized_Pain",
+      "base_cn": "锻铁戒指",
+      "source": "poe2db_index"
+    },
+    "静脉穿刺": {
+      "en": "Venopuncture",
+      "path": "Venopuncture",
+      "base_cn": "锻铁戒指",
+      "source": "poe2db_index"
+    },
+    "德瑞的魔具": {
+      "en": "Doedres Damning",
+      "path": "Doedres_Damning",
+      "base_cn": "青金戒指",
+      "source": "poe2db_index"
+    },
+    "微光虫": {
+      "en": "Glowswarm",
+      "path": "Glowswarm",
+      "base_cn": "青金戒指",
+      "source": "poe2db_index"
+    },
+    "灾变的种子": {
+      "en": "Seed of Cataclysm",
+      "path": "Seed_of_Cataclysm",
+      "base_cn": "青金戒指",
+      "source": "poe2db_index"
+    },
+    "爆裂蔓延": {
+      "en": "Cracklecreep",
+      "path": "Cracklecreep",
+      "base_cn": "红玉戒指",
+      "source": "poe2db_index"
+    },
+    "沸腾桎梏": {
+      "en": "Blistering Bond",
+      "path": "Blistering_Bond",
+      "base_cn": "红玉戒指",
+      "source": "poe2db_index"
+    },
+    "极圈": {
+      "en": "Polcirkeln",
+      "path": "Polcirkeln",
+      "base_cn": "蓝玉戒指",
+      "source": "poe2db_index"
+    },
+    "梦语之痕": {
+      "en": "Dream Fragments",
+      "path": "Dream_Fragments",
+      "base_cn": "蓝玉戒指",
+      "source": "poe2db_index"
+    },
+    "兄弟会的耳语": {
+      "en": "Whisper of the Brotherhood",
+      "path": "Whisper_of_the_Brotherhood",
+      "base_cn": "蓝玉戒指",
+      "source": "poe2db_index"
+    },
+    "挖掘者": {
+      "en": "The Burrower",
+      "path": "The_Burrower",
+      "base_cn": "黄玉戒指",
+      "source": "poe2db_index"
+    },
+    "意志呼唤": {
+      "en": "Call of the Brotherhood",
+      "path": "Call_of_the_Brotherhood",
+      "base_cn": "黄玉戒指",
+      "source": "poe2db_index"
+    },
+    "电光之石": {
+      "en": "Levinstone",
+      "path": "Levinstone",
+      "base_cn": "黄玉戒指",
+      "source": "poe2db_index"
+    },
+    "明恩的慧心": {
+      "en": "Mings Heart",
+      "path": "Mings_Heart",
+      "base_cn": "紫晶戒指",
+      "source": "poe2db_index"
+    },
+    "原初之罪": {
+      "en": "Original Sin",
+      "path": "Original_Sin",
+      "base_cn": "紫晶戒指",
+      "source": "poe2db_index"
+    },
+    "黑焰": {
+      "en": "Blackflame",
+      "path": "Blackflame",
+      "base_cn": "紫晶戒指",
+      "source": "poe2db_index"
+    },
+    "破幕者": {
+      "en": "Veilpiercer",
+      "path": "Veilpiercer",
+      "base_cn": "紫晶戒指",
+      "source": "poe2db_index"
+    },
+    "警戒凝视": {
+      "en": "Vigilant View",
+      "path": "Vigilant_View",
+      "base_cn": "翡翠戒指",
+      "source": "poe2db_index"
+    },
+    "亡者呼唤": {
+      "en": "Death Rush",
+      "path": "Death_Rush",
+      "base_cn": "翡翠戒指",
+      "source": "poe2db_index"
+    },
+    "窃罪": {
+      "en": "Thiefs Torment",
+      "path": "Thiefs_Torment",
+      "base_cn": "翡翠戒指",
+      "source": "poe2db_index"
+    },
+    "永恒紧缩之戒": {
+      "en": "Evergrasping Ring",
+      "path": "Evergrasping_Ring",
+      "base_cn": "珠玉戒指",
+      "source": "poe2db_index"
+    },
+    "蛇穴": {
+      "en": "Snakepit",
+      "path": "Snakepit",
+      "base_cn": "珠玉戒指",
+      "source": "poe2db_index"
+    },
+    "结魂之环": {
+      "en": "Heartbound Loop",
+      "path": "Heartbound_Loop",
+      "base_cn": "珠玉戒指",
+      "source": "poe2db_index"
+    },
+    "神赐": {
+      "en": "Gifts from Above",
+      "path": "Gifts_from_Above",
+      "base_cn": "三相戒指",
+      "source": "poe2db_index"
+    },
+    "元素之章": {
+      "en": "The Taming",
+      "path": "The_Taming",
+      "base_cn": "三相戒指",
+      "source": "poe2db_index"
+    },
+    "普兰德斯的印章": {
+      "en": "Perandus Seal",
+      "path": "Perandus_Seal",
+      "base_cn": "金光戒指",
+      "source": "poe2db_index"
+    },
+    "贪欲之记": {
+      "en": "Andvarius",
+      "path": "Andvarius",
+      "base_cn": "金光戒指",
+      "source": "poe2db_index"
+    },
+    "赌神芬多": {
+      "en": "Ventors Gamble",
+      "path": "Ventors_Gamble",
+      "base_cn": "金光戒指",
+      "source": "poe2db_index"
+    },
+    "腐朽迸发": {
+      "en": "Bursting Decay",
+      "path": "Bursting_Decay",
+      "base_cn": "潜能之戒",
+      "source": "poe2db_index"
+    },
+    "库勒马克之握": {
+      "en": "Grip of Kulemak",
+      "path": "Grip_of_Kulemak",
+      "base_cn": "深渊印戒",
+      "source": "poe2db_index"
+    },
+    "贝雷克的冰与火之歌": {
+      "en": "Bereks Pass",
+      "path": "Bereks_Pass",
+      "base_cn": "双玉戒指",
+      "source": "poe2db_index"
+    },
+    "贝雷克的火与雷之乐": {
+      "en": "Bereks Respite",
+      "path": "Bereks_Respite",
+      "base_cn": "双玉戒指",
+      "source": "poe2db_index"
+    },
+    "贝雷克的冰与雷之曲": {
+      "en": "Bereks Grip",
+      "path": "Bereks_Grip",
+      "base_cn": "双玉戒指",
+      "source": "poe2db_index"
+    },
+    "梅吉诺德的力量泉源": {
+      "en": "Meginords Girdle",
+      "path": "Meginords_Girdle",
+      "base_cn": "生皮腰带",
+      "source": "poe2db_index"
+    },
+    "午夜穗带": {
+      "en": "Midnight Braid",
+      "path": "Midnight_Braid",
+      "base_cn": "生皮腰带",
+      "source": "poe2db_index"
+    },
+    "罪罚拖绳": {
+      "en": "Keelhaul",
+      "path": "Keelhaul",
+      "base_cn": "亚麻腰带",
+      "source": "poe2db_index"
+    },
+    "不朽系命": {
+      "en": "Umbilicus Immortalis",
+      "path": "Umbilicus_Immortalis",
+      "base_cn": "亚麻腰带",
+      "source": "poe2db_index"
+    },
+    "天赋扣带": {
+      "en": "Birthright Buckle",
+      "path": "Birthright_Buckle",
+      "base_cn": "宽大腰带",
+      "source": "poe2db_index"
+    },
+    "伯纳巴斯": {
+      "en": "Byrnabas",
+      "path": "Byrnabas",
+      "base_cn": "宽大腰带",
+      "source": "poe2db_index"
+    },
+    "狂獠饰带": {
+      "en": "The Gnashing Sash",
+      "path": "The_Gnashing_Sash",
+      "base_cn": "宽大腰带",
+      "source": "poe2db_index"
+    },
+    "灵魂羁绊": {
+      "en": "Soul Tether",
+      "path": "Soul_Tether",
+      "base_cn": "加长腰带",
+      "source": "poe2db_index"
+    },
+    "残血束腰": {
+      "en": "Goregirdle",
+      "path": "Goregirdle",
+      "base_cn": "嵌板腰带",
+      "source": "poe2db_index"
+    },
+    "瑞斯拉萨的线圈": {
+      "en": "Ryslathas Coil",
+      "path": "Ryslathas_Coil",
+      "base_cn": "华丽腰带",
+      "source": "poe2db_index"
+    },
+    "懦夫之遗": {
+      "en": "Cowards Legacy",
+      "path": "Cowards_Legacy",
+      "base_cn": "环锁腰带",
+      "source": "poe2db_index"
+    },
+    "珠宝承载者": {
+      "en": "Bijouborne",
+      "path": "Bijouborne",
+      "base_cn": "双重腰带",
+      "source": "poe2db_index"
+    },
+    "腰际之门": {
+      "en": "Waistgate",
+      "path": "Waistgate",
+      "base_cn": "重革腰带",
+      "source": "poe2db_index"
+    },
+    "猎首": {
+      "en": "Headhunter",
+      "path": "Headhunter",
+      "base_cn": "重革腰带",
+      "source": "poe2db_index"
+    },
+    "泽佛伊的本源": {
+      "en": "Zerphis Genesis",
+      "path": "Zerphis_Genesis",
+      "base_cn": "重革腰带",
+      "source": "poe2db_index"
+    },
+    "九尾灵猫": {
+      "en": "Cat O Nine Tails",
+      "path": "Cat_O_Nine_Tails",
+      "base_cn": "万用腰带",
+      "source": "poe2db_index"
+    },
+    "奇思妙想": {
+      "en": "Ingenuity",
+      "path": "Ingenuity",
+      "base_cn": "万用腰带",
+      "source": "poe2db_index"
+    },
+    "法师之血": {
+      "en": "Mageblood",
+      "path": "Mageblood",
+      "base_cn": "万用腰带",
+      "source": "poe2db_index"
+    },
+    "薛朗的背包": {
+      "en": "Shavronnes Satchel",
+      "path": "Shavronnes_Satchel",
+      "base_cn": "精致腰带",
+      "source": "poe2db_index"
+    },
+    "战士之血": {
+      "en": "Blood of the Warrior",
+      "path": "Blood_of_the_Warrior",
+      "base_cn": "恢弘生命药剂",
+      "source": "poe2db_index"
+    },
+    "欧罗什的决心": {
+      "en": "Olroths Resolve",
+      "path": "Olroths_Resolve",
+      "base_cn": "终极生命药剂",
+      "source": "poe2db_index"
+    },
+    "机遇": {
+      "en": "Opportunity",
+      "path": "Opportunity",
+      "base_cn": "终极生命药剂",
+      "source": "poe2db_index"
+    },
+    "拉维安加之灵": {
+      "en": "Laviangas Spirits",
+      "path": "Laviangas_Spirits",
+      "base_cn": "恢弘魔力药剂",
+      "source": "poe2db_index"
+    },
+    "乌崔德圣杯": {
+      "en": "Uhtreds Chalice",
+      "path": "Uhtreds_Chalice",
+      "base_cn": "非凡魔力药剂",
+      "source": "poe2db_index"
+    },
+    "消融漩涡": {
+      "en": "Melting Maelstrom",
+      "path": "Melting_Maelstrom",
+      "base_cn": "终极魔力药剂",
+      "source": "poe2db_index"
+    },
+    "新生希望": {
+      "en": "Nascent Hope",
+      "path": "Nascent_Hope",
+      "base_cn": "融冰咒符",
+      "source": "poe2db_index"
+    },
+    "英雄血液": {
+      "en": "Sanguis Heroum",
+      "path": "Sanguis_Heroum",
+      "base_cn": "止血咒符",
+      "source": "poe2db_index"
+    },
+    "阿拉卡力的礼物": {
+      "en": "Arakaalis Gift",
+      "path": "Arakaalis_Gift",
+      "base_cn": "抗毒咒符",
+      "source": "poe2db_index"
+    },
+    "贝拉的苦楚": {
+      "en": "Beiras Anguish",
+      "path": "Beiras_Anguish",
+      "base_cn": "浸润咒符",
+      "source": "poe2db_index"
+    },
+    "黑猫": {
+      "en": "The Black Cat",
+      "path": "The_Black_Cat",
+      "base_cn": "根基咒符",
+      "source": "poe2db_index"
+    },
+    "为了乌托邦": {
+      "en": "For Utopia",
+      "path": "For_Utopia",
+      "base_cn": "磐石咒符",
+      "source": "poe2db_index"
+    },
+    "落刃时刻": {
+      "en": "The Fall of the Axe",
+      "path": "The_Fall_of_the_Axe",
+      "base_cn": "真银咒符",
+      "source": "poe2db_index"
+    },
+    "努葛玛呼的亲选": {
+      "en": "Ngamahus Chosen",
+      "path": "Ngamahus_Chosen",
+      "base_cn": "红玉咒符",
+      "source": "poe2db_index"
+    },
+    "群山之息": {
+      "en": "Breath of the Mountains",
+      "path": "Breath_of_the_Mountains",
+      "base_cn": "蓝玉咒符",
+      "source": "poe2db_index"
+    },
+    "瓦拉克怒吼": {
+      "en": "Valakos Roar",
+      "path": "Valakos_Roar",
+      "base_cn": "黄玉咒符",
+      "source": "poe2db_index"
+    },
+    "遗弃手镯": {
+      "en": "Forsaken Bangle",
+      "path": "Forsaken_Bangle",
+      "base_cn": "紫晶咒符",
+      "source": "poe2db_index"
+    },
+    "仪式通道": {
+      "en": "Rite of Passage",
+      "path": "Rite_of_Passage",
+      "base_cn": "黄金咒符",
+      "source": "poe2db_index"
+    },
+    "卡兰德之触": {
+      "en": "Kalandras Touch",
+      "path": "Kalandras_Touch",
+      "base_cn": "戒指",
+      "source": "poe2db_index"
+    },
+    "萨芙琳的决心": {
+      "en": "Safrins Resolve",
+      "path": "Safrins_Resolve",
+      "base_cn": "戒指",
+      "source": "poe2db_index"
+    },
+    "埃斯特拉的道路": {
+      "en": "Eshteras Path",
+      "path": "Eshteras_Path",
+      "base_cn": "戒指",
+      "source": "poe2db_index"
+    },
+    "寨达的长寿": {
+      "en": "Zaidas Longevity",
+      "path": "Zaidas_Longevity",
+      "base_cn": "戒指",
+      "source": "poe2db_index"
+    },
+    "围困瓦尔克拉斯": {
+      "en": "Wraeclast Besieged",
+      "path": "Wraeclast_Besieged",
+      "base_cn": "裂隙石板",
+      "source": "poe2db_index"
+    },
+    "时光的埋没": {
+      "en": "Forgotten By Time",
+      "path": "Forgotten_By_Time",
+      "base_cn": "先祖秘藏石板",
+      "source": "poe2db_index"
+    },
+    "万里晴空": {
+      "en": "Clear Skies",
+      "path": "Clear_Skies",
+      "base_cn": "惊悸迷雾石板",
+      "source": "poe2db_index"
+    },
+    "信念的自由": {
+      "en": "Freedom of Faith",
+      "path": "Freedom_of_Faith",
+      "base_cn": "驱灵仪式石板",
+      "source": "poe2db_index"
+    },
+    "宏伟计划": {
+      "en": "The Grand Project",
+      "path": "The_Grand_Project",
+      "base_cn": "能量辐照石板",
+      "source": "poe2db_index"
+    },
+    "乐园幻象": {
+      "en": "Visions of Paradise",
+      "path": "Visions_of_Paradise",
+      "base_cn": "能量辐照石板",
+      "source": "poe2db_index"
+    },
+    "疆域主宰": {
+      "en": "Mastered Domain",
+      "path": "Mastered_Domain",
+      "base_cn": "能量辐照石板",
+      "source": "poe2db_index"
+    },
+    "狩猎时节": {
+      "en": "Season of the Hunt",
+      "path": "Season_of_the_Hunt",
+      "base_cn": "霸主石板",
+      "source": "poe2db_index"
+    },
+    "残酷霸权": {
+      "en": "Cruel Hegemony",
+      "path": "Cruel_Hegemony",
+      "base_cn": "霸主石板",
+      "source": "poe2db_index"
+    },
+    "无常因果": {
+      "en": "Unforeseen Consequences",
+      "path": "Unforeseen_Consequences",
+      "base_cn": "深渊石板",
+      "source": "poe2db_index"
+    }
+  }
+}

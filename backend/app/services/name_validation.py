@@ -79,6 +79,68 @@ def known_unique_names() -> frozenset[str]:
     return frozenset(load_local_unique_names())
 
 
+def _norm_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _match_canon(candidate: str, canon: frozenset[str]) -> str | None:
+    candidate = normalize_en_name(candidate)
+    if not candidate:
+        return None
+    if candidate in canon:
+        return candidate
+    key = _norm_key(candidate)
+    for known in canon:
+        if known.lower() == candidate.lower() or _norm_key(known) == key:
+            return known
+    return None
+
+
+def _longest_canon_prefix(dirty: str, canon: frozenset[str]) -> str | None:
+    """e.g. Sadist's MercyFlanged Mace → Sadist's Mercy"""
+    lower = dirty.lower()
+    for known in sorted(canon, key=len, reverse=True):
+        if len(known) < 4:
+            continue
+        kl = known.lower()
+        if not lower.startswith(kl):
+            continue
+        rest = dirty[len(known):]
+        if not rest or rest[0] in " ,(" or rest[0].isupper():
+            return known
+    return None
+
+
+def resolve_unique_name(
+    index_name: str,
+    item_path: str,
+    scraped_name: str | None = None,
+) -> str:
+    """Resolve canonical EN unique name; never drop a page for dirty index glue."""
+    index_name = normalize_en_name(index_name)
+    scraped_name = normalize_en_name(scraped_name) if scraped_name else ""
+    canon = known_unique_names()
+
+    if canon:
+        path_title = item_path.replace("_", " ").strip()
+        for candidate in (path_title, scraped_name, index_name):
+            hit = _match_canon(candidate, canon)
+            if hit:
+                return hit
+        if is_concatenated_name(index_name):
+            prefix = _longest_canon_prefix(index_name, canon)
+            if prefix:
+                return prefix
+
+    for candidate in (scraped_name, index_name):
+        if candidate and not is_concatenated_name(candidate):
+            return candidate
+
+    if scraped_name:
+        return scraped_name
+    return index_name
+
+
 def validate_name_en(name_en: str, index_name: str | None = None) -> tuple[bool, str]:
     name_en = normalize_en_name(name_en)
     index_name = normalize_en_name(index_name) if index_name else ""
@@ -88,16 +150,13 @@ def validate_name_en(name_en: str, index_name: str | None = None) -> tuple[bool,
         return False, name_en
     canon = known_unique_names()
     if canon:
-        if name_en in canon:
-            return True, name_en
-        if index_name and index_name in canon:
-            return True, index_name
+        hit = _match_canon(name_en, canon) or (index_name and _match_canon(index_name, canon))
+        if hit:
+            return True, hit
         for candidate in (name_en, index_name):
             if not candidate:
                 continue
             for known in canon:
-                if candidate.lower() == known.lower():
-                    return True, known
                 if candidate.lower().startswith(known.lower() + " "):
                     return True, known
     return not is_concatenated_name(name_en), name_en

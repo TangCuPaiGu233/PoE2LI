@@ -106,6 +106,7 @@ CLASS_CN_TO_EN: dict[str, str] = {
 
 # ═══════════════════════════════════════════════════════════════════
 ITEM_CN_ALIASES: dict[str, str] = {
+    "沉默之雷": "Mjölner",
     "扭曲项链": "Twisted Amulet",
     "扭曲护身符": "Twisted Amulet",
 }

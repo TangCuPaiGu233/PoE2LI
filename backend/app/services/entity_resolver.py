@@ -14,13 +14,31 @@ from app.services.name_validation import is_trusted_en_name
 
 # ── Lazy-loaded alias maps ──
 _cn_to_en: dict[str, tuple[str, str, int, str]] | None = None
-_all_en_names: list[str] | None = None  # All known EN entity names for fuzzy matching
+_all_en_names: list[str] | None = None
+_aliases_mtime: float | None = None  # All known EN entity names for fuzzy matching
+
+
+def _aliases_file_mtime() -> float | None:
+    data_dir = "/app/data"
+    if not os.path.isdir(data_dir):
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    path = os.path.join(data_dir, "game_aliases.json")
+    try:
+        return os.path.getmtime(path) if os.path.exists(path) else None
+    except OSError:
+        return None
 
 
 def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
-    global _cn_to_en, _all_en_names
-    if _cn_to_en is not None:
+    global _cn_to_en, _all_en_names, _aliases_mtime
+    mtime = _aliases_file_mtime()
+    if _cn_to_en is not None and mtime is not None and _aliases_mtime == mtime:
         return _cn_to_en
+    if _cn_to_en is not None and mtime is None and _aliases_mtime is None:
+        return _cn_to_en
+    _aliases_mtime = mtime
+    _cn_to_en = None
+    _all_en_names = None
 
     _cn_to_en = {}
     _all_en_names = []
@@ -62,6 +80,8 @@ def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
                 _add(s.get("cn", "").strip(), s.get("en", "").strip(), "item",
                      confidence=92, source="caimogu_item")
 
+    _load_unique_cn_en(_add)
+
     # 4. game_aliases.json (poe2db items/mods — fallback)
     aliases_path = os.path.join(data_dir, "game_aliases.json")
     if os.path.exists(aliases_path):
@@ -93,6 +113,48 @@ def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
     _load_notables()
 
     return _cn_to_en
+
+
+
+def _load_unique_cn_en(_add) -> None:
+    """Bundled + live jsonl CN→EN for all unique items."""
+    data_dir = "/app/data"
+    if not os.path.isdir(data_dir):
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+
+    # Live scrape file on NAS (highest for items)
+    jsonl_path = os.path.join(data_dir, "poe2db_uniques.jsonl")
+    if os.path.exists(jsonl_path):
+        with open(jsonl_path, encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    d = json.loads(line)
+                    cn_raw = d.get("cn_data", "")
+                    en = d.get("name_en", "")
+                    if not cn_raw or not en:
+                        continue
+                    cn = json.loads(cn_raw).get("name", "").strip()
+                    if cn:
+                        _add(cn, en, "item", confidence=91, source="poe2db_jsonl")
+                except Exception:
+                    continue
+
+    # Bundled index (ships with repo; always available)
+    for rel in (
+        os.path.join(data_dir, "unique_cn_en.json"),
+        os.path.join(os.path.dirname(__file__), "..", "data", "unique_cn_en.json"),
+    ):
+        if not os.path.exists(rel):
+            continue
+        with open(rel, encoding="utf-8") as f:
+            payload = json.load(f)
+        for cn, info in payload.get("cn_to_en", {}).items():
+            en = info.get("en", "") if isinstance(info, dict) else info
+            if cn and en:
+                _add(cn, en, "item", confidence=88, source="unique_cn_en")
+        break
 
 
 def _load_notables():
@@ -246,9 +308,13 @@ def _normalize(text: str) -> str:
 
 
 def resolve_entity(cn_name: str) -> tuple[str, str, int, str] | None:
-    """Look up a single CN entity name. Returns (en_name, type, confidence, source) or None."""
+    """Look up a single CN entity name. Returns (en_name, type) or None."""
     aliases = _load_aliases()
-    return aliases.get(cn_name)
+    hit = aliases.get(cn_name)
+    if not hit:
+        return None
+    en_name, etype, _, _ = hit
+    return en_name, etype
 
 
 # ── Notable → Ascendancy mapping (lazy-loaded from DB) ──

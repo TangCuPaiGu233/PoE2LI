@@ -398,6 +398,7 @@ def _rewrite_standalone_question(
     llm_client,
     user_msg: str,
     messages: list[dict],
+    alias_keywords: list[str] | None = None,
     timeout_s: float = 12.0,
 ) -> str:
     """Rewrite the current question as a self-contained English search sentence."""
@@ -405,7 +406,10 @@ def _rewrite_standalone_question(
     prompt = (
         "Rewrite the user's CURRENT Path of Exile 2 question as one self-contained "
         "English encyclopedia search sentence. Output exactly one line, no bullets.\n"
+        "Keep official EN item/skill names from the Resolved entities line; do not invent literal translations of Chinese names.\n"
     )
+    if alias_keywords:
+        prompt += "\nResolved entities (use these EN names): " + ", ".join(alias_keywords[:8]) + "\n"
     if context:
         prompt += f"\nRecent conversation:\n{context}\n"
     prompt += f"\nCurrent question: {user_msg}"
@@ -431,218 +435,14 @@ def _rewrite_standalone_question(
 
 
 async def _stream_chat(messages: list[dict]):
-    """Skill-based router: classify intent → dispatch to matching Skill."""
-    from app.skills.router import route
-
-    # Init LLM client early — needed by all skill paths
-    llm_url = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
-    llm_key = os.getenv("LLM_API_KEY", "")
-    from openai import OpenAI as OAI
-    llm_client = OAI(base_url=llm_url, api_key=llm_key)
+    """AI-first agent runtime (ClawCode-style ReAct + tool registry)."""
+    from app.services.chat_agent import stream_chat_agent
 
     user_msg = messages[-1]["content"] if messages else ""
-    skill = route(user_msg)
-    league = default_league()
-    game_version = default_game_version()
-    logger.info(f"[CHAT] skill={skill.name} | query={user_msg[:80]}")
+    logger.info("[CHAT] agent_runtime | query=%s", user_msg[:120])
 
-    # ── Trade Search: calls trade API directly, no RAG ──
-    if skill.name == "trade_search":
-        yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在搜索交易市场...'})}\n\n"
-        try:
-            from app.services.trade_agent import run_agent as trade_run_agent
-            trade_result = trade_run_agent(user_msg)
-            best = trade_result.get("best_match")
-            alts = trade_result.get("alternatives", [])
-
-            trade_data = {
-                "best_match": {"label": best["label"], "url": best["url"], "count": best["count"]} if best else None,
-                "alternatives": [{"label": a["label"], "url": a["url"], "count": a["count"]} for a in alts[:3]],
-                "explanation": trade_result.get("explanation", ""),
-            }
-            yield f"data: {json.dumps({'type': 'trade_result', 'content': trade_data})}\n\n"
-
-            trade_prompt = skill.system_prompt(user_msg=user_msg, trade_result=trade_result)
-            llm_msgs = [{"role": "system", "content": trade_prompt},
-                         {"role": "user", "content": "帮我解释这些搜索结果"}]
-            stream = llm_client.chat.completions.create(
-                model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
-                messages=llm_msgs, temperature=0.3, max_tokens=1024, stream=True,
-                extra_body={'thinking': {'type': 'enabled'}},
-            )
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                r = getattr(delta, 'reasoning_content', None) or (
-                    delta.model_extra.get('reasoning_content') if hasattr(delta, 'model_extra') and delta.model_extra else None
-                )
-                if r: yield f"data: {json.dumps({'type': 'reasoning', 'content': r})}\n\n"
-                if delta.content: yield f"data: {json.dumps({'type': 'answer', 'content': delta.content})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        except Exception as e:
-            logger.error(f"Trade search failed: {e}")
-            yield f"data: {json.dumps({'type': 'answer', 'content': f'装备搜索失败: {str(e)}'})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        return
-
-    # ── Recommend: multi-candidate comparison via RecommendAgent ──
-    if skill.name == "recommend":
-        yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析候选项并评分...'})}\n\n"
-        try:
-            from app.services.recommend_runtime import get_recommend_agent, format_recommend_markdown
-            agent = get_recommend_agent()
-            result = await agent.run(
-                question=user_msg,
-                league=league,
-                game_version=game_version,
-            )
-            recommend_data = {
-                "best_pick": result.best_pick,
-                "ranking": result.ranking[:5],
-                "summary": result.summary,
-                "resolved": result.resolved,
-            }
-            yield f"data: {json.dumps({'type': 'recommend_result', 'content': recommend_data}, ensure_ascii=False)}\n\n"
-            answer = format_recommend_markdown(result)
-            yield f"data: {json.dumps({'type': 'answer', 'content': answer}, ensure_ascii=False)}\n\n"
-        except Exception as e:
-            logger.error(f"Recommend skill failed: {e}")
-            yield f"data: {json.dumps({'type': 'answer', 'content': f'推荐分析失败: {str(e)}'})}\n\n"
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        return
-
-    # ── RAG-based Skills: entity resolution → keyword gen → retrieve → answer ──
-    from app.services.entity_dict import normalize_ascendancy, resolve_ascendancy_en
-    from app.services.retrieval_pipeline import structured_entity_lookup
-
-    alias_keywords, resolved_entities = extract_alias_keywords(user_msg)
-    resolved_asc_cn = normalize_ascendancy(user_msg)
-    resolved_asc_en = resolve_ascendancy_en(resolved_asc_cn) if resolved_asc_cn else None
-    if alias_keywords:
-        logger.info(f"[CHAT] alias_resolved: {alias_keywords[:8]}")
-
-    # ── Phase 1: Rewrite current question as standalone EN search sentence ──
-    yield f"data: {json.dumps({'type': 'thinking', 'content': 'AI 正在分析需要查什么...'})}\n\n"
-
-    rewrite_query = _rewrite_standalone_question(llm_client, user_msg, messages)
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '检索句: ' + rewrite_query[:120]})}\n\n"
-
-    from app.services.entity_resolver import find_asc_for_notable
-    if skill.name == "build_design":
-        notable_asc = find_asc_for_notable([rewrite_query])
-        if notable_asc and not resolved_asc_en:
-            resolved_asc_en = notable_asc
-            resolved_asc_cn = resolved_asc_cn or notable_asc
-            logger.info(f"[CHAT] notable_resolved: asc={notable_asc}")
-
-    # ── Phase 2: Dual-path retrieval (original + rewritten query) ──
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '正在检索知识库...'})}\n\n"
-
-    search_query = build_search_query(user_msg, alias_keywords, [rewrite_query])
-    content_types = classify_question(user_msg)
-    logger.info(f"[CHAT] search: rewrite={rewrite_query[:80]} alias={alias_keywords} content_types={content_types}")
-
-    q_embedding = get_embedding(search_query)
-    if not q_embedding:
-        logger.error("Chat retrieval failed: embedding service unavailable")
-        yield f"data: {json.dumps({'type': 'answer', 'content': '知识库检索失败：embedding 服务不可用（请检查 EMBEDDING_API_KEY 配置或 API 配额）。'})}\n\n"
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        return
-
-    retrieval = retrieve_dual_path(
-        user_msg,
-        rewrite_query,
-        RetrievalOptions(
-            top_k=5,
-            classify_text=user_msg,
-            q_embedding=q_embedding,
-            league=league,
-            game_version=game_version,
-            alias_keywords=alias_keywords,
-            expand_concepts=False,
-            multi_source=(skill.name == "build_design"),
-        ),
-    )
-    chunks = retrieval.chunks
-
-    if resolved_entities:
-        db_lookup = SessionLocal()
-        try:
-            direct_chunks = structured_entity_lookup(
-                db_lookup, resolved_entities, league=league, game_version=game_version,
-            )
-            if direct_chunks:
-                existing_ids = {c.get("content", "")[:100] for c in chunks}
-                for dc in direct_chunks:
-                    if dc["content"][:100] not in existing_ids:
-                        existing_ids.add(dc["content"][:100])
-                        chunks = [dc] + chunks
-        finally:
-            db_lookup.close()
-
-    if not chunks:
-        yield f"data: {json.dumps({'type': 'answer', 'content': '未找到相关知识。'})}\n\n"
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        return
-
-    source_counts = {}
-    type_counts = {}
-    for c in chunks:
-        s = c.get("source", "?")
-        source_counts[s] = source_counts.get(s, 0) + 1
-        t = c.get("chunk_type", "?")
-        type_counts[t] = type_counts.get(t, 0) + 1
-    src_desc = ", ".join(k + "(" + str(v) + ")" for k, v in source_counts.items())
-    logger.info(f"[CHAT] retrieved: {len(chunks)} chunks | sources={source_counts} | types={type_counts}")
-
-    # ── Concept-link expansion: follow pointers from retrieved text ──
-    if skill.name != "trade_search":
-        yield f"data: {json.dumps({'type': 'thinking', 'content': '扩展关联概念...'})}\n\n"
-        from app.services.retrieval_pipeline import expand_concepts
-        concept_chunks = expand_concepts(
-            chunks, max_new=6, league=league, game_version=game_version,
-        )
-        logger.info(f"[CHAT] concept_expand: found {len(concept_chunks)} related chunks "
-                     f"(chunks_have_links={sum(1 for c in chunks if c.get('links'))}/{len(chunks)})")
-        if concept_chunks:
-            chunks = chunks + concept_chunks
-
-    context = build_context(chunks)
-
-    # ── Phase 3: Model thinks about results + answers ──
-    yield f"data: {json.dumps({'type': 'thinking', 'content': '从 ' + str(len(chunks)) + ' 条资料(' + src_desc + ')中分析回答...'})}\n\n"
-
-    # Skill-based prompt dispatch
-    sys_prompt = skill.system_prompt(context=context, user_msg=user_msg,
-                                      asc_en=resolved_asc_en, asc_cn=resolved_asc_cn)
-
-    llm_msgs = [{"role": "system", "content": sys_prompt}]
-    for m in messages[-5:]:
-        llm_msgs.append(m)
-
-    try:
-        stream = llm_client.chat.completions.create(
-            model=os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
-            messages=llm_msgs,
-            temperature=0.3, max_tokens=2048, stream=True,
-            extra_body={'thinking': {'type': 'enabled'}},
-        )
-        for chunk in stream:
-            delta = chunk.choices[0].delta
-            reasoning = getattr(delta, 'reasoning_content', None) or (
-                delta.model_extra.get('reasoning_content') if hasattr(delta, 'model_extra') and delta.model_extra else None
-            )
-            if reasoning:
-                yield f"data: {json.dumps({'type': 'reasoning', 'content': reasoning})}\n\n"
-            if delta.content:
-                yield f"data: {json.dumps({'type': 'answer', 'content': delta.content})}\n\n"
-    except Exception as e:
-        logger.error(f"LLM stream error: {e}")
-        yield f"data: {json.dumps({'type': 'answer', 'content': '生成失败: ' + str(e)})}\n\n"
-
-    sources = [{"type": c.get("chunk_type", "?"), "source": c.get("source", "?"),
-                 "preview": c.get("content", "")[:100]} for c in chunks[:5]]
-    yield f"data: {json.dumps({'type': 'sources', 'content': sources})}\n\n"
-    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+    async for event in stream_chat_agent(messages):
+        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
 @qa_router.post("/api/chat")

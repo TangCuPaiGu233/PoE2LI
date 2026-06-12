@@ -43,11 +43,14 @@ DISAMBIGUATION_CHUNKS = [
         ),
     },
     {
-        "chunk_id": "faq_silent_thunder_vs_mjolner",
+        "chunk_id": "faq_chenmo_mjolner",
         "search_text": (
-            "FAQ: Silent Thunder vs Mjölner — different uniques\n"
-            "Silent Thunder and Mjölner (Mjolner) are different unique items. "
-            "Silent Thunder is not Mjölner Torment Club; do not merge their names or stats."
+            "FAQ: 沉默之雷 = Mjölner (CN official name)\n"
+            "[CN] 沉默之雷 is the Tencent/国服 name for the unique Mjölner (EN), base Torment Club / 劫难战棒. "
+            "Do NOT translate 沉默之雷 as Silence Thunder or Silent Thunder. "
+            "Grants Level 18 Wrath of the Thunder God / 雷霆神祇之怒 (triggered lightning spell socket skill). "
+            "Explicit mods include increased Physical Damage, +Strength/+Intelligence requirements, "
+            "+2 to +4 to Level of all Lightning Skills, increased Attack Speed."
         ),
     },
     {
@@ -76,8 +79,9 @@ DISAMBIGUATION_CHUNKS = [
     {
         "chunk_id": "faq_mjolner_name",
         "search_text": (
-            "FAQ: Mjölner naming\n"
-            "The unique mace is Mjölner. Scraped concatenated forms like MjölnerTorment Club are invalid."
+            "FAQ: Mjölner / 沉默之雷 naming\n"
+            "EN: Mjölner. CN: 沉默之雷. Base: Torment Club (劫难战棒). "
+            "Invalid scraped glue names like MjölnerTorment Club must map to Mjölner only."
         ),
     },
     {

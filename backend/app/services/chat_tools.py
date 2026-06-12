@@ -1,0 +1,397 @@
+"""Chat tool registry — deterministic executors invoked by the AI agent (ClawCode-style)."""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+from app.core.database import SessionLocal
+from app.models.schemas import DecodeResponse, ErrorResponse
+from app.services.embedding_service import get_embedding
+from app.services.pob_service import decode_pob
+from app.services.retrieval_pipeline import (
+    RetrievalOptions,
+    build_context,
+    build_search_query,
+    default_game_version,
+    default_league,
+    expand_concepts,
+    extract_alias_keywords,
+    retrieve_dual_path,
+    structured_entity_lookup,
+)
+
+logger = logging.getLogger(__name__)
+
+POB_INPUT_RE = re.compile(
+    r"(https?://(?:pobb\.in|poe\.ninja)/\S+|eN[a-zA-Z0-9+/_-]{20,})",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class ChatToolContext:
+    league: str = field(default_factory=default_league)
+    game_version: str = field(default_factory=default_game_version)
+    user_msg: str = ""
+    last_sources: list[dict] = field(default_factory=list)
+    last_trade: dict | None = None
+    last_recommend: dict | None = None
+
+
+@dataclass
+class ToolRunResult:
+    """Result returned to the agent loop and optional SSE side-effects."""
+    content: str
+    trade_result: dict | None = None
+    sources: list[dict] | None = None
+    recommend_result: dict | None = None
+
+
+TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "entity_resolve",
+            "description": (
+                "Resolve Chinese PoE2 names (items, skills, ascendancies) to official EN names "
+                "using alias tables. Call before rag_search when the query contains CN game terms."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "User text or phrase containing entity names",
+                    },
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rag_search",
+            "description": (
+                "Search the PoE2 knowledge base (poe2db, wiki, PoB data, homework). "
+                "Use for mechanics, skills, items, mods, ascendancy questions."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Self-contained search query (English preferred)",
+                    },
+                    "expand_concepts": {
+                        "type": "boolean",
+                        "description": "Follow concept links for broader context (default true)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "decode_pob",
+            "description": (
+                "Fetch and parse a Path of Building share code, pobb.in URL, or poe.ninja character URL "
+                "into structured build data (class, skills, items, stats). "
+                "Required when user shares a build link or PoB code."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "type": "string",
+                        "description": "PoB code (eN...), pobb.in URL, or poe.ninja build URL",
+                    },
+                },
+                "required": ["input"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "trade_search",
+            "description": (
+                "Search the official PoE2 trade market for items matching natural-language intent. "
+                "Returns trade site URLs and match counts."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Chinese trade search request",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recommend",
+            "description": (
+                "Compare multiple items/skills/options and rank them for the user's build context."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "Comparison / recommendation question",
+                    },
+                },
+                "required": ["question"],
+            },
+        },
+    },
+]
+
+TOOL_LABELS: dict[str, str] = {
+    "entity_resolve": "解析游戏实体别名",
+    "rag_search": "检索知识库",
+    "decode_pob": "解析 PoB / 链接 BD",
+    "trade_search": "搜索交易市场",
+    "recommend": "对比推荐分析",
+}
+
+
+def detect_input_signals(text: str) -> list[str]:
+    """Factual hints for the agent (not routing decisions)."""
+    signals: list[str] = []
+    if POB_INPUT_RE.search(text):
+        signals.append("message_contains_pob_code_or_build_url")
+    if "pobb.in" in text.lower():
+        signals.append("pobb_in_url")
+    if "poe.ninja" in text.lower():
+        signals.append("poe_ninja_url")
+    if text.strip().startswith("eN"):
+        signals.append("pob_share_code")
+    if re.search(r"https?://", text):
+        signals.append("contains_http_url")
+    return signals
+
+
+def format_build_summary(data: DecodeResponse) -> str:
+    """Compact build summary for LLM tool results."""
+    b = data.build
+    lines = [
+        f"class: {b.className or '?'}",
+        f"ascendancy: {b.ascendClassName or '?'}",
+        f"level: {b.level or '?'}",
+    ]
+    stats = data.playerStats or {}
+    stat_bits = []
+    for label, key in [
+        ("Life", "Life"),
+        ("ES", "EnergyShield"),
+        ("DPS", "TotalDPS"),
+        ("EHP", "TotalEHP"),
+    ]:
+        if stats.get(key):
+            stat_bits.append(f"{label}={stats[key]}")
+    if stat_bits:
+        lines.append("stats: " + ", ".join(stat_bits))
+
+    skills: list[str] = []
+    for ss in data.skillSets or []:
+        for g in ss.gems or []:
+            if g.nameSpec and g.enabled:
+                skills.append(g.nameSpec)
+    if skills:
+        lines.append("skills: " + ", ".join(list(dict.fromkeys(skills))[:12]))
+
+    uniques = [
+        f"{i.name}({i.baseName or ''})"
+        for i in (data.items or [])
+        if i.rarity == "UNIQUE" and i.name
+    ]
+    if uniques:
+        lines.append("unique_items: " + ", ".join(uniques[:10]))
+
+    return "\n".join(lines)
+
+
+def _run_entity_resolve(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    text = (args.get("text") or ctx.user_msg or "").strip()
+    aliases, entities = extract_alias_keywords(text)
+    payload = {
+        "aliases": aliases[:12],
+        "entities": [
+            {"type": et, "name_en": en, "chunk_filter": cf}
+            for et, en, cf in (entities or [])[:8]
+        ],
+    }
+    return ToolRunResult(content=json.dumps(payload, ensure_ascii=False))
+
+
+def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    query = (args.get("query") or ctx.user_msg or "").strip()
+    expand = args.get("expand_concepts", True)
+    aliases, entities = extract_alias_keywords(ctx.user_msg)
+    search_query = build_search_query(ctx.user_msg, aliases, [query])
+    embedding = get_embedding(search_query)
+    if not embedding:
+        return ToolRunResult(content=json.dumps({"error": "embedding_unavailable"}, ensure_ascii=False))
+
+    retrieval = retrieve_dual_path(
+        ctx.user_msg,
+        query,
+        RetrievalOptions(
+            top_k=6,
+            classify_text=ctx.user_msg,
+            q_embedding=embedding,
+            league=ctx.league,
+            game_version=ctx.game_version,
+            alias_keywords=aliases,
+            expand_concepts=False,
+            multi_source=True,
+        ),
+    )
+    chunks = list(retrieval.chunks)
+
+    if entities:
+        db = SessionLocal()
+        try:
+            direct = structured_entity_lookup(
+                db, entities, league=ctx.league, game_version=ctx.game_version,
+            )
+            seen = {c.get("content", "")[:100] for c in chunks}
+            for dc in direct:
+                key = dc["content"][:100]
+                if key not in seen:
+                    seen.add(key)
+                    chunks.insert(0, dc)
+        finally:
+            db.close()
+
+    if expand and chunks:
+        extra = expand_concepts(chunks, max_new=4, league=ctx.league, game_version=ctx.game_version)
+        chunks.extend(extra)
+
+    context = build_context(chunks[:10])
+    sources = [
+        {
+            "type": c.get("chunk_type", "?"),
+            "source": c.get("source", "?"),
+            "preview": (c.get("content") or "")[:100],
+        }
+        for c in chunks[:5]
+    ]
+    ctx.last_sources = sources
+    payload = {
+        "chunk_count": len(chunks),
+        "context": context[:12000],
+    }
+    logger.info("[CHAT] tool rag_search chunks=%d", len(chunks))
+    return ToolRunResult(content=json.dumps(payload, ensure_ascii=False), sources=sources)
+
+
+def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResult:
+    raw_input = (args.get("input") or "").strip()
+    if not raw_input:
+        return ToolRunResult(content=json.dumps({"error": "empty_input"}, ensure_ascii=False))
+
+    result = decode_pob(raw_input)
+    if isinstance(result, ErrorResponse):
+        return ToolRunResult(
+            content=json.dumps(
+                {"ok": False, "error": result.error, "reason": result.reason},
+                ensure_ascii=False,
+            ),
+        )
+
+    summary = format_build_summary(result)
+    payload = {
+        "ok": True,
+        "summary": summary,
+        "build": result.model_dump(),
+    }
+    # Keep tool payload bounded — full build JSON can be huge
+    content = json.dumps(
+        {"ok": True, "summary": summary, "build_meta": result.build.model_dump()},
+        ensure_ascii=False,
+    )
+    if len(content) > 14000:
+        content = json.dumps({"ok": True, "summary": summary}, ensure_ascii=False)
+    logger.info("[CHAT] tool decode_pob ok class=%s", result.build.className)
+    return ToolRunResult(content=content)
+
+
+def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    from app.services.trade_agent import run_agent as trade_run_agent
+
+    query = (args.get("query") or ctx.user_msg or "").strip()
+    trade_result = trade_run_agent(query)
+    best = trade_result.get("best_match")
+    alts = trade_result.get("alternatives", [])
+    trade_data = {
+        "best_match": (
+            {"label": best["label"], "url": best["url"], "count": best["count"]} if best else None
+        ),
+        "alternatives": [
+            {"label": a["label"], "url": a["url"], "count": a["count"]} for a in alts[:3]
+        ],
+        "explanation": trade_result.get("explanation", ""),
+    }
+    ctx.last_trade = trade_data
+    return ToolRunResult(
+        content=json.dumps(trade_data, ensure_ascii=False),
+        trade_result=trade_data,
+    )
+
+
+async def _run_recommend(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    from app.services.recommend_runtime import format_recommend_markdown, get_recommend_agent
+
+    question = (args.get("question") or ctx.user_msg or "").strip()
+    agent = get_recommend_agent()
+    result = await agent.run(
+        question=question,
+        league=ctx.league,
+        game_version=ctx.game_version,
+    )
+    recommend_data = {
+        "best_pick": result.best_pick,
+        "ranking": result.ranking[:5],
+        "summary": result.summary,
+        "resolved": result.resolved,
+    }
+    ctx.last_recommend = recommend_data
+    markdown = format_recommend_markdown(result)
+    payload = {"structured": recommend_data, "markdown": markdown}
+    return ToolRunResult(
+        content=json.dumps(payload, ensure_ascii=False)[:12000],
+        recommend_result=recommend_data,
+    )
+
+
+async def execute_tool(
+    name: str,
+    args: dict[str, Any],
+    ctx: ChatToolContext,
+) -> ToolRunResult:
+    """Dispatch a tool call from the agent loop."""
+    logger.info("[CHAT] tool_call name=%s args=%s", name, str(args)[:200])
+    if name == "entity_resolve":
+        return _run_entity_resolve(args, ctx)
+    if name == "rag_search":
+        return _run_rag_search(args, ctx)
+    if name == "decode_pob":
+        return _run_decode_pob(args, ctx)
+    if name == "trade_search":
+        return _run_trade_search(args, ctx)
+    if name == "recommend":
+        return await _run_recommend(args, ctx)
+    return ToolRunResult(content=json.dumps({"error": f"unknown_tool:{name}"}))
