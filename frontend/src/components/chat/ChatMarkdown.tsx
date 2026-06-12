@@ -15,8 +15,7 @@ export interface EntityMention {
   type: string;
 }
 
-/** Private delimiter — unlikely in PoE chat text. */
-const MARKER_RE = /\x00POE\x01([^\x02]+)\x02([^\x03]+)\x03([^\x04]+)\x04/g;
+const MARKER_RE = /⟦poe:([^|]+)\|([^|]+)\|([^⟧]+)⟧/g;
 
 function apiUrl() {
   if (typeof window === "undefined") return "http://localhost:8000";
@@ -29,7 +28,7 @@ function applyMentionMarkers(raw: string, mentions: EntityMention[]): string {
     .sort((a, b) => b.start - a.start);
   let s = raw;
   for (const m of sorted) {
-    const token = `\x00POE\x01${m.label}\x02${m.name_en}\x03${m.type}\x04`;
+    const token = `⟦poe:${m.label}|${m.name_en}|${m.type}⟧`;
     s = s.slice(0, m.start) + token + s.slice(m.end);
   }
   return s;
@@ -61,6 +60,19 @@ function parseEntityMarkers(text: string): React.ReactNode {
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
+function renderChips(children: React.ReactNode): React.ReactNode {
+  return React.Children.map(children, (child) => {
+    if (typeof child === "string") return parseEntityMarkers(child);
+    if (React.isValidElement(child)) {
+      const props = child.props as { children?: React.ReactNode };
+      if (props.children != null) {
+        return React.cloneElement(child, {}, renderChips(props.children));
+      }
+    }
+    return child;
+  });
 }
 
 function normalizeContent(content: string): string {
@@ -106,22 +118,25 @@ export default function ChatMarkdown({ content, enableEntityChips = false }: Cha
     return applyMentionMarkers(normalized, mentions);
   }, [normalized, mentions, enableEntityChips]);
 
+  const wrapChips = (children: React.ReactNode) =>
+    enableEntityChips ? renderChips(children) : children;
+
   const components: Components = useMemo(
     () => ({
-      p: ({ children }) => <p className="md-p">{children}</p>,
-      li: ({ children }) => <li className="md-li">{children}</li>,
-      strong: ({ children }) => <strong className="md-bold">{children}</strong>,
-      em: ({ children }) => <em className="md-em">{children}</em>,
-      h1: ({ children }) => <h2 className="md-h1">{children}</h2>,
-      h2: ({ children }) => <h2 className="md-h2">{children}</h2>,
-      h3: ({ children }) => <h3 className="md-h3">{children}</h3>,
-      h4: ({ children }) => <h4 className="md-h4">{children}</h4>,
-      blockquote: ({ children }) => <blockquote className="md-quote">{children}</blockquote>,
+      p: ({ children }) => <p className="md-p">{wrapChips(children)}</p>,
+      li: ({ children }) => <li className="md-li">{wrapChips(children)}</li>,
+      strong: ({ children }) => <strong className="md-bold">{wrapChips(children)}</strong>,
+      em: ({ children }) => <em className="md-em">{wrapChips(children)}</em>,
+      h1: ({ children }) => <h2 className="md-h1">{wrapChips(children)}</h2>,
+      h2: ({ children }) => <h2 className="md-h2">{wrapChips(children)}</h2>,
+      h3: ({ children }) => <h3 className="md-h3">{wrapChips(children)}</h3>,
+      h4: ({ children }) => <h4 className="md-h4">{wrapChips(children)}</h4>,
+      blockquote: ({ children }) => <blockquote className="md-quote">{wrapChips(children)}</blockquote>,
       hr: () => <hr className="md-hr" />,
       code: ({ children }) => <code className="md-code">{children}</code>,
       a: ({ href, children }) => (
         <a href={href} target="_blank" rel="noreferrer" className="md-link">
-          {children}
+          {wrapChips(children)}
         </a>
       ),
       table: ({ children }) => (
@@ -132,15 +147,8 @@ export default function ChatMarkdown({ content, enableEntityChips = false }: Cha
       thead: ({ children }) => <thead className="md-thead">{children}</thead>,
       tbody: ({ children }) => <tbody>{children}</tbody>,
       tr: ({ children }) => <tr className="md-tr">{children}</tr>,
-      th: ({ children }) => <th className="md-th">{children}</th>,
-      td: ({ children }) => <td className="md-td">{children}</td>,
-      ...(enableEntityChips
-        ? {
-            text: ({ children }) => (
-              <>{parseEntityMarkers(String(children ?? ""))}</>
-            ),
-          }
-        : {}),
+      th: ({ children }) => <th className="md-th">{wrapChips(children)}</th>,
+      td: ({ children }) => <td className="md-td">{wrapChips(children)}</td>,
     }),
     [enableEntityChips],
   );
