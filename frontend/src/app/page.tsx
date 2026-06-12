@@ -82,12 +82,13 @@ export default function Home() {
     // Valid if it's a pobb.in URL, poe.ninja URL, or starts with eN
     const isPobbin = /^https?:\/\/pobb\.in\/[a-zA-Z0-9_-]+/.test(trimmed);
     const isPoeNinja = /^https?:\/\/poe\.ninja\/poe2\/builds\/[a-zA-Z0-9_-]+\/character\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/.test(trimmed);
+    const isWegame = /^https?:\/\/(?:www\.)?wegame\.com\.cn\/helper\/poe2/i.test(trimmed);
     const isBase64 = trimmed.startsWith("eN") && trimmed.length > 100;
     
     // Also allow raw base64 that might start with eN or have some spaces
     const isBase64Relaxed = trimmed.replace(/\s/g, '').startsWith("eN") && trimmed.length > 100;
     
-    setPobValid(isPobbin || isPoeNinja || isBase64 || isBase64Relaxed);
+    setPobValid(isPobbin || isPoeNinja || isWegame || isBase64 || isBase64Relaxed);
   }, [pobCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {

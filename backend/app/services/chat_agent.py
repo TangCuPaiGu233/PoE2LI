@@ -16,6 +16,7 @@ from app.services.chat_tools import (
     ChatToolContext,
     detect_input_signals,
     execute_tool,
+    find_build_input,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,9 +86,68 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         if role in ("user", "assistant") and content:
             agent_messages.append({"role": role, "content": content})
 
+    used_tools = False
+    build_input = find_build_input(user_msg)
+    if build_input:
+        yield {"type": "thinking", "content": "正在解析分享链接中的 BD..."}
+        yield {
+            "type": "tool_use",
+            "content": {"name": "decode_pob", "arguments": {"input": build_input}},
+        }
+        try:
+            prefetch = await execute_tool("decode_pob", {"input": build_input}, ctx)
+            used_tools = True
+            preview = prefetch.content[:240] + (
+                "..." if len(prefetch.content) > 240 else ""
+            )
+            prefetch_ok = True
+            try:
+                body = json.loads(prefetch.content)
+                if isinstance(body, dict) and body.get("ok") is False:
+                    prefetch_ok = False
+            except json.JSONDecodeError:
+                pass
+            yield {
+                "type": "tool_result",
+                "content": {
+                    "name": "decode_pob",
+                    "ok": prefetch_ok,
+                    "preview": preview,
+                },
+            }
+            agent_messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "【已自动解析 BD，无需再次调用 decode_pob】\n"
+                        + prefetch.content[:12000]
+                    ),
+                },
+            )
+            logger.info(
+                "[CHAT] prefetch decode_pob ok=%s input=%s",
+                prefetch_ok,
+                build_input[:80],
+            )
+        except Exception as e:
+            logger.error("[CHAT] prefetch decode_pob failed: %s", e)
+            yield {
+                "type": "tool_result",
+                "content": {
+                    "name": "decode_pob",
+                    "ok": False,
+                    "preview": str(e)[:200],
+                },
+            }
+            agent_messages.append(
+                {
+                    "role": "system",
+                    "content": f"【BD 自动解析失败】{e}",
+                },
+            )
+
     yield {"type": "thinking", "content": "AI 正在分析意图并规划工具..."}
 
-    used_tools = False
     tool_round = 0
     while tool_round < MAX_TOOL_ROUNDS:
         tool_round += 1
@@ -111,9 +171,11 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         tool_calls = getattr(msg, "tool_calls", None) or []
 
         if not tool_calls:
-            # Final text from model (non-streaming fallback)
-            if msg.content:
+            # After tools ran, synthesis handles the user-visible answer (avoid duplicate).
+            if msg.content and not used_tools:
                 yield {"type": "answer", "content": msg.content}
+            elif msg.content and used_tools:
+                agent_messages.append({"role": "assistant", "content": msg.content})
             break
 
         # Append assistant message with tool calls
@@ -158,9 +220,16 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                 continue
 
             preview = result.content[:240] + ("..." if len(result.content) > 240 else "")
+            tool_ok = True
+            try:
+                body = json.loads(result.content)
+                if isinstance(body, dict) and body.get("ok") is False:
+                    tool_ok = False
+            except json.JSONDecodeError:
+                pass
             yield {
                 "type": "tool_result",
-                "content": {"name": fn, "ok": True, "preview": preview},
+                "content": {"name": fn, "ok": tool_ok, "preview": preview},
             }
 
             if result.trade_result:

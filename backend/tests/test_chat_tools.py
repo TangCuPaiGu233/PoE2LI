@@ -4,6 +4,7 @@ from app.models.schemas import BuildInfo, DecodeResponse, Gem, Item, SkillSet
 from app.services.chat_tools import (
     TOOL_DEFINITIONS,
     detect_input_signals,
+    find_build_input,
     format_build_summary,
 )
 
@@ -13,6 +14,21 @@ def test_detect_input_signals_pob_code():
     signals = detect_input_signals(msg)
     assert "message_contains_pob_code_or_build_url" in signals
     assert "pob_share_code" in signals
+
+
+def test_find_build_input_wegame_url_with_dashes():
+    url = (
+        "评价一下 https://www.wegame.com.cn/helper/poe2/#/share/"
+        "11CqvpN5q7Ly0gQ9rVxl5rK1-8cu0DMZnfTxI_isBVxVVOQYi56-wjAqQS2qfagO"
+    )
+    found = find_build_input(url)
+    assert found is not None
+    assert "11CqvpN5q7Ly0gQ9rVxl5rK1-8cu0DMZnfTxI_isBVxVVOQYi56-wjAqQS2qfagO" in found
+
+
+def test_find_build_input_wegame_without_www():
+    url = "https://wegame.com.cn/helper/poe2/#/share/abc123token"
+    assert find_build_input(url) is not None
 
 
 def test_detect_input_signals_pobb_in():

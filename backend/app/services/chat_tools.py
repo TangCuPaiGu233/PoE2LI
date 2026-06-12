@@ -27,7 +27,7 @@ from app.services.retrieval_pipeline import (
 logger = logging.getLogger(__name__)
 
 POB_INPUT_RE = re.compile(
-    r"(https?://(?:pobb\.in|poe\.ninja|www\.wegame\.com\.cn/helper/poe2)[^\s]*|[A-Za-z0-9_-]{40,}|eN[a-zA-Z0-9+/_-]{20,})",
+    r"(https?://(?:pobb\.in|poe\.ninja|(?:www\.)?wegame\.com\.cn/helper/poe2)[^\s]*|[A-Za-z0-9_-]{40,}|eN[a-zA-Z0-9+/_-]{20,})",
     re.IGNORECASE,
 )
 
@@ -166,6 +166,22 @@ TOOL_LABELS: dict[str, str] = {
     "trade_search": "搜索交易市场",
     "recommend": "对比推荐分析",
 }
+
+
+def find_build_input(text: str) -> str | None:
+    """Extract PoB code or build share URL/token from a user message."""
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    m = POB_INPUT_RE.search(raw)
+    if m:
+        return m.group(1)
+    from app.services.wegame_service import extract_wegame_share_id
+
+    share_id = extract_wegame_share_id(raw)
+    if share_id:
+        return share_id
+    return None
 
 
 def detect_input_signals(text: str) -> list[str]:
