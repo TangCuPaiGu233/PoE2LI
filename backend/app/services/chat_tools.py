@@ -27,7 +27,7 @@ from app.services.retrieval_pipeline import (
 logger = logging.getLogger(__name__)
 
 POB_INPUT_RE = re.compile(
-    r"(https?://(?:pobb\.in|poe\.ninja)/\S+|eN[a-zA-Z0-9+/_-]{20,})",
+    r"(https?://(?:pobb\.in|poe\.ninja|www\.wegame\.com\.cn/helper/poe2)[^\s]*|[A-Za-z0-9]{40,}|eN[a-zA-Z0-9+/_-]{20,})",
     re.IGNORECASE,
 )
 
@@ -102,7 +102,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "decode_pob",
             "description": (
-                "Fetch and parse a Path of Building share code, pobb.in URL, or poe.ninja character URL "
+                "Fetch and parse a Path of Building share code, pobb.in URL, poe.ninja character URL, or WeGame PoE2 share link "
                 "into structured build data (class, skills, items, stats). "
                 "Required when user shares a build link or PoB code."
             ),
@@ -111,7 +111,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "properties": {
                     "input": {
                         "type": "string",
-                        "description": "PoB code (eN...), pobb.in URL, or poe.ninja build URL",
+                        "description": "PoB code (eN...), pobb.in URL, poe.ninja build URL, or WeGame share URL/token",
                     },
                 },
                 "required": ["input"],
@@ -177,6 +177,8 @@ def detect_input_signals(text: str) -> list[str]:
         signals.append("pobb_in_url")
     if "poe.ninja" in text.lower():
         signals.append("poe_ninja_url")
+    if "wegame.com.cn/helper/poe2" in text.lower():
+        signals.append("wegame_url")
     if text.strip().startswith("eN"):
         signals.append("pob_share_code")
     if re.search(r"https?://", text):
@@ -328,7 +330,14 @@ def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResul
     )
     if len(content) > 14000:
         content = json.dumps({"ok": True, "summary": summary}, ensure_ascii=False)
-    logger.info("[CHAT] tool decode_pob ok class=%s", result.build.className)
+    if (result.config or {}).get("source") == "wegame":
+        logger.info(
+            "[CHAT] tool decode_pob ok wegame share=%s class=%s",
+            (result.config or {}).get("share_id", "")[:16],
+            result.build.className,
+        )
+    else:
+        logger.info("[CHAT] tool decode_pob ok class=%s", result.build.className)
     return ToolRunResult(content=content)
 
 

@@ -16,6 +16,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 from pob_decoder import decode_pob_code, parse_build_data, PoBDecodeError
+from app.services.wegame_service import (
+    extract_wegame_share_id,
+    fetch_wegame_build,
+    wegame_to_decode_response,
+)
 from app.models.schemas import (
     BuildInfo, TreeSpec, Gem, SkillSet, Item,
     DecodeResponse, ErrorResponse,
@@ -171,6 +176,21 @@ def decode_pob(pob_code: str) -> DecodeResponse | ErrorResponse:
     Returns ErrorResponse if decoding or parsing fails.
     """
     pob_code = pob_code.strip(" `\n\r\t")
+
+    wegame_id = extract_wegame_share_id(pob_code)
+    if wegame_id:
+        key = _cache_key(f"wegame:{wegame_id}")
+        if key in _decode_cache:
+            return _decode_cache[key]
+        wegame_data = fetch_wegame_build(wegame_id)
+        if isinstance(wegame_data, ErrorResponse):
+            return wegame_data
+        result = wegame_to_decode_response(wegame_data)
+        if len(_decode_cache) >= MAX_CACHE_SIZE:
+            oldest_key = next(iter(_decode_cache))
+            del _decode_cache[oldest_key]
+        _decode_cache[key] = result
+        return result
     
     # If the input is a pobb.in URL, fetch the raw code first
     if "pobb.in" in pob_code:
