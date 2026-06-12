@@ -26,8 +26,6 @@ INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 
 ALLOWED_MENTION_ETYPES = frozenset({"item", "skill", "ascendancy"})
 MIN_MENTION_CONFIDENCE = 85
-MAX_MENTIONS = 12
-MAX_MENTIONS_PER_LABEL = 2
 
 MENTION_SKIP = frozenset(
     {
@@ -120,20 +118,14 @@ def find_mentions(text: str) -> list[dict[str, Any]]:
     occupied = [False] * len(text)
     _mask_code_spans(text, occupied)
     mentions: list[dict[str, Any]] = []
-    label_counts: dict[str, int] = {}
 
     for cn in sorted_cn:
-        if len(mentions) >= MAX_MENTIONS:
-            break
         start = 0
-        while len(mentions) < MAX_MENTIONS:
+        while True:
             idx = text.find(cn, start)
             if idx < 0:
                 break
             end = idx + len(cn)
-            if label_counts.get(cn, 0) >= MAX_MENTIONS_PER_LABEL:
-                start = idx + 1
-                continue
             if (
                 not any(occupied[idx:end])
                 and _valid_mention_boundaries(text, idx, end)
@@ -150,11 +142,10 @@ def find_mentions(text: str) -> list[dict[str, Any]]:
                         "type": etype,
                     },
                 )
-                label_counts[cn] = label_counts.get(cn, 0) + 1
             start = idx + 1
 
     mentions.sort(key=lambda m: m["start"])
-    return mentions[:MAX_MENTIONS][:MAX_MENTIONS]
+    return mentions
 
 
 def _resolve_entity(name: str) -> tuple[str, str, str] | None:

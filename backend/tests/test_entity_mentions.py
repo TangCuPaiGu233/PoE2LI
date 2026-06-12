@@ -22,10 +22,10 @@ def test_find_mentions_skips_inline_code():
     text = "见 `沉默之雷` 或 ```沉默之雷``` 正文"
     assert find_mentions(text) == []
 
-def test_find_mentions_caps_per_label():
+def test_find_mentions_finds_all_occurrences():
     label = "扭曲项链"
     text = " ".join([label] * 10)
     mentions = find_mentions(text)
     count = sum(1 for m in mentions if m["label"] == label)
-    assert count <= 2
+    assert count == 10
 
