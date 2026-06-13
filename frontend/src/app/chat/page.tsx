@@ -131,7 +131,6 @@ export default function ChatPage() {
             <h1 className="text-sm font-medium text-zinc-200">流放知识库</h1>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/trade" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">装备搜索</a>
             {streaming && skill !== "idle" && (
               <span className="text-xs text-amber-500/60 border border-amber-700/30 bg-amber-950/20 rounded-full px-2 py-0.5">
                 {SKILL_LABELS[skill] || skill}

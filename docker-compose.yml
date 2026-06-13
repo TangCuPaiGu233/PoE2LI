@@ -44,7 +44,7 @@ services:
     environment:
       - HTTPS_PROXY=http://192.168.110.26:7890
       - HTTP_PROXY=http://192.168.110.26:7890
-      - NO_PROXY=openrouter.ai,api.siliconflow.cn,localhost,127.0.0.1
+      - NO_PROXY=openrouter.ai,api.siliconflow.cn,poe.game.qq.com,pathofexile.com,localhost,127.0.0.1
       - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
@@ -64,6 +64,8 @@ services:
       - EMBEDDING_API_KEY=${SILICONFLOW_API_KEY}
       - EMBEDDING_API_MODEL=BAAI/bge-m3
       - EMBEDDING_DIM=1024
+      # CN trade: POESESSID from logged-in poe.game.qq.com session (DevTools → Application → Cookies)
+      - TRADE_CN_POESESSID=${TRADE_CN_POESESSID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,7 +90,7 @@ services:
     environment:
       - HTTPS_PROXY=http://192.168.110.26:7890
       - HTTP_PROXY=http://192.168.110.26:7890
-      - NO_PROXY=openrouter.ai,api.siliconflow.cn,localhost,127.0.0.1
+      - NO_PROXY=openrouter.ai,api.siliconflow.cn,poe.game.qq.com,pathofexile.com,localhost,127.0.0.1
       - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
@@ -119,12 +121,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ""
     container_name: poe2li-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://192.168.110.26:8000
+      - NEXT_PUBLIC_API_URL=
+      - API_PROXY_TARGET=http://backend:8000
     depends_on:
       - backend
 

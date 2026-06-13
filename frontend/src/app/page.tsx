@@ -215,10 +215,7 @@ export default function Home() {
           <p className="text-gray-500 mt-1 text-sm">Path of Exile 2 智能构建分析工具</p>
           <nav className="mt-3 flex justify-center gap-4">
             <a href="/chat" className="text-cyan-500/70 hover:text-cyan-400 text-xs transition">
-              AI 问答
-            </a>
-            <a href="/trade" className="text-emerald-500/70 hover:text-emerald-400 text-xs transition">
-              装备搜索
+              AI 问答 · 装备搜索
             </a>
           </nav>
         </header>
@@ -343,8 +340,8 @@ export default function Home() {
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-semibold text-gray-400">🤖 AI 攻略</h3>
                       <div className="flex gap-3">
-                        <a href={`/trade`} className="text-xs text-emerald-500/70 hover:text-emerald-400 transition-colors">
-                          🔍 搜装备
+                        <a href="/chat" className="text-xs text-emerald-500/70 hover:text-emerald-400 transition-colors">
+                          🔍 在对话里搜装备
                         </a>
                         <button onClick={copyShareLink} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">
                           复制链接

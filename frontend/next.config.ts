@@ -1,7 +1,19 @@
 import type { NextConfig } from "next";
 
+const apiProxy = process.env.API_PROXY_TARGET || "http://127.0.0.1:8000";
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [{ source: "/trade", destination: "/chat", permanent: false }];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiProxy}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
