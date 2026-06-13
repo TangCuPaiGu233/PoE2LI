@@ -180,7 +180,12 @@ def _quote_one_sync(
     if not search.get("trade_url"):
         base["error"] = "未找到交易结果"
         return base
-    listing = fetch_cheapest_listing(search["trade_url"], market=market, league=league)
+    listing = fetch_cheapest_listing(
+        search["trade_url"],
+        market=market,
+        league=league,
+        item_ids=search.get("item_ids"),
+    )
     if listing.get("error"):
         base["error"] = listing["error"]
         return base

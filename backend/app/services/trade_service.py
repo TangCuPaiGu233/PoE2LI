@@ -874,13 +874,15 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
     if not search_id:
         return {"error": "Trade API 未返回搜索 ID"}
 
-    total = data.get("total", 0)
+    item_ids = data.get("result") or []
+    total = data.get("total") if data.get("total") is not None else len(item_ids)
     trade_url = trade_page_url(market, resolved_league, search_id)
 
     result = {
         "trade_url": trade_url,
         "search_id": search_id,
         "total_results": total,
+        "item_ids": item_ids[:10],
         "intent_summary": intent.get("summary", ""),
         "filters": trade_query,
         "expires_in": 300,
@@ -1097,6 +1099,7 @@ def fetch_cheapest_listing(
     trade_url: str,
     market: str = DEFAULT_MARKET,
     league: str | None = None,
+    item_ids: list | None = None,
 ) -> dict:
     """Fetch the cheapest listing price from a trade search page URL."""
     from app.services.trade_realm import fetch_api_url, resolve_league, search_result_api_url
@@ -1109,22 +1112,26 @@ def fetch_cheapest_listing(
     _rate_limit()
     scraper = _get_scraper(market)
 
-    search_url = search_result_api_url(market, resolved_league, search_id)
-    try:
-        resp = scraper.get(search_url, timeout=15)
-    except Exception as e:
-        logger.error("Trade search result fetch failed: %s", e)
-        return {"error": f"search result fetch failed: {e}"}
+    if item_ids:
+        item_ids = list(item_ids)[:5]
+    else:
+        search_url = search_result_api_url(market, resolved_league, search_id)
+        try:
+            resp = scraper.get(search_url, timeout=15)
+        except Exception as e:
+            logger.error("Trade search result fetch failed: %s", e)
+            return {"error": f"search result fetch failed: {e}"}
 
-    if resp.status_code == 401 and market == "cn":
-        return {
-            "error": "国服交易 API 未授权：POESESSID 缺失或已过期。请在服务器 .env 中配置 TRADE_CN_POESESSID。"
-        }
+        if resp.status_code == 401 and market == "cn":
+            return {
+                "error": "国服交易 API 未授权：POESESSID 缺失或已过期。请在服务器 .env 中配置 TRADE_CN_POESESSID。"
+            }
 
-    if resp.status_code != 200:
-        return {"error": f"search result HTTP {resp.status_code}"}
+        if resp.status_code != 200:
+            return {"error": f"search result HTTP {resp.status_code}"}
 
-    item_ids = resp.json().get("result", [])[:5]
+        item_ids = resp.json().get("result", [])[:5]
+
     if not item_ids:
         return {"error": "no listings"}
 
