@@ -21,7 +21,7 @@ _MOD_SEP = re.compile(r"^-{4,}\s*$", re.MULTILINE)
 
 _IMPLICIT_LINE_RE = re.compile(r"^Implicits:\s*(\d+)\s*$", re.IGNORECASE)
 _CRAFTED_PREFIX_RE = re.compile(
-    r"^\{(crafted|fractured|enchant|crucible|mutated)\}\s*",
+    r"^\{(crafted|fractured|enchant|crucible|mutated|desecrated)\}\s*",
     re.IGNORECASE,
 )
 _POB_META_LINE_RE = re.compile(
@@ -92,6 +92,8 @@ def parse_pob_item_mods(raw: str) -> list[PobMod]:
         if _POB_META_LINE_RE.match(text):
             continue
         if _BASE_STAT_LINE_RE.match(text):
+            continue
+        if low.startswith("rune:") or low.startswith("charm slots:"):
             continue
 
         text = _CRAFTED_PREFIX_RE.sub("", text).strip()
