@@ -52,3 +52,30 @@ def test_build_groups_keeps_full_mod_count():
 def test_is_skill_level_mod():
     assert is_skill_level_mod("+2 to Level of all Spell Skills")
     assert not is_skill_level_mod("+80 to maximum Life")
+
+def test_parse_pob_native_format_skips_header_and_implicit():
+    raw = """Rarity: RARE
+Bramble Grip
+Suede Bracers
+Unique ID: 1
+Item Level: 84
+Quality: 0
+Sockets: G-G-G
+LevelReq: 52
+Implicits: 1
++12% to Chaos Resistance
++88 to maximum Life
++42% to Fire Resistance
++36% to Lightning Resistance
++18% increased Attack Speed
++35% increased Critical Damage Bonus
+Armour: 45
+Evasion: 45
+"""
+    mods = parse_pob_item_mods(raw)
+    assert len(mods) == 5
+    lines = [m.line for m in mods]
+    assert "+88 to maximum Life" in lines
+    assert all("Chaos Resistance" not in ln for ln in lines)
+    assert all(not ln.lower().startswith("armour:") for ln in lines)
+

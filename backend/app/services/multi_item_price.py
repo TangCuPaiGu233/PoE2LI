@@ -276,6 +276,9 @@ def _extract_rare_items(data) -> list[dict[str, Any]]:
     for item in data.items or []:
         if (item.rarity or "").upper() != "RARE":
             continue
+        slot = (item.slot or "").strip()
+        if not slot:
+            continue
         raw = (item.raw or "").strip()
         if not raw:
             continue

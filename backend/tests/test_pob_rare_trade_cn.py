@@ -29,10 +29,10 @@ Ruby Ring
 --------
 +80 to maximum Life
 """
-    captured = {}
+    calls = []
 
     def fake_search(intent, league=None, market="cn"):
-        captured["intent"] = dict(intent)
+        calls.append(dict(intent))
         return {"error": "stop"}
 
     with (
@@ -46,7 +46,7 @@ Ruby Ring
     ):
         prt.quote_pob_rare_sync("My Ring", raw, "Ring 1", "Ruby Ring", market="cn")
 
-    assert captured["intent"]["base_type"] == "红玉戒指"
+    assert any(c.get("base_type") == "红玉戒指" for c in calls)
 
 from app.services.multi_item_price import _format_rare_item_answer, _format_summary
 
