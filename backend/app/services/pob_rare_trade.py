@@ -61,6 +61,10 @@ def parse_pob_item_mods(raw: str) -> list[PobMod]:
         m = re.match(r"^([+\-]?\d+(?:\.\d+)?)\s*(?:to|%)\s*(.+)$", text)
         if m:
             value = float(m.group(1))
+        else:
+            m2 = re.match(r"^(\d+(?:\.\d+)?)%\s+", text)
+            if m2:
+                value = float(m2.group(1))
         mods.append(PobMod(line=text, value=value, is_percent=is_pct))
     return mods
 
@@ -121,3 +125,162 @@ def build_pob_rare_stat_groups(
             "stats": stats,
         }
     ]
+
+POB_SLOT_TO_ITEM_TYPE: dict[str, str] = {
+    "Amulet": "accessory.amulet",
+    "Ring 1": "accessory.ring",
+    "Ring 2": "accessory.ring",
+    "Belt": "accessory.belt",
+    "Body Armour": "armour.chest",
+    "Helmet": "armour.helmet",
+    "Gloves": "armour.gloves",
+    "Boots": "armour.boots",
+    "Shield": "armour.shield",
+    "Quiver": "armour.quiver",
+    "Flask 1": "flask",
+    "Flask 2": "flask",
+    "Flask 3": "flask",
+    "Flask 4": "flask",
+    "Flask 5": "flask",
+}
+
+
+def item_type_for_pob_item(slot: str | None, base_name: str) -> str | None:
+    from app.services.trade_stats_index import ITEM_TYPES_EN
+
+    if slot:
+        s = slot.strip()
+        if s in POB_SLOT_TO_ITEM_TYPE:
+            return POB_SLOT_TO_ITEM_TYPE[s]
+    base_lower = (base_name or "").lower()
+    for keyword, (item_type, _name) in ITEM_TYPES_EN.items():
+        if keyword in base_lower:
+            return item_type
+    if slot:
+        sl = slot.lower()
+        for keyword, (item_type, _name) in ITEM_TYPES_EN.items():
+            if keyword in sl:
+                return item_type
+    return None
+
+
+def _mod_min_value(mod: PobMod) -> int | float | None:
+    if mod.value is not None:
+        return int(mod.value) if mod.value == int(mod.value) else mod.value
+    m = re.match(r"^(\d+(?:\.\d+)?)%\s+", mod.line)
+    if m:
+        return int(float(m.group(1)))
+    return None
+
+
+def resolve_pob_mods_to_stats(mods: list[PobMod]) -> tuple[list[dict[str, Any]], list[str]]:
+    from app.core.database import SessionLocal
+    from app.services.trade_service import _resolve_stat
+    from app.services.trade_stats_index import find_stat_id
+
+    db = SessionLocal()
+    resolved: list[dict[str, Any]] = []
+    missed: list[str] = []
+    try:
+        for mod in mods:
+            line = mod.line.strip()
+            if not line:
+                continue
+            stat_id = find_stat_id(line)
+            row: dict[str, Any] = {"mod_line": line}
+            min_val = _mod_min_value(mod)
+            if min_val is not None:
+                row["min"] = min_val
+            if stat_id:
+                row["id"] = stat_id if stat_id.startswith("explicit.") else f"explicit.{stat_id.split('.')[-1]}"
+            else:
+                matched = _resolve_stat(db, {"desc_en": line, **({"min": min_val} if min_val is not None else {})})
+                if matched:
+                    row["id"] = matched["id"]
+                    if matched.get("min") is not None and "min" not in row:
+                        row["min"] = matched["min"]
+            if row.get("id"):
+                resolved.append(row)
+            else:
+                missed.append(line)
+    finally:
+        db.close()
+    return resolved, missed
+
+
+def quote_pob_rare_sync(
+    label: str,
+    raw: str,
+    slot: str | None,
+    base_name: str,
+    market: str = "cn",
+    league: str | None = None,
+) -> dict[str, Any]:
+    from app.services.trade_service import fetch_cheapest_listing, search_trade
+
+    mods = parse_pob_item_mods(raw)
+    if not mods:
+        return {"item": label, "error": "未解析到词缀"}
+
+    resolved, missed = resolve_pob_mods_to_stats(mods)
+    if not resolved:
+        return {"item": label, "error": "词缀无法映射到 Trade stat_id"}
+
+    stat_groups = build_pob_rare_stat_groups(resolved)
+    item_type = item_type_for_pob_item(slot, base_name)
+    intent: dict[str, Any] = {
+        "rarity": "rare",
+        "stat_groups": stat_groups,
+        "summary": f"rare {label} ({base_name})",
+    }
+    if item_type:
+        intent["item_type"] = item_type
+    if base_name:
+        intent["base_type"] = base_name
+
+    search = search_trade(intent, league=league, market=market)
+    trade_data = {
+        "best_match": (
+            {
+                "label": f"{label} ({search.get('total_results', 0)} 条)",
+                "url": search.get("trade_url"),
+                "count": search.get("total_results", 0),
+            }
+            if search.get("trade_url")
+            else None
+        ),
+        "alternatives": [],
+        "explanation": search.get("intent_summary") or intent["summary"],
+    }
+    base: dict[str, Any] = {
+        "item": label,
+        "trade_result": trade_data,
+        "mods_total": len(mods),
+        "mods_matched": len(resolved),
+        "mods_missed": missed[:3],
+    }
+    if search.get("error"):
+        base["error"] = search["error"]
+        return base
+    if not search.get("trade_url"):
+        base["error"] = "未找到交易结果"
+        return base
+
+    listing = fetch_cheapest_listing(
+        search["trade_url"],
+        market=market,
+        league=league,
+        skip_rate_limit=True,
+        item_ids=search.get("item_ids"),
+    )
+    if listing.get("error"):
+        base["error"] = listing["error"]
+        return base
+    base.update(
+        {
+            "amount": listing.get("amount"),
+            "currency": listing.get("currency"),
+            "item_name": listing.get("item_name"),
+        }
+    )
+    return base

@@ -263,6 +263,55 @@ def is_build_cost_query(text: str) -> bool:
     return find_build_input(text) is not None
 
 
+def _extract_rare_items(data) -> list[dict[str, Any]]:
+    from app.services.pob_rare_trade import parse_pob_item_mods
+
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in data.items or []:
+        if (item.rarity or "").upper() != "RARE":
+            continue
+        raw = (item.raw or "").strip()
+        if not raw:
+            continue
+        if not parse_pob_item_mods(raw):
+            continue
+        key = raw[:160]
+        if key in seen:
+            continue
+        seen.add(key)
+        label = (item.name or "").strip() or (item.baseName or "").strip() or (item.slot or "\u7a00\u6709\u88c5\u5907")
+        items.append(
+            {
+                "label": label,
+                "raw": raw,
+                "slot": item.slot,
+                "base_name": (item.baseName or "").strip(),
+            }
+        )
+    return items
+
+
+def _format_rare_item_answer(item: dict[str, Any], quote: dict[str, Any]) -> str:
+    label = quote.get("item") or item.get("label") or "?"
+    if quote.get("error"):
+        extra = ""
+        missed = quote.get("mods_missed") or []
+        if missed:
+            extra = f"\uff08\u672a\u6620\u5c04\u8bcd\u7f00\uff1a{missed[0]}\u7b49\uff09"
+        return f"### {label}\n\n\u67e5\u8be2\u5931\u8d25\uff1a{quote.get('error')}{extra}"
+    amount = quote.get("amount")
+    currency = _currency_label(str(quote.get("currency", "")))
+    matched = quote.get("mods_matched")
+    total = quote.get("mods_total")
+    mod_note = f"\uff08\u5339\u914d {matched}/{total} \u6761\u8bcd\u7f00\uff09" if matched and total else ""
+    line = f"**{amount}** {currency}{mod_note}"
+    name = quote.get("item_name")
+    if name:
+        line += f"\uff08\u5e02\u96c6\uff1a{name}\uff09"
+    return f"### {label}\n\n\u5f53\u524d\u6700\u4f4e\u6807\u4ef7\uff1a{line}"
+
+
 def _extract_unique_names(data) -> list[str]:
     names: list[str] = []
     seen: set[str] = set()
@@ -287,6 +336,7 @@ async def stream_build_cost(
 ) -> AsyncIterator[dict[str, Any]]:
     from app.models.schemas import ErrorResponse
     from app.services.chat_tools import find_build_input
+    from app.services.pob_rare_trade import quote_pob_rare_sync
     from app.services.pob_service import decode_pob
 
     build_input = find_build_input(user_msg)
@@ -294,21 +344,23 @@ async def stream_build_cost(
         yield {"type": "route", "content": "default_agent"}
         return
 
-    yield {"type": "thinking", "content": "检测到 BD 链接，正在解析装备清单…"}
+    yield {"type": "thinking", "content": "\u68c0\u6d4b\u5230 BD \u94fe\u63a5\uff0c\u6b63\u5728\u89e3\u6790\u88c5\u5907\u6e05\u5355\u2026"}
     result = await asyncio.to_thread(decode_pob, build_input)
     if isinstance(result, ErrorResponse):
-        yield {"type": "answer", "content": f"### 解析失败\n\n{result.error}"}
+        yield {"type": "answer", "content": f"### \u89e3\u6790\u5931\u8d25\n\n{result.error}"}
         yield {"type": "done"}
         return
 
     b = result.build
+    rares = _extract_rare_items(result)
     uniques = _extract_unique_names(result)
-    if not uniques:
+    total_items = len(rares) + len(uniques)
+    if total_items == 0:
         yield {
             "type": "answer",
             "content": (
                 f"### {b.className or 'BD'} / {b.ascendClassName or '?'}\n\n"
-                "已解析 PoB，但未识别到暗金装备，无法自动汇总造价。"
+                "\u5df2\u89e3\u6790 PoB\uff0c\u4f46\u672a\u8bc6\u522b\u5230\u53ef\u67e5\u4ef7\u7684\u6697\u91d1/\u7a00\u6709\u88c5\u5907\u3002"
             ),
         }
         yield {"type": "done"}
@@ -318,22 +370,39 @@ async def stream_build_cost(
         "type": "answer",
         "content": (
             f"### {b.className or 'BD'} / {b.ascendClassName or '?'} L{b.level or '?'}\n\n"
-            f"识别到 **{len(uniques)}** 件暗金，逐个查询国服市集（约 {len(uniques) * 8} 秒）…\n\n"
+            f"\u8bc6\u522b\u5230 **{len(rares)}** \u4ef6\u7a00\u6709 + **{len(uniques)}** \u4ef6\u6697\u91d1\uff0c"
+            f"\u9010\u4e2a\u67e5\u8be2\u56fd\u670d\u5e02\u96c6\uff08\u7ea6 {total_items * 8} \u79d2\uff09\u2026\n\n"
         ),
-    }
-    yield {
-        "type": "thinking",
-        "content": f"暗金清单：{', '.join(uniques[:8])}{'…' if len(uniques) > 8 else ''}",
     }
 
     quotes: list[dict[str, Any]] = []
-    for idx, item in enumerate(uniques, start=1):
-        yield {"type": "thinking", "content": f"({idx}/{len(uniques)}) 正在搜索：{item}"}
-        quote = await asyncio.to_thread(_quote_one_sync, item, market, league)
+    step = 0
+    for rare in rares:
+        step += 1
+        label = rare["label"]
+        yield {"type": "thinking", "content": f"({step}/{total_items}) [\u7a00\u6709] \u6b63\u5728\u641c\u7d22\uff1a{label}"}
+        quote = await asyncio.to_thread(
+            quote_pob_rare_sync,
+            label,
+            rare["raw"],
+            rare.get("slot"),
+            rare.get("base_name") or "",
+            market,
+            league,
+        )
         quotes.append(quote)
         if quote.get("trade_result"):
             yield {"type": "trade_result", "content": quote["trade_result"]}
-        yield {"type": "answer", "content": _format_item_answer(item, quote) + "\n"}
+        yield {"type": "answer", "content": _format_rare_item_answer(rare, quote) + "\n"}
+
+    for unique in uniques:
+        step += 1
+        yield {"type": "thinking", "content": f"({step}/{total_items}) [\u6697\u91d1] \u6b63\u5728\u641c\u7d22\uff1a{unique}"}
+        quote = await asyncio.to_thread(_quote_one_sync, unique, market, league)
+        quotes.append(quote)
+        if quote.get("trade_result"):
+            yield {"type": "trade_result", "content": quote["trade_result"]}
+        yield {"type": "answer", "content": _format_item_answer(unique, quote) + "\n"}
 
     yield {"type": "answer", "content": _format_summary(quotes)}
     yield {"type": "done"}
