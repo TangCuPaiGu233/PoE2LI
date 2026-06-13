@@ -8,7 +8,9 @@ Pricing policy (BD cost from user PoB):
 
 from __future__ import annotations
 
+import json
 import math
+import os
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -126,6 +128,54 @@ def build_pob_rare_stat_groups(
         }
     ]
 
+
+
+def _has_cjk(text: str) -> bool:
+    return any("\u4e00" <= ch <= "\u9fff" for ch in (text or ""))
+
+
+def _data_dir() -> str:
+    data_dir = "/app/data"
+    if not os.path.isdir(data_dir):
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    return data_dir
+
+
+_base_en_cn_cache: dict[str, str] | None = None
+
+
+def _load_base_en_cn_map() -> dict[str, str]:
+    global _base_en_cn_cache
+    if _base_en_cn_cache is not None:
+        return _base_en_cn_cache
+    mapping: dict[str, str] = {}
+    path = os.path.join(_data_dir(), "base_en_cn.json")
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as f:
+            payload = json.load(f)
+        raw = payload.get("en_to_cn") if isinstance(payload, dict) else None
+        if isinstance(raw, dict):
+            mapping = {str(k).strip(): str(v).strip() for k, v in raw.items() if k and v}
+    _base_en_cn_cache = mapping
+    return mapping
+
+
+def resolve_base_type_cn(en_base: str) -> str | None:
+    """Map PoB/Trade EN base type to CN realm trade type string."""
+    raw = (en_base or "").strip()
+    if not raw:
+        return None
+    if _has_cjk(raw):
+        return raw
+    hit = _load_base_en_cn_map().get(raw)
+    if hit:
+        return hit
+    lower = raw.lower()
+    for key, val in _load_base_en_cn_map().items():
+        if key.lower() == lower:
+            return val
+    return None
+
 POB_SLOT_TO_ITEM_TYPE: dict[str, str] = {
     "Amulet": "accessory.amulet",
     "Ring 1": "accessory.ring",
@@ -236,7 +286,12 @@ def quote_pob_rare_sync(
     if item_type:
         intent["item_type"] = item_type
     if base_name:
-        intent["base_type"] = base_name
+        if market == "cn":
+            cn_base = resolve_base_type_cn(base_name)
+            if cn_base:
+                intent["base_type"] = cn_base
+        else:
+            intent["base_type"] = base_name
 
     search = search_trade(intent, league=league, market=market)
     trade_data = {
