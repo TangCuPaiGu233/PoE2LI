@@ -149,13 +149,22 @@ def _load_base_en_cn_map() -> dict[str, str]:
     if _base_en_cn_cache is not None:
         return _base_en_cn_cache
     mapping: dict[str, str] = {}
-    path = os.path.join(_data_dir(), "base_en_cn.json")
-    if os.path.isfile(path):
+    here = os.path.dirname(__file__)
+    candidates = [
+        os.path.join(_data_dir(), "base_en_cn.json"),
+        os.path.join(here, "..", "data", "base_en_cn.json"),
+        os.path.join(here, "..", "..", "data", "base_en_cn.json"),
+    ]
+    for path in candidates:
+        path = os.path.normpath(path)
+        if not os.path.isfile(path):
+            continue
         with open(path, encoding="utf-8") as f:
             payload = json.load(f)
         raw = payload.get("en_to_cn") if isinstance(payload, dict) else None
         if isinstance(raw, dict):
             mapping = {str(k).strip(): str(v).strip() for k, v in raw.items() if k and v}
+            break
     _base_en_cn_cache = mapping
     return mapping
 
