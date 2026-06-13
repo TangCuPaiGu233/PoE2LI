@@ -8,7 +8,9 @@ import os
 from collections.abc import AsyncIterator
 from typing import Any
 
-from openai import OpenAI
+import asyncio
+
+from openai import AsyncOpenAI
 
 from app.services.chat_tools import (
     TOOL_DEFINITIONS,
@@ -43,8 +45,8 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。
 """
 
 
-def _llm_client() -> OpenAI:
-    return OpenAI(
+def _llm_client() -> AsyncOpenAI:
+    return AsyncOpenAI(
         base_url=os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
         api_key=os.getenv("LLM_API_KEY", ""),
     )
@@ -93,7 +95,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     while tool_round < MAX_TOOL_ROUNDS:
         tool_round += 1
         try:
-            response = client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=_model(),
                 messages=agent_messages,
                 tools=TOOL_DEFINITIONS,
@@ -187,7 +189,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}
 
     try:
-        stream = client.chat.completions.create(
+        stream = await client.chat.completions.create(
             model=_model(),
             messages=agent_messages,
             temperature=0.3,
@@ -195,7 +197,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             stream=True,
             extra_body={"thinking": {"type": "enabled"}},
         )
-        for chunk in stream:
+        async for chunk in stream:
             delta = chunk.choices[0].delta
             reasoning = getattr(delta, "reasoning_content", None) or (
                 delta.model_extra.get("reasoning_content")

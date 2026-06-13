@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -437,11 +438,11 @@ async def execute_tool(
                 ),
             )
         ctx.rag_search_calls += 1
-        return _run_rag_search(args, ctx)
+        return await asyncio.to_thread(_run_rag_search, args, ctx)
     if name == "decode_pob":
         return _run_decode_pob(args, ctx)
     if name == "trade_search":
-        return _run_trade_search(args, ctx)
+        return await asyncio.to_thread(_run_trade_search, args, ctx)
     if name == "recommend":
         return await _run_recommend(args, ctx)
     return ToolRunResult(content=json.dumps({"error": f"unknown_tool:{name}"}))
