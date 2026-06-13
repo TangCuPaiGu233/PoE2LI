@@ -279,6 +279,7 @@ def _build_plans(resolved: dict, item_slot: str | None) -> list[dict]:
 # ── Step 4: Execute search ──
 
 def _execute_plan(plan: dict, item_slot: str | None, league: str,
+                  market: str = "cn",
                   sort: str | None = None, sort_dir: str = "desc",
                   budget: dict | None = None) -> dict:
     """Execute a single search plan against the Trade API."""
@@ -304,7 +305,7 @@ def _execute_plan(plan: dict, item_slot: str | None, league: str,
         else:
             intent["weapon"] = {"edps": {"min": 1}}
 
-    result = search_trade(intent, league)
+    result = search_trade(intent, league, market)
     return {
         "plan_name": plan["name"],
         "total": result.get("total_results", 0),
@@ -316,26 +317,25 @@ def _execute_plan(plan: dict, item_slot: str | None, league: str,
 
 # ── Step 5: Inspect results ──
 
-def _inspect_results(url: str, intent: dict, count: int = 3) -> dict:
+def _inspect_results(url: str, intent: dict, market: str = "cn", league: str | None = None, count: int = 3) -> dict:
     """Fetch top N items from a search and verify they match the intent."""
-    import cloudscraper
+    from app.services.trade_realm import search_result_api_url, fetch_api_url, resolve_league
+    from app.services.trade_service import _get_scraper
 
     # Extract search_id from URL
     search_id = url.split("/")[-1] if url else ""
     if not search_id:
         return {"passed": False, "reason": "no search_id"}
 
-    league = intent.get("league", "Standard")
+    resolved_league = resolve_league(market, league)
     item_slot = intent.get("item_slot")
     must_have_concepts = [r.get("concept") for r in intent.get("must_have", [])]
 
     try:
-        scraper = cloudscraper.create_scraper(
-            browser={"browser": "chrome", "platform": "windows", "mobile": False}
-        )
+        scraper = _get_scraper(market)
 
         # Get item IDs from search
-        search_url = f"https://www.pathofexile.com/api/trade2/search/{league}/{search_id}"
+        search_url = search_result_api_url(market, resolved_league, search_id)
         resp = scraper.get(search_url, timeout=15)
         if resp.status_code != 200:
             return {"passed": False, "reason": f"search fetch failed: HTTP {resp.status_code}"}
@@ -344,7 +344,7 @@ def _inspect_results(url: str, intent: dict, count: int = 3) -> dict:
             return {"passed": False, "reason": "no items in result"}
 
         # Fetch item details
-        fetch_url = f"https://www.pathofexile.com/api/trade2/fetch/{','.join(item_ids)}?query={search_id}"
+        fetch_url = fetch_api_url(market, item_ids, search_id)
         resp2 = scraper.get(fetch_url, timeout=15)
         if resp2.status_code != 200:
             return {"passed": False, "reason": f"item fetch failed: HTTP {resp2.status_code}"}
@@ -409,7 +409,7 @@ def _concept_in_mods(concept_name: str, mods_text: str) -> bool:
 
 # ── Agent loop ──
 
-def run_agent(query: str, league: str = "Standard") -> dict:
+def run_agent(query: str, league: str | None = None, market: str = "cn") -> dict:
     """Run the Trade Search Agent.
 
     Flow:
@@ -420,9 +420,11 @@ def run_agent(query: str, league: str = "Standard") -> dict:
       5. Return best results + explanation
     """
     from app.core.database import SessionLocal
+    from app.services.trade_realm import resolve_league
 
     t_start = time.time()
     db = SessionLocal()
+    resolved_league = resolve_league(market, league)
 
     try:
         # Step 1: Parse intent
@@ -465,12 +467,12 @@ def run_agent(query: str, league: str = "Standard") -> dict:
         logger.info("=== Step 4: Execute + Inspect ===")
         results = []
         for plan in plans:
-            result = _execute_plan(plan, item_slot, league, sort, sort_dir, budget)
+            result = _execute_plan(plan, item_slot, resolved_league, market, sort, sort_dir, budget)
             logger.info(f"  Plan '{plan['name']}': {result['total']} results")
 
             inspection = None
             if result["total"] > 0 and result["url"]:
-                inspection = _inspect_results(result["url"], intent, count=3)
+                inspection = _inspect_results(result["url"], intent, market=market, league=resolved_league, count=3)
 
             results.append({
                 "plan": plan["name"],

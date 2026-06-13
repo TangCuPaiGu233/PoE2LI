@@ -37,7 +37,7 @@ const EXAMPLE_QUERIES = [
 
 export default function TradePage() {
   const [query, setQuery] = useState("");
-  const [league] = useState("Standard");
+  const [market, setMarket] = useState<"cn" | "global">("cn");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TradeResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function TradePage() {
       const res = await fetch(`${getApiUrl()}/api/trade/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q.trim(), league }),
+        body: JSON.stringify({ query: q.trim(), market, league: null }),
       });
 
       if (!res.ok) {
@@ -84,8 +84,34 @@ export default function TradePage() {
             装备搜索
           </h1>
           <p className="text-gray-500 mt-1 text-sm">
-            用自然语言描述你想要的装备，直接跳转到 PoE2 官方交易站
+            {market === "cn"
+              ? "用自然语言描述你想要的装备，直接跳转到国服市集"
+              : "用自然语言描述你想要的装备，直接跳转到 PoE2 国际服交易站"}
           </p>
+          <div className="flex justify-center gap-2 mt-3">
+            <button
+              type="button"
+              onClick={() => setMarket("cn")}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                market === "cn"
+                  ? "bg-emerald-600/20 border-emerald-600/50 text-emerald-300"
+                  : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              国服
+            </button>
+            <button
+              type="button"
+              onClick={() => setMarket("global")}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                market === "global"
+                  ? "bg-emerald-600/20 border-emerald-600/50 text-emerald-300"
+                  : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              国际服
+            </button>
+          </div>
         </header>
 
         {/* Search Form */}

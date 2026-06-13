@@ -2,6 +2,7 @@
 
 import os
 import logging
+from typing import Literal
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,8 @@ _ingest_state = {"running": False, "result": None}
 class TradeSearchRequest(BaseModel):
     """Natural language trade search request."""
     query: str = Field(..., min_length=2, description="自然语言搜索，如：'帮我找一条加2召唤兽等级的项链'")
-    league: str = Field("Standard", description="赛季名称")
+    league: str | None = Field(None, description="赛季名称，留空则用市场默认")
+    market: Literal["cn", "global"] = Field("cn", description="交易市场：国服/ 国际服")
 
 
 class SearchMatch(BaseModel):
@@ -42,7 +44,7 @@ class TradeSearchResponse(BaseModel):
 @router.post("/api/trade/search", response_model=TradeSearchResponse)
 async def trade_search_endpoint(req: TradeSearchRequest):
     """Parse natural language query and return PoE2 Trade search URL."""
-    result = run_agent(req.query, req.league)
+    result = run_agent(req.query, req.league, req.market)
     return TradeSearchResponse(
         best_match=SearchMatch(**result["best_match"]) if result.get("best_match") else None,
         alternatives=[SearchMatch(**a) for a in result.get("alternatives", [])],

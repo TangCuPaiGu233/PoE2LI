@@ -31,12 +31,16 @@ from typing import Optional
 
 import cloudscraper
 
-logger = logging.getLogger(__name__)
+from app.services.trade_realm import (
+    DEFAULT_MARKET,
+    referer_url,
+    resolve_league,
+    search_api_url,
+    trade_page_url,
+    get_realm,
+)
 
-# ── Trade API endpoints ──
-TRADE_API_BASE = "https://www.pathofexile.com/api/trade2/search/poe2"
-TRADE_URL_BASE = "https://www.pathofexile.com/trade2/search/poe2"
-TRADE_EXCHANGE_API = "https://www.pathofexile.com/api/trade2/exchange/poe2"
+logger = logging.getLogger(__name__)
 
 # ── Rate limiting ──
 MIN_REQUEST_INTERVAL = 6  # seconds between requests
@@ -618,22 +622,23 @@ def parse_intent_ai(query: str) -> dict:
 #  Cloudscraper session (reusable across requests)
 # ═══════════════════════════════════════════════════════════
 
-_scraper = None
+_scrapers: dict[str, cloudscraper.CloudScraper] = {}
 
-def _get_scraper() -> cloudscraper.CloudScraper:
-    """Get or create a cloudscraper session."""
-    global _scraper
-    if _scraper is None:
-        _scraper = cloudscraper.create_scraper(
+def _get_scraper(market: str = DEFAULT_MARKET) -> cloudscraper.CloudScraper:
+    """Get or create a per-realm cloudscraper session."""
+    if market not in _scrapers:
+        realm = get_realm(market)
+        scraper = cloudscraper.create_scraper(
             browser={"browser": "chrome", "platform": "windows", "mobile": False}
         )
-        _scraper.headers.update({
+        scraper.headers.update({
             "Accept": "application/json",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Origin": "https://www.pathofexile.com",
-            "Referer": "https://www.pathofexile.com/trade2/search/poe2/Standard",
+            "Accept-Language": "en-US,en;q=0.9,zh-CN,zh;q=0.9",
+            "Origin": realm.origin,
+            "Referer": referer_url(market),
         })
-    return _scraper
+        _scrapers[market] = scraper
+    return _scrapers[market]
 
 
 def _rate_limit():
@@ -794,12 +799,13 @@ def build_trade_query(intent: dict) -> dict:
     }
 
 
-def search_trade(intent: dict, league: str = "Standard") -> dict:
+def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_MARKET) -> dict:
     """Execute a trade search and return the result."""
     trade_query = build_trade_query(intent)
+    resolved_league = resolve_league(market, league)
 
     # Check Redis cache
-    cache_key = f"trade:{league}:{hashlib.md5(json.dumps(trade_query, sort_keys=True).encode()).hexdigest()}"
+    cache_key = f"trade:{market}:{resolved_league}:{hashlib.md5(json.dumps(trade_query, sort_keys=True).encode()).hexdigest()}"
     try:
         from app.core.redis_client import get_redis
         r = get_redis()
@@ -814,8 +820,8 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
     logger.info(f"Step 3: Calling official Trade API...")
     t3 = time.time()
     _rate_limit()
-    scraper = _get_scraper()
-    url = f"{TRADE_API_BASE}/{league}"
+    scraper = _get_scraper(market)
+    url = search_api_url(market, resolved_league)
 
     query_json = json.dumps(trade_query, ensure_ascii=False)
     logger.info(f"Trade search POST to {url}: {query_json[:500]}")
@@ -844,7 +850,7 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
         return {"error": "Trade API 未返回搜索 ID"}
 
     total = data.get("total", 0)
-    trade_url = f"{TRADE_URL_BASE}/{league}/{search_id}"
+    trade_url = trade_page_url(market, resolved_league, search_id)
 
     result = {
         "trade_url": trade_url,
@@ -870,7 +876,7 @@ def search_trade(intent: dict, league: str = "Standard") -> dict:
 #  Public API
 # ═══════════════════════════════════════════════════════════
 
-def trade_search(query: str, league: str = "Standard") -> dict:
+def trade_search(query: str, league: str | None = None, market: str = DEFAULT_MARKET) -> dict:
     """Main entry point: natural language query → trade URL.
 
     Uses AI (LLM) for intent parsing + vector search for stat matching.
@@ -909,4 +915,4 @@ def trade_search(query: str, league: str = "Standard") -> dict:
     if not has_filters:
         return {"error": "无法解析搜索意图，请描述具体的装备类型、属性要求或筛选条件"}
 
-    return search_trade(intent, league)
+    return search_trade(intent, league, market)

@@ -375,7 +375,7 @@ def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResu
     query = (args.get("query") or "").strip()
     if not query:
         query = (ctx.user_msg or "")[:200]
-    trade_result = trade_run_agent(query)
+    trade_result = trade_run_agent(query, market="cn")
     best = trade_result.get("best_match")
     alts = trade_result.get("alternatives", [])
     trade_data = {
