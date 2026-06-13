@@ -10,6 +10,9 @@ MarketId = Literal["cn", "global"]
 
 DEFAULT_MARKET: MarketId = "cn"
 
+# UTF-8 league names ? do not re-save this file with wrong encoding.
+CN_DEFAULT_LEAGUE = "\u5965\u675c\u5c14\u79d8\u7b26"  # ?????
+
 
 @dataclass(frozen=True)
 class TradeRealmConfig:
@@ -26,13 +29,13 @@ class TradeRealmConfig:
 REALMS: dict[MarketId, TradeRealmConfig] = {
     "cn": TradeRealmConfig(
         id="cn",
-        label_cn="国服",
+        label_cn="\u56fd\u670d",
         host="poe.game.qq.com",
-        default_league="奥杜尔秘符",
+        default_league=CN_DEFAULT_LEAGUE,
     ),
     "global": TradeRealmConfig(
         id="global",
-        label_cn="国际服",
+        label_cn="\u56fd\u9645\u670d",
         host="www.pathofexile.com",
         default_league="Standard",
     ),
