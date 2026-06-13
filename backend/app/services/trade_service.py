@@ -37,6 +37,7 @@ from app.services.trade_realm import (
     resolve_league,
     search_api_url,
     trade_page_url,
+    trade_status_filter,
     get_realm,
 )
 
@@ -50,6 +51,9 @@ _last_request_time = 0.0
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+
+
+TRADE_CN_POESESSID = os.getenv("TRADE_CN_POESESSID", "")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -624,6 +628,13 @@ def parse_intent_ai(query: str) -> dict:
 
 _scrapers: dict[str, cloudscraper.CloudScraper] = {}
 
+
+def _apply_cn_session(scraper: cloudscraper.CloudScraper) -> None:
+    if not TRADE_CN_POESESSID:
+        return
+    scraper.cookies.set("POESESSID", TRADE_CN_POESESSID, domain="poe.game.qq.com")
+
+
 def _get_scraper(market: str = DEFAULT_MARKET) -> cloudscraper.CloudScraper:
     """Get or create a per-realm cloudscraper session."""
     if market not in _scrapers:
@@ -637,6 +648,8 @@ def _get_scraper(market: str = DEFAULT_MARKET) -> cloudscraper.CloudScraper:
             "Origin": realm.origin,
             "Referer": referer_url(market),
         })
+        if market == "cn":
+            _apply_cn_session(scraper)
         _scrapers[market] = scraper
     return _scrapers[market]
 
@@ -655,7 +668,7 @@ def _rate_limit():
 #  Trade API query builder — full filter support
 # ═══════════════════════════════════════════════════════════
 
-def build_trade_query(intent: dict) -> dict:
+def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     """Build the Trade API search request body from parsed intent.
 
     Supports ALL trade page filter categories:
@@ -666,9 +679,10 @@ def build_trade_query(intent: dict) -> dict:
       - map_filters: map_tier
       - socket_filters: sockets, links
     """
-    query_body = {
-        "status": {"option": "online"},
-    }
+    query_body = {}
+    status = trade_status_filter(market)
+    if status is not None:
+        query_body["status"] = status
     filters = {}
 
     # ── Type filters: category + rarity + ilvl + quality (PoE2 places ilvl/quality here) ──
@@ -801,7 +815,7 @@ def build_trade_query(intent: dict) -> dict:
 
 def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_MARKET) -> dict:
     """Execute a trade search and return the result."""
-    trade_query = build_trade_query(intent)
+    trade_query = build_trade_query(intent, market=market)
     resolved_league = resolve_league(market, league)
 
     # Check Redis cache
@@ -838,6 +852,10 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
         wait_time = 60
         logger.warning(f"Trade API rate limited, waiting {wait_time}s")
         return {"error": f"搜索过于频繁，请 {wait_time} 秒后重试"}
+
+    if resp.status_code == 401 and market == "cn":
+        logger.error("CN Trade API 401: POESESSID missing or expired")
+        return {"error": "国服交易 API 未授权：POESESSID 缺失或已过期。请在服务器 .env 中配置 TRADE_CN_POESESSID（浏览器登录 poe.game.qq.com 后从 Cookie 复制）。"}
 
     if resp.status_code != 200:
         logger.error(f"Trade API returned {resp.status_code}: {resp.text[:200]}")

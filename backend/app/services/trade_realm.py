@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import quote
 
 MarketId = Literal["cn", "global"]
 
@@ -27,7 +28,7 @@ REALMS: dict[MarketId, TradeRealmConfig] = {
         id="cn",
         label_cn="国服",
         host="poe.game.qq.com",
-        default_league="null",
+        default_league="奥杜尔秘符",
     ),
     "global": TradeRealmConfig(
         id="global",
@@ -46,14 +47,21 @@ def get_realm(market: str = DEFAULT_MARKET) -> TradeRealmConfig:
 def resolve_league(market: str = DEFAULT_MARKET, league: str | None = None) -> str:
     """Resolve league segment for API URLs; None uses realm default."""
     realm = get_realm(market)
-    return league if league else realm.default_league
+    if not league or not str(league).strip():
+        return realm.default_league
+    raw = str(league).strip()
+    if market == "cn" and raw.lower() in ("standard", "null"):
+        return realm.default_league
+    if market == "global" and raw.lower() == "null":
+        return "Standard"
+    return raw
 
 
 def search_api_url(market: str = DEFAULT_MARKET, league: str | None = None) -> str:
     """POST endpoint to create a new trade search."""
     realm = get_realm(market)
     lg = resolve_league(market, league)
-    return f"{realm.origin}/api/trade2/search/poe2/{lg}"
+    return f"{realm.origin}/api/trade2/search/poe2/{quote(lg)}"
 
 
 def trade_page_url(
@@ -64,7 +72,7 @@ def trade_page_url(
     """User-facing trade page URL."""
     realm = get_realm(market)
     lg = resolve_league(market, league)
-    base = f"{realm.origin}/trade2/search/poe2/{lg}"
+    base = f"{realm.origin}/trade2/search/poe2/{quote(lg)}"
     return f"{base}/{search_id}" if search_id else base
 
 
@@ -76,7 +84,7 @@ def search_result_api_url(
     """GET endpoint to retrieve search result item IDs."""
     realm = get_realm(market)
     lg = resolve_league(market, league)
-    return f"{realm.origin}/api/trade2/search/poe2/{lg}/{search_id}"
+    return f"{realm.origin}/api/trade2/search/poe2/{quote(lg)}/{search_id}"
 
 
 def fetch_api_url(
@@ -93,3 +101,9 @@ def fetch_api_url(
 def referer_url(market: str = DEFAULT_MARKET, league: str | None = None) -> str:
     """Referer header value for trade API requests."""
     return trade_page_url(market, league)
+
+
+def trade_status_filter(market: str = DEFAULT_MARKET) -> dict | None:
+    if market == "cn":
+        return None
+    return {"option": "online"}
