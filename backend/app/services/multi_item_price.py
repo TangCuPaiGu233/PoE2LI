@@ -237,3 +237,92 @@ async def stream_multi_item_prices(
 
     yield {"type": "answer", "content": _format_summary(quotes)}
     yield {"type": "done"}
+
+
+_BUILD_COST_KEYWORDS = re.compile(
+    r"(?:造价|成本|花费|值多少|多少钱|价格|多少币|花多少|多少e|多少d|市价)"
+)
+
+
+def is_build_cost_query(text: str) -> bool:
+    from app.services.chat_tools import find_build_input
+
+    if not text or not _BUILD_COST_KEYWORDS.search(text):
+        return False
+    return find_build_input(text) is not None
+
+
+def _extract_unique_names(data) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for item in data.items or []:
+        if (item.rarity or "").upper() != "UNIQUE":
+            continue
+        name = (item.name or "").strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        names.append(name)
+    return names
+
+
+async def stream_build_cost(
+    user_msg: str,
+    market: str = "cn",
+    league: str | None = None,
+) -> AsyncIterator[dict[str, Any]]:
+    from app.models.schemas import ErrorResponse
+    from app.services.chat_tools import find_build_input
+    from app.services.pob_service import decode_pob
+
+    build_input = find_build_input(user_msg)
+    if not build_input:
+        yield {"type": "route", "content": "default_agent"}
+        return
+
+    yield {"type": "thinking", "content": "检测到 BD 链接，正在解析装备清单…"}
+    result = await asyncio.to_thread(decode_pob, build_input)
+    if isinstance(result, ErrorResponse):
+        yield {"type": "answer", "content": f"### 解析失败\n\n{result.error}"}
+        yield {"type": "done"}
+        return
+
+    b = result.build
+    uniques = _extract_unique_names(result)
+    if not uniques:
+        yield {
+            "type": "answer",
+            "content": (
+                f"### {b.className or 'BD'} / {b.ascendClassName or '?'}\n\n"
+                "已解析 PoB，但未识别到暗金装备，无法自动汇总造价。"
+            ),
+        }
+        yield {"type": "done"}
+        return
+
+    yield {
+        "type": "answer",
+        "content": (
+            f"### {b.className or 'BD'} / {b.ascendClassName or '?'} L{b.level or '?'}\n\n"
+            f"识别到 **{len(uniques)}** 件暗金，逐个查询国服市集（约 {len(uniques) * 8} 秒）…\n\n"
+        ),
+    }
+    yield {
+        "type": "thinking",
+        "content": f"暗金清单：{', '.join(uniques[:8])}{'…' if len(uniques) > 8 else ''}",
+    }
+
+    quotes: list[dict[str, Any]] = []
+    for idx, item in enumerate(uniques, start=1):
+        yield {"type": "thinking", "content": f"({idx}/{len(uniques)}) 正在搜索：{item}"}
+        quote = await asyncio.to_thread(_quote_one_sync, item, market, league)
+        quotes.append(quote)
+        if quote.get("trade_result"):
+            yield {"type": "trade_result", "content": quote["trade_result"]}
+        yield {"type": "answer", "content": _format_item_answer(item, quote) + "\n"}
+
+    yield {"type": "answer", "content": _format_summary(quotes)}
+    yield {"type": "done"}

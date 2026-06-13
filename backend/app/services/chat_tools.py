@@ -440,7 +440,7 @@ async def execute_tool(
         ctx.rag_search_calls += 1
         return await asyncio.to_thread(_run_rag_search, args, ctx)
     if name == "decode_pob":
-        return _run_decode_pob(args, ctx)
+        return await asyncio.to_thread(_run_decode_pob, args, ctx)
     if name == "trade_search":
         return await asyncio.to_thread(_run_trade_search, args, ctx)
     if name == "recommend":

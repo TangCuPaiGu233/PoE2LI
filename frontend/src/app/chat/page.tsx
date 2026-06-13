@@ -86,7 +86,7 @@ export default function ChatPage() {
     stickToBottomRef.current = true;
     const userMsg: Message = { role: "user", content: q };
     const all = [...messages, userMsg];
-    setMessages(all); setThinking([]); setReasoning(""); setSkill("idle"); setStreaming(true);
+    setMessages(all); setThinking(["已收到问题，正在连接服务器…"]); setReasoning(""); setSkill("idle"); setStreaming(true);
 
     const history = all.filter(m => m.role === "user" || m.role === "assistant").map(m => ({ role: m.role, content: m.content }));
     let acc = ""; let sk = "idle";

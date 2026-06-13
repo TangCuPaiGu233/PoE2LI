@@ -76,9 +76,20 @@ def _parse_tool_args(raw: str | None) -> dict[str, Any]:
 
 async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:
     """Run the agent loop and yield SSE event dicts."""
-    from app.services.multi_item_price import is_multi_item_price_query, stream_multi_item_prices
+    from app.services.multi_item_price import is_multi_item_price_query, stream_multi_item_prices, is_build_cost_query, stream_build_cost
 
     user_msg = (messages[-1].get("content") if messages else "") or ""
+
+    if is_build_cost_query(user_msg):
+        yield {"type": "thinking", "content": "检测到 BD 造价查询，进入专用流水线…"}
+        async for event in stream_build_cost(user_msg, market="cn"):
+            if event.get("type") == "route" and event.get("content") == "default_agent":
+                break
+            yield event
+            if event.get("type") == "done":
+                return
+        else:
+            return
 
     if is_multi_item_price_query(user_msg):
         yield {"type": "thinking", "content": "检测到多件查价，进入市价流水线…"}
