@@ -90,7 +90,7 @@ def _extract_items_sync(text: str) -> list[str]:
 
 def _currency_label(currency: str) -> str:
     return {
-        "chaos": "混汆石",
+        "chaos": "混沖石",
         "divine": "神圣石",
         "exalted": "崇高石",
         "mirror": "镜子",
@@ -184,6 +184,7 @@ def _quote_one_sync(
         search["trade_url"],
         market=market,
         league=league,
+        skip_rate_limit=True,
         item_ids=search.get("item_ids"),
     )
     if listing.get("error"):
@@ -204,11 +205,20 @@ async def stream_multi_item_prices(
     market: str = "cn",
     league: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    items = await asyncio.to_thread(_extract_items_sync, user_msg)
+    yield {"type": "thinking", "content": "正在识别要查价的物品…"}
+    fallback = _fallback_split_items(user_msg)
+    if len(fallback) >= 2:
+        items = fallback
+    else:
+        items = await asyncio.to_thread(_extract_items_sync, user_msg)
     if len(items) <= 1:
         yield {"type": "route", "content": "default_agent"}
         return
 
+    yield {
+        "type": "answer",
+        "content": f"共 **{len(items)}** 件装备，逐个查询国服市集（约 {len(items) * 8} 秒）…\n\n",
+    }
     yield {
         "type": "thinking",
         "content": f"识别到 {len(items)} 个物品，将逐个查询国服市集最低价。",

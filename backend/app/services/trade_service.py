@@ -1100,6 +1100,7 @@ def fetch_cheapest_listing(
     market: str = DEFAULT_MARKET,
     league: str | None = None,
     item_ids: list | None = None,
+    skip_rate_limit: bool = False,
 ) -> dict:
     """Fetch the cheapest listing price from a trade search page URL."""
     from app.services.trade_realm import fetch_api_url, resolve_league, search_result_api_url
@@ -1109,11 +1110,12 @@ def fetch_cheapest_listing(
         return {"error": "invalid trade URL"}
 
     resolved_league = resolve_league(market, league)
-    _rate_limit()
+    if not skip_rate_limit:
+        _rate_limit()
     scraper = _get_scraper(market)
 
     if item_ids:
-        item_ids = list(item_ids)[:5]
+        item_ids = list(item_ids)[:1]
     else:
         search_url = search_result_api_url(market, resolved_league, search_id)
         try:
@@ -1137,7 +1139,8 @@ def fetch_cheapest_listing(
 
     last_err = "no price on listing"
     for item_id in item_ids:
-        _rate_limit()
+        if not skip_rate_limit:
+            _rate_limit()
         fetch_url = fetch_api_url(market, item_id, search_id)
         try:
             resp2 = scraper.get(fetch_url, timeout=15)

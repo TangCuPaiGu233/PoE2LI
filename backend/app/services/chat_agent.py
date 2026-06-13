@@ -81,6 +81,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     user_msg = (messages[-1].get("content") if messages else "") or ""
 
     if is_multi_item_price_query(user_msg):
+        yield {"type": "thinking", "content": "检测到多件查价，进入市价流水线…"}
         async for event in stream_multi_item_prices(user_msg, market="cn"):
             if event.get("type") == "route" and event.get("content") == "default_agent":
                 break
