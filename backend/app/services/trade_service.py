@@ -680,6 +680,10 @@ def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
       - socket_filters: sockets, links
     """
     query_body = {}
+    if intent.get("unique_name"):
+        query_body["name"] = intent["unique_name"]
+    if intent.get("base_type"):
+        query_body["type"] = intent["base_type"]
     status = trade_status_filter(market)
     if status is not None:
         query_body["status"] = status
@@ -689,8 +693,11 @@ def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     type_f = {}
     if intent.get("item_type"):
         type_f["category"] = {"option": intent["item_type"]}
-    if intent.get("rarity"):
-        type_f["rarity"] = {"option": intent["rarity"]}
+    rarity_opt = intent.get("rarity")
+    if intent.get("unique_name"):
+        rarity_opt = "unique"
+    if rarity_opt:
+        type_f["rarity"] = {"option": rarity_opt}
     if intent.get("item_level"):
         type_f["ilvl"] = intent["item_level"]
     if intent.get("quality"):
@@ -893,6 +900,147 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
 # ═══════════════════════════════════════════════════════════
 
 
+
+COLLOQUIAL_CN_ALIASES: dict[str, str] = {
+    "法血": "Mageblood",
+    "猎首": "Headhunter",
+    "战猫": "Kaom's Heart",
+    "混池": "Chaos Orb",
+    "神圣": "Divine Orb",
+    "醒醒石": "Awakened Sextant",
+}
+
+_unique_cn_en_cache: dict | None = None
+
+
+def _data_dir() -> str:
+    data_dir = "/app/data"
+    if not os.path.isdir(data_dir):
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    return data_dir
+
+
+def _load_unique_cn_en_map() -> dict[str, dict]:
+    global _unique_cn_en_cache
+    if _unique_cn_en_cache is not None:
+        return _unique_cn_en_cache
+    path = os.path.join(_data_dir(), "unique_cn_en.json")
+    if not os.path.exists(path):
+        _unique_cn_en_cache = {}
+        return _unique_cn_en_cache
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    _unique_cn_en_cache = data.get("cn_to_en") or {}
+    return _unique_cn_en_cache
+
+
+def _base_type_for_unique(en_name: str) -> str | None:
+    try:
+        from app.services.entity_data import load_uniques
+
+        for u in load_uniques():
+            if u.get("name") == en_name:
+                bt = (u.get("base_type") or "").strip()
+                return bt or None
+    except Exception:
+        pass
+    return None
+
+
+def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
+    """Resolve CN/EN/colloquial label to Trade API unique name + optional base type."""
+    raw = (text or "").strip()
+    if not raw:
+        return None
+
+    # Strip common price noise
+    for noise in ("多少钱", "价格", "市价", "最便宜"):
+        raw = raw.replace(noise, "")
+    raw = raw.strip(" 	、，,；;")
+
+    if raw in COLLOQUIAL_CN_ALIASES:
+        en = COLLOQUIAL_CN_ALIASES[raw]
+        if en.endswith(" Orb"):
+            return None
+        out = {"unique_name": en, "matched": raw, "source": "colloquial"}
+        bt = _base_type_for_unique(en)
+        if bt:
+            out["base_type"] = bt
+        return out
+
+    cn_map = _load_unique_cn_en_map()
+    if raw in cn_map:
+        en = (cn_map[raw].get("en") or "").strip()
+        if en:
+            out = {"unique_name": en, "matched": raw, "source": "unique_cn_en"}
+            bt = _base_type_for_unique(en)
+            if bt:
+                out["base_type"] = bt
+            return out
+
+    # Longest CN substring match
+    cn_hits = [cn for cn in cn_map if cn and cn in raw]
+    if cn_hits:
+        cn = max(cn_hits, key=len)
+        en = (cn_map[cn].get("en") or "").strip()
+        if en:
+            out = {"unique_name": en, "matched": cn, "source": "unique_cn_en_substring"}
+            bt = _base_type_for_unique(en)
+            if bt:
+                out["base_type"] = bt
+            return out
+
+    from app.services.entity_resolver import resolve_entity
+
+    hit = resolve_entity(raw)
+    if hit:
+        en_name, etype = hit[0], hit[1]
+        if etype == "item" and en_name:
+            out = {"unique_name": en_name, "matched": raw, "source": "entity_resolver"}
+            bt = _base_type_for_unique(en_name)
+            if bt:
+                out["base_type"] = bt
+            return out
+
+    from app.services.name_validation import known_unique_names
+
+    canon = known_unique_names()
+    lower = raw.lower()
+    for name in sorted(canon, key=len, reverse=True):
+        if name.lower() == lower or lower.startswith(name.lower()):
+            out = {"unique_name": name, "matched": raw, "source": "canon_en"}
+            bt = _base_type_for_unique(name)
+            if bt:
+                out["base_type"] = bt
+            return out
+
+    return None
+
+
+def search_unique_by_name(
+    item_label: str,
+    market: str = DEFAULT_MARKET,
+    league: str | None = None,
+) -> dict:
+    """Direct unique-item trade search by CN/EN/colloquial name."""
+    resolved = resolve_trade_unique_name(item_label)
+    if not resolved or not resolved.get("unique_name"):
+        return {"error": f"无法识别暗金名称: {item_label}"}
+
+    intent: dict = {
+        "rarity": "unique",
+        "unique_name": resolved["unique_name"],
+        "summary": f"unique {resolved['unique_name']}",
+    }
+    if resolved.get("base_type"):
+        intent["base_type"] = resolved["base_type"]
+
+    result = search_trade(intent, league=league, market=market)
+    if isinstance(result, dict):
+        result["resolved"] = resolved
+    return result
+
+
 def fetch_cheapest_listing(
     trade_url: str,
     market: str = DEFAULT_MARKET,
@@ -916,52 +1064,69 @@ def fetch_cheapest_listing(
         logger.error("Trade search result fetch failed: %s", e)
         return {"error": f"search result fetch failed: {e}"}
 
+    if resp.status_code == 401 and market == "cn":
+        return {
+            "error": "国服交易 API 未授权：POESESSID 缺失或已过期。请在服务器 .env 中配置 TRADE_CN_POESESSID。"
+        }
+
     if resp.status_code != 200:
         return {"error": f"search result HTTP {resp.status_code}"}
 
-    item_ids = resp.json().get("result", [])
+    item_ids = resp.json().get("result", [])[:5]
     if not item_ids:
         return {"error": "no listings"}
 
-    first_id = item_ids[0]
-    _rate_limit()
-    fetch_url = fetch_api_url(market, first_id, search_id)
-    try:
-        resp2 = scraper.get(fetch_url, timeout=15)
-    except Exception as e:
-        logger.error("Trade item fetch failed: %s", e)
-        return {"error": f"item fetch failed: {e}"}
+    last_err = "no price on listing"
+    for item_id in item_ids:
+        _rate_limit()
+        fetch_url = fetch_api_url(market, item_id, search_id)
+        try:
+            resp2 = scraper.get(fetch_url, timeout=15)
+        except Exception as e:
+            logger.error("Trade item fetch failed: %s", e)
+            last_err = f"item fetch failed: {e}"
+            continue
 
-    if resp2.status_code != 200:
-        return {"error": f"item fetch HTTP {resp2.status_code}"}
+        if resp2.status_code == 401 and market == "cn":
+            return {
+                "error": "国服交易 API 未授权：POESESSID 缺失或已过期。"
+            }
 
-    entries = resp2.json().get("result", [])
-    if not entries:
-        return {"error": "empty fetch result"}
+        if resp2.status_code != 200:
+            last_err = f"item fetch HTTP {resp2.status_code}"
+            continue
 
-    entry = entries[0]
-    listing = entry.get("listing") or {}
-    price = listing.get("price") or {}
-    amount = price.get("amount")
-    currency = price.get("currency")
+        entries = resp2.json().get("result", [])
+        if not entries:
+            last_err = "empty fetch result"
+            continue
 
-    item_obj = entry.get("item") or {}
-    name = (item_obj.get("name") or "").strip()
-    type_line = (item_obj.get("typeLine") or "").strip()
-    if name and type_line:
-        item_name = f"{name} {type_line}"
-    else:
-        item_name = name or type_line or ""
+        for entry in entries:
+            listing = entry.get("listing") or {}
+            price = listing.get("price") or {}
+            amount = price.get("amount")
+            currency = price.get("currency")
 
-    if amount is None or not currency:
-        return {"error": "no price on listing", "item_name": item_name}
+            item_obj = entry.get("item") or {}
+            name = (item_obj.get("name") or "").strip()
+            type_line = (item_obj.get("typeLine") or "").strip()
+            if name and type_line:
+                item_name = f"{name} {type_line}"
+            else:
+                item_name = name or type_line or ""
 
-    return {
-        "amount": amount,
-        "currency": currency,
-        "item_name": item_name,
-        "search_id": search_id,
-    }
+            if amount is None or not currency:
+                last_err = "no price on listing"
+                continue
+
+            return {
+                "amount": amount,
+                "currency": currency,
+                "item_name": item_name,
+                "search_id": search_id,
+            }
+
+    return {"error": last_err}
 
 #  Public API
 # ═══════════════════════════════════════════════════════════

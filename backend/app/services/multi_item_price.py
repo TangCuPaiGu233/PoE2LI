@@ -90,7 +90,7 @@ def _extract_items_sync(text: str) -> list[str]:
 
 def _currency_label(currency: str) -> str:
     return {
-        "chaos": "混池石",
+        "chaos": "混汆石",
         "divine": "神圣石",
         "exalted": "崇高石",
         "mirror": "镜子",
@@ -154,28 +154,33 @@ def _quote_one_sync(
     market: str = "cn",
     league: str | None = None,
 ) -> dict[str, Any]:
-    from app.services.trade_agent import run_agent as trade_run_agent
-    from app.services.trade_service import fetch_cheapest_listing
+    from app.services.trade_service import fetch_cheapest_listing, search_unique_by_name
 
-    trade_result = trade_run_agent(f"{item} 最便宜", league=league, market=market)
-    best = trade_result.get("best_match")
+    search = search_unique_by_name(item, market=market, league=league)
+    resolved = search.get("resolved") or {}
+    unique_en = resolved.get("unique_name") or item
+    label = f"{unique_en} ({search.get('total_results', 0)} 条)" if search.get("trade_url") else unique_en
     trade_data = {
         "best_match": (
-            {"label": best["label"], "url": best["url"], "count": best["count"]}
-            if best
+            {
+                "label": label,
+                "url": search.get("trade_url"),
+                "count": search.get("total_results", 0),
+            }
+            if search.get("trade_url")
             else None
         ),
-        "alternatives": [
-            {"label": a["label"], "url": a["url"], "count": a["count"]}
-            for a in (trade_result.get("alternatives") or [])[:3]
-        ],
-        "explanation": trade_result.get("explanation", ""),
+        "alternatives": [],
+        "explanation": search.get("intent_summary") or resolved.get("source") or "",
     }
     base: dict[str, Any] = {"item": item, "trade_result": trade_data}
-    if not best or not best.get("url"):
-        base["error"] = trade_result.get("explanation") or "未找到交易结果"
+    if search.get("error"):
+        base["error"] = search["error"]
         return base
-    listing = fetch_cheapest_listing(best["url"], market=market, league=league)
+    if not search.get("trade_url"):
+        base["error"] = "未找到交易结果"
+        return base
+    listing = fetch_cheapest_listing(search["trade_url"], market=market, league=league)
     if listing.get("error"):
         base["error"] = listing["error"]
         return base

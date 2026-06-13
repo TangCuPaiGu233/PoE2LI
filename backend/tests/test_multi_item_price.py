@@ -38,7 +38,7 @@ def test_format_summary_totals_and_stats():
     assert "## 市价汇总" in text
     assert "### 统计" in text
     assert "成功 **3**" in text
-    assert "混池石：**12**" in text
+    assert "混汆石：**12**" in text
     assert "神圣石：**1**" in text
 
 
