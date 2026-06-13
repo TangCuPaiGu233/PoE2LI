@@ -33,10 +33,11 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。
 4. 百科/机制/技能/物品问题 → 先 entity_resolve（如有中文专名），再 rag_search。
 5. 找装备/市价/交易 → trade_search。
 6. 「哪个更好/推荐/对比」→ recommend。
-7. 可连续调用多个工具；当前问题与历史无关时（例如仅贴链接），不要沿用上一轮话题。
-8. 工具失败时如实告知用户（例如 poe.ninja 角色不存在、链接失效）。
-9. rag_search 必须传入非空 query（英文检索词）；若未提供则服务端会用用户原话前 200 字兜底。同一轮对话最多调用 3 次 rag_search。
-10. **WeGame 分享链接**：`stats:` 行含 Life/FireRes/LightningRes 等时，即 WeGame 面板数据，**必须原样引用**（火/冰/闪抗即元素抗性，闪电抗勿改称「魔抗」）。仅当含 `data_limitation` 时才禁止编造面板数值。WeGame 无升华字段。
+7. **多物品市价列表**（用户一次问多个装备/暗金分别多少钱）：逐个调用 trade_search，每查完一个物品先输出该物品报价，全部完成后再给汇总；不要在一次 trade_search 里混查多个物品。
+8. 可连续调用多个工具；当前问题与历史无关时（例如仅贴链接），不要沿用上一轮话题。
+9. 工具失败时如实告知用户（例如 poe.ninja 角色不存在、链接失效）。
+10. rag_search 必须传入非空 query（英文检索词）；若未提供则服务端会用用户原话前 200 字兜底。同一轮对话最多调用 3 次 rag_search。
+11. **WeGame 分享链接**：`stats:` 行含 Life/FireRes/LightningRes 等时，即 WeGame 面板数据，**必须原样引用**（火/冰/闪抗即元素抗性，闪电抗勿改称「魔抗」）。仅当含 `data_limitation` 时才禁止编造面板数值。WeGame 无升华字段。
 
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
@@ -75,7 +76,20 @@ def _parse_tool_args(raw: str | None) -> dict[str, Any]:
 
 async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:
     """Run the agent loop and yield SSE event dicts."""
+    from app.services.multi_item_price import is_multi_item_price_query, stream_multi_item_prices
+
     user_msg = (messages[-1].get("content") if messages else "") or ""
+
+    if is_multi_item_price_query(user_msg):
+        async for event in stream_multi_item_prices(user_msg, market="cn"):
+            if event.get("type") == "route" and event.get("content") == "default_agent":
+                break
+            yield event
+            if event.get("type") == "done":
+                return
+        else:
+            return
+
     ctx = ChatToolContext(user_msg=user_msg)
     client = _llm_client()
 

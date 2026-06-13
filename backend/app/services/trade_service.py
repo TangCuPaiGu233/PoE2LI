@@ -891,6 +891,78 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
 
 
 # ═══════════════════════════════════════════════════════════
+
+
+def fetch_cheapest_listing(
+    trade_url: str,
+    market: str = DEFAULT_MARKET,
+    league: str | None = None,
+) -> dict:
+    """Fetch the cheapest listing price from a trade search page URL."""
+    from app.services.trade_realm import fetch_api_url, resolve_league, search_result_api_url
+
+    search_id = trade_url.rstrip("/").split("/")[-1] if trade_url else ""
+    if not search_id:
+        return {"error": "invalid trade URL"}
+
+    resolved_league = resolve_league(market, league)
+    _rate_limit()
+    scraper = _get_scraper(market)
+
+    search_url = search_result_api_url(market, resolved_league, search_id)
+    try:
+        resp = scraper.get(search_url, timeout=15)
+    except Exception as e:
+        logger.error("Trade search result fetch failed: %s", e)
+        return {"error": f"search result fetch failed: {e}"}
+
+    if resp.status_code != 200:
+        return {"error": f"search result HTTP {resp.status_code}"}
+
+    item_ids = resp.json().get("result", [])
+    if not item_ids:
+        return {"error": "no listings"}
+
+    first_id = item_ids[0]
+    _rate_limit()
+    fetch_url = fetch_api_url(market, first_id, search_id)
+    try:
+        resp2 = scraper.get(fetch_url, timeout=15)
+    except Exception as e:
+        logger.error("Trade item fetch failed: %s", e)
+        return {"error": f"item fetch failed: {e}"}
+
+    if resp2.status_code != 200:
+        return {"error": f"item fetch HTTP {resp2.status_code}"}
+
+    entries = resp2.json().get("result", [])
+    if not entries:
+        return {"error": "empty fetch result"}
+
+    entry = entries[0]
+    listing = entry.get("listing") or {}
+    price = listing.get("price") or {}
+    amount = price.get("amount")
+    currency = price.get("currency")
+
+    item_obj = entry.get("item") or {}
+    name = (item_obj.get("name") or "").strip()
+    type_line = (item_obj.get("typeLine") or "").strip()
+    if name and type_line:
+        item_name = f"{name} {type_line}"
+    else:
+        item_name = name or type_line or ""
+
+    if amount is None or not currency:
+        return {"error": "no price on listing", "item_name": item_name}
+
+    return {
+        "amount": amount,
+        "currency": currency,
+        "item_name": item_name,
+        "search_id": search_id,
+    }
+
 #  Public API
 # ═══════════════════════════════════════════════════════════
 
