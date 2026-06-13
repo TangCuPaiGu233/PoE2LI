@@ -79,3 +79,10 @@ def test_fetch_cheapest_listing_uses_post_item_ids(mock_rate, mock_get_scraper):
     }
     scraper.get.assert_called_once()
     assert "hash-from-post" in scraper.get.call_args[0][0]
+
+
+def test_en_apostrophe_unique_reverse_lookup():
+    hit = resolve_trade_unique_name("Valako's Vice")
+    assert hit is not None
+    assert hit.get("source") == "unique_cn_en_reverse"
+    assert hit.get("trade_name_cn")

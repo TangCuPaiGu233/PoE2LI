@@ -1034,6 +1034,17 @@ def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
                 out["base_type"] = bt
             return _finalize_unique_resolve(out, cn_key=cn)
 
+    cn_name, _base_cn = _cn_trade_lookup_for_en(raw)
+    if cn_name:
+        meta = cn_map.get(cn_name, {})
+        en = (meta.get("en") or raw).strip()
+        if en:
+            out = {"unique_name": en, "matched": raw, "source": "unique_cn_en_reverse"}
+            bt = _base_type_for_unique(en)
+            if bt:
+                out["base_type"] = bt
+            return _finalize_unique_resolve(out, cn_key=cn_name)
+
     from app.services.entity_resolver import resolve_entity
 
     hit = resolve_entity(raw)

@@ -30,6 +30,17 @@ EXTRACT_SYSTEM = """从用户消息中提取要查市价的 PoE2 物品/装备�
 """
 
 
+def is_price_query(text: str) -> bool:
+    """Any price lookup (single or multi item)."""
+    if not text or not _PRICE_KEYWORDS.search(text):
+        return False
+    from app.services.chat_tools import find_build_input
+    if find_build_input(text) and re.search(r"(?:造价|成本|花费)", text):
+        return False
+    items = _fallback_split_items(text)
+    return len(items) >= 1
+
+
 def is_multi_item_price_query(text: str) -> bool:
     """True when the message asks for prices on 2+ distinct items."""
     if not text or not _PRICE_KEYWORDS.search(text):
@@ -211,7 +222,7 @@ async def stream_multi_item_prices(
         items = fallback
     else:
         items = await asyncio.to_thread(_extract_items_sync, user_msg)
-    if len(items) <= 1:
+    if len(items) < 1:
         yield {"type": "route", "content": "default_agent"}
         return
 

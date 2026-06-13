@@ -54,3 +54,16 @@ def test_format_summary_mixed_success_and_error():
     assert "查询失败" in text
     assert "失败 **1**" in text
     assert "成功 **1**" in text
+
+
+def test_single_item_price_query():
+    from app.services.multi_item_price import is_price_query
+
+    assert is_price_query("猎首多少钱")
+
+
+def test_build_cost_not_price_query():
+    from app.services.multi_item_price import is_price_query
+
+    url = "https://poe.ninja/poe2/builds/x/character/a/b"
+    assert not is_price_query(f"{url} 算造价")
