@@ -130,6 +130,11 @@ def _format_summary(quotes: list[dict[str, Any]]) -> str:
             fail += 1
             lines.append(f"- **{item}**：查询失败（{q.get('error')}）")
             continue
+        if q.get("no_listing"):
+            ok += 1
+            note = q.get("note") or "暂无完全匹配在售"
+            lines.append(f"- **{item}**：{note}")
+            continue
         ok += 1
         cur = str(q.get("currency", "")).lower()
         amt = q.get("amount")
@@ -294,6 +299,16 @@ def _extract_rare_items(data) -> list[dict[str, Any]]:
 
 def _format_rare_item_answer(item: dict[str, Any], quote: dict[str, Any]) -> str:
     label = quote.get("item") or item.get("label") or "?"
+    if quote.get("no_listing"):
+        matched = quote.get("mods_matched")
+        total = quote.get("mods_total")
+        mod_note = f"（匹配 {matched}/{total} 条词缀）" if matched and total else ""
+        note = quote.get("note") or "市集中暂无完全匹配的在售物品"
+        return (
+            f"### {label}\n\n"
+            f"{note}{mod_note}。\n\n"
+            f"可点击上方交易链接浏览相近在售物品。"
+        )
     if quote.get("error"):
         extra = ""
         missed = quote.get("mods_missed") or []

@@ -47,3 +47,64 @@ Ruby Ring
         prt.quote_pob_rare_sync("My Ring", raw, "Ring 1", "Ruby Ring", market="cn")
 
     assert captured["intent"]["base_type"] == "红玉戒指"
+
+from app.services.multi_item_price import _format_rare_item_answer, _format_summary
+
+
+def test_quote_pob_rare_sync_no_listing_skips_fetch():
+    from app.services import pob_rare_trade as prt
+
+    raw = """Rarity: RARE
+My Ring
+Ruby Ring
+--------
++80 to maximum Life
+"""
+
+    def fake_search(intent, league=None, market="cn"):
+        return {
+            "trade_url": "https://example.com/trade/search/abc",
+            "total_results": 0,
+            "item_ids": [],
+        }
+
+    with (
+        patch.object(
+            prt,
+            "resolve_pob_mods_to_stats",
+            return_value=([{"id": "explicit.stat_3299347043", "min": 80, "mod_line": "+80 to maximum Life"}], []),
+        ),
+        patch.object(prt, "resolve_base_type_cn", return_value="\u7ea2\u7389\u6212\u6307"),
+        patch("app.services.trade_service.search_trade", side_effect=fake_search),
+        patch("app.services.trade_service.fetch_cheapest_listing") as fetch_mock,
+    ):
+        out = prt.quote_pob_rare_sync("My Ring", raw, "Ring 1", "Ruby Ring", market="cn")
+
+    fetch_mock.assert_not_called()
+    assert out.get("no_listing") is True
+    assert out.get("note") == "\u5e02\u96c6\u4e2d\u6682\u65e0\u5b8c\u5168\u5339\u914d\u7684\u5728\u552e\u7269\u54c1"
+    assert "error" not in out
+
+
+def test_format_rare_item_answer_no_listing_friendly():
+    quote = {
+        "item": "Life Ring",
+        "no_listing": True,
+        "note": "\u5e02\u96c6\u4e2d\u6682\u65e0\u5b8c\u5168\u5339\u914d\u7684\u5728\u552e\u7269\u54c1",
+        "mods_matched": 2,
+        "mods_total": 3,
+    }
+    text = _format_rare_item_answer({"label": "Life Ring"}, quote)
+    assert "\u67e5\u8be2\u5931\u8d25" not in text
+    assert "2/3" in text
+    assert "\u4ea4\u6613\u94fe\u63a5" in text
+
+
+def test_format_summary_no_listing_counts_success():
+    quotes = [
+        {"item": "A", "no_listing": True, "note": "\u5e02\u96c6\u4e2d\u6682\u65e0\u5b8c\u5168\u5339\u914d\u7684\u5728\u552e\u7269\u54c1"},
+        {"item": "B", "error": "boom"},
+    ]
+    text = _format_summary(quotes)
+    assert "\u6210\u529f **1**" in text
+    assert "\u5931\u8d25 **1**" in text

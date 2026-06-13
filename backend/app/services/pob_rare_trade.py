@@ -330,6 +330,13 @@ def quote_pob_rare_sync(
         base["error"] = "未找到交易结果"
         return base
 
+    total_results = int(search.get("total_results") or 0)
+    item_ids = search.get("item_ids") or []
+    if total_results == 0 or not item_ids:
+        base["no_listing"] = True
+        base["note"] = "市集中暂无完全匹配的在售物品"
+        return base
+
     listing = fetch_cheapest_listing(
         search["trade_url"],
         market=market,
