@@ -48,15 +48,42 @@ export default function ChatPage() {
   const [reasoning, setReasoning] = useState("");
   const [skill, setSkill] = useState("idle");
   const [showWelcome, setShowWelcome] = useState(true);
+  const mainRef = useRef<HTMLElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const stickToBottomRef = useRef(true);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking, reasoning]);
+  const SCROLL_THRESHOLD = 72;
+
+  const updateStickToBottom = useCallback(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_THRESHOLD;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (!stickToBottomRef.current) return;
+    bottomRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateStickToBottom, { passive: true });
+    return () => el.removeEventListener("scroll", updateStickToBottom);
+  }, [updateStickToBottom]);
+
+  useEffect(() => {
+    scrollToBottom(streaming ? "auto" : "smooth");
+  }, [messages, thinking, reasoning, streaming, scrollToBottom]);
+
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const send = useCallback(async (q: string) => {
     if (!q.trim() || streaming) return;
     setInput(""); setShowWelcome(false);
+    stickToBottomRef.current = true;
     const userMsg: Message = { role: "user", content: q };
     const all = [...messages, userMsg];
     setMessages(all); setThinking([]); setReasoning(""); setSkill("idle"); setStreaming(true);
@@ -140,7 +167,7 @@ export default function ChatPage() {
         </header>
 
         {/* messages */}
-        <main className="flex-1 overflow-y-auto py-6 space-y-8">
+        <main ref={mainRef} className="flex-1 overflow-y-auto py-6 space-y-8">
           {showWelcome && messages.length === 0 && (
             <div className="pt-12 pb-8">
               <p className="text-xs text-zinc-600 mb-1 tracking-widest uppercase">Ask anything</p>
@@ -222,34 +249,27 @@ export default function ChatPage() {
             </article>
           ))}
 
-          {reasoning && (
+          {streaming && (
             <article className="flex gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-xs font-medium text-amber-400/80 mt-0.5">AI</div>
-              <details open className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 bg-zinc-900/50 border border-amber-800/15">
-                <summary className="text-xs text-amber-500/50 animate-pulse tracking-wider uppercase cursor-pointer">思考中</summary>
-                <div className="mt-2 text-xs text-amber-500/30 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">{reasoning}</div>
+              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-xs font-medium text-amber-400/80 mt-0.5">
+                AI
+              </div>
+              <details open className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 bg-zinc-900/40 border border-amber-800/20">
+                <summary className="text-xs text-amber-500/60 tracking-wider uppercase cursor-pointer select-none">
+                  思考过程
+                </summary>
+                <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto text-xs leading-relaxed">
+                  {thinking.map((t, i) => (
+                    <p key={`t-${i}`} className="text-zinc-500">{t}</p>
+                  ))}
+                  {reasoning && (
+                    <p className="text-amber-500/40 whitespace-pre-wrap">{reasoning}</p>
+                  )}
+                  {thinking.length === 0 && !reasoning && (
+                    <p className="text-zinc-600 animate-pulse">正在分析意图...</p>
+                  )}
+                </div>
               </details>
-            </article>
-          )}
-
-          {thinking.length > 0 && (
-            <article className="flex gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-md bg-zinc-900 border border-zinc-700/50 flex items-center justify-center text-xs font-medium text-zinc-500 mt-0.5">...</div>
-              <div className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 bg-zinc-900/30 border border-zinc-800/30">
-                <div className="text-xs text-zinc-600 mb-1.5 tracking-wider uppercase">检索</div>
-                {thinking.map((t, i) => <p key={i} className="text-xs text-zinc-600 leading-relaxed">{t}</p>)}
-              </div>
-            </article>
-          )}
-
-          {streaming && !reasoning && thinking.length === 0 && (
-            <article className="flex gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-xs font-medium text-amber-400/80 mt-0.5">AI</div>
-              <div className="rounded-xl px-3.5 py-2.5 bg-zinc-900/30 border border-zinc-800/30 flex gap-1 items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/30 animate-bounce" />
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/30 animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500/30 animate-bounce [animation-delay:300ms]" />
-              </div>
             </article>
           )}
 
