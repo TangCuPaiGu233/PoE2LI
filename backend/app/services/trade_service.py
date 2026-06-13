@@ -904,7 +904,7 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
 COLLOQUIAL_CN_ALIASES: dict[str, str] = {
     "法血": "Mageblood",
     "猎首": "Headhunter",
-    "战猫": "Kaom's Heart",
+    "战猫": "Kaoms Heart",
     "混池": "Chaos Orb",
     "神圣": "Divine Orb",
     "醒醒石": "Awakened Sextant",
@@ -947,6 +947,48 @@ def _base_type_for_unique(en_name: str) -> str | None:
     return None
 
 
+
+def _norm_en_key(name: str) -> str:
+    import re
+
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def _cn_trade_lookup_for_en(en: str) -> tuple[str | None, str | None]:
+    key = _norm_en_key(en)
+    if not key:
+        return None, None
+    cn_map = _load_unique_cn_en_map()
+    for cn, meta in cn_map.items():
+        meta_en = (meta.get("en") or meta.get("path") or "").strip()
+        if _norm_en_key(meta_en) == key:
+            base_cn = (meta.get("base_cn") or "").strip() or None
+            return cn, base_cn
+    return None, None
+
+
+def _finalize_unique_resolve(out: dict[str, str], cn_key: str | None = None) -> dict[str, str]:
+    cn_name: str | None = None
+    base_cn: str | None = None
+    cn_map = _load_unique_cn_en_map()
+    if cn_key and cn_key in cn_map:
+        cn_name = cn_key
+        base_cn = (cn_map[cn_key].get("base_cn") or "").strip() or None
+    else:
+        cn_name, base_cn = _cn_trade_lookup_for_en(out.get("unique_name", ""))
+    if cn_name:
+        out["trade_name_cn"] = cn_name
+    if base_cn:
+        out["trade_type_cn"] = base_cn
+    return out
+
+
+def _trade_api_unique_name(resolved: dict[str, str], market: str) -> str:
+    if market == "cn":
+        return (resolved.get("trade_name_cn") or "").strip()
+    return (resolved.get("unique_name") or "").strip()
+
+
 def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
     """Resolve CN/EN/colloquial label to Trade API unique name + optional base type."""
     raw = (text or "").strip()
@@ -966,7 +1008,7 @@ def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
         bt = _base_type_for_unique(en)
         if bt:
             out["base_type"] = bt
-        return out
+        return _finalize_unique_resolve(out)
 
     cn_map = _load_unique_cn_en_map()
     if raw in cn_map:
@@ -976,7 +1018,7 @@ def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
             bt = _base_type_for_unique(en)
             if bt:
                 out["base_type"] = bt
-            return out
+            return _finalize_unique_resolve(out, cn_key=raw)
 
     # Longest CN substring match
     cn_hits = [cn for cn in cn_map if cn and cn in raw]
@@ -988,7 +1030,7 @@ def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
             bt = _base_type_for_unique(en)
             if bt:
                 out["base_type"] = bt
-            return out
+            return _finalize_unique_resolve(out, cn_key=cn)
 
     from app.services.entity_resolver import resolve_entity
 
@@ -1000,7 +1042,7 @@ def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
             bt = _base_type_for_unique(en_name)
             if bt:
                 out["base_type"] = bt
-            return out
+            return _finalize_unique_resolve(out)
 
     from app.services.name_validation import known_unique_names
 
@@ -1012,7 +1054,7 @@ def resolve_trade_unique_name(text: str) -> dict[str, str] | None:
             bt = _base_type_for_unique(name)
             if bt:
                 out["base_type"] = bt
-            return out
+            return _finalize_unique_resolve(out)
 
     return None
 
@@ -1027,12 +1069,22 @@ def search_unique_by_name(
     if not resolved or not resolved.get("unique_name"):
         return {"error": f"无法识别暗金名称: {item_label}"}
 
+    if market == "cn" and not resolved.get("trade_name_cn"):
+        return {"error": f"无法识别国服暗金名称: {item_label}"}
+
+    api_name = _trade_api_unique_name(resolved, market)
+    if not api_name:
+        return {"error": f"无法识别暗金名称: {item_label}"}
+
     intent: dict = {
         "rarity": "unique",
-        "unique_name": resolved["unique_name"],
-        "summary": f"unique {resolved['unique_name']}",
+        "unique_name": api_name,
+        "summary": f"unique {resolved.get('unique_name') or api_name}",
     }
-    if resolved.get("base_type"):
+    if market == "cn":
+        if resolved.get("trade_type_cn"):
+            intent["base_type"] = resolved["trade_type_cn"]
+    elif resolved.get("base_type"):
         intent["base_type"] = resolved["base_type"]
 
     result = search_trade(intent, league=league, market=market)
