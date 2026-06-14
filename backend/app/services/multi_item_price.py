@@ -12,6 +12,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+ITEM_QUOTE_GAP_SEC = float(os.getenv("TRADE_ITEM_GAP_SEC", "3"))
+
 _PRICE_KEYWORDS = re.compile(
     r"(?:多少钱|多少[edED]|价格|市价|报价|最便宜|分别多少|行情|混池|神圣|崇高)"
 )
@@ -110,6 +112,29 @@ def _currency_label(currency: str) -> str:
 
 
 
+
+def _is_rate_limited(quote: dict[str, Any]) -> bool:
+    if quote.get("rate_limited"):
+        return True
+    err = str(quote.get("error") or "")
+    return "过于频繁" in err or "429" in err
+
+
+def _format_quote_error(label: str, quote: dict[str, Any], *, extra: str = "") -> str:
+    if _is_rate_limited(quote):
+        return (
+            f"### {label}\n\n"
+            f"⚠️ 国服市集限流，请稍后重试（约 60 秒）。"
+            f"{extra}{_trade_link_line(quote)}"
+        )
+    return f"### {label}\n\n查询失败：{quote.get('error')}{extra}{_trade_link_line(quote)}"
+
+
+async def _pause_before_next_item(step: int, total: int) -> None:
+    if step >= total or ITEM_QUOTE_GAP_SEC <= 0:
+        return
+    await asyncio.sleep(ITEM_QUOTE_GAP_SEC)
+
 def _trade_url_from_quote(quote):
     tr = quote.get("trade_result") or {}
     bm = tr.get("best_match") or {}
@@ -129,7 +154,7 @@ def _trade_link_line(quote):
     return f"\n\n[{label}]({url})"
 def _format_item_answer(item: str, quote: dict[str, Any]) -> str:
     if quote.get("error"):
-        return f"### {item}\n\n查询失败：{quote.get('error')}{_trade_link_line(quote)}"
+        return _format_quote_error(item, quote)
     amount = quote.get("amount")
     currency = _currency_label(str(quote.get("currency", "")))
     name = quote.get("item_name") or item
@@ -252,7 +277,7 @@ async def stream_multi_item_prices(
 
     yield {
         "type": "answer",
-        "content": f"共 **{len(items)}** 件装备，逐个查询国服市集（约 {len(items) * 8} 秒）…\n\n",
+        "content": f"共 **{len(items)}** 件装备，查一件汇报一件（件间等待 {int(ITEM_QUOTE_GAP_SEC)} 秒）…\n\n",
     }
     yield {
         "type": "thinking",
@@ -268,7 +293,11 @@ async def stream_multi_item_prices(
         quotes.append(quote)
         if quote.get("trade_result"):
             yield {"type": "trade_result", "content": quote["trade_result"]}
-        yield {"type": "answer", "content": _format_item_answer(item, quote)}
+        yield {"type": "answer", "content": _format_item_answer(item, quote) + "\n"}
+        if idx < len(items):
+            gap = int(ITEM_QUOTE_GAP_SEC)
+            yield {"type": "thinking", "content": f"已汇报 {item}，{gap} 秒后继续下一件…"}
+            await _pause_before_next_item(idx, len(items))
 
     yield {"type": "answer", "content": _format_summary(quotes)}
     yield {"type": "done"}
@@ -408,7 +437,7 @@ async def stream_build_cost(
         "content": (
             f"### {b.className or 'BD'} / {b.ascendClassName or '?'} L{b.level or '?'}\n\n"
             f"\u8bc6\u522b\u5230 **{len(rares)}** \u4ef6\u7a00\u6709 + **{len(uniques)}** \u4ef6\u6697\u91d1\uff0c"
-            f"\u9010\u4e2a\u67e5\u8be2\u56fd\u670d\u5e02\u96c6\uff08\u7ea6 {total_items * 8} \u79d2\uff09\u2026\n\n"
+            f"\u67e5\u4e00\u4ef6\u6c47\u62a5\u4e00\u4ef6\uff08\u4ef6\u95f4\u7b49\u5f85 {int(ITEM_QUOTE_GAP_SEC)} \u79d2\uff09\u2026\n\n"
         ),
     }
 
@@ -431,6 +460,10 @@ async def stream_build_cost(
         if quote.get("trade_result"):
             yield {"type": "trade_result", "content": quote["trade_result"]}
         yield {"type": "answer", "content": _format_rare_item_answer(rare, quote) + "\n"}
+        if step < total_items:
+            gap = int(ITEM_QUOTE_GAP_SEC)
+            yield {"type": "thinking", "content": f"已汇报 {label}，{gap} 秒后继续下一件…"}
+            await _pause_before_next_item(step, total_items)
 
     for unique in uniques:
         step += 1
@@ -440,6 +473,10 @@ async def stream_build_cost(
         if quote.get("trade_result"):
             yield {"type": "trade_result", "content": quote["trade_result"]}
         yield {"type": "answer", "content": _format_item_answer(unique, quote) + "\n"}
+        if step < total_items:
+            gap = int(ITEM_QUOTE_GAP_SEC)
+            yield {"type": "thinking", "content": f"已汇报 {unique}，{gap} 秒后继续下一件…"}
+            await _pause_before_next_item(step, total_items)
 
     yield {"type": "answer", "content": _format_summary(quotes)}
     yield {"type": "done"}

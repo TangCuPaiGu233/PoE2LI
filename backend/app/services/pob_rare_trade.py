@@ -32,7 +32,10 @@ _BASE_STAT_LINE_RE = re.compile(
     r"^(armour|evasion|energy shield|ward|block|spirit|attacks per second|physical damage|elemental damage|critical hit chance|chance to block):",
     re.IGNORECASE,
 )
-_RARE_SEARCH_RELAX_RATIOS: tuple[float, ...] = (0.85, 0.65, 0.45)
+_RARE_SEARCH_PLANS: tuple[tuple[float, bool], ...] = (
+    (0.85, True),
+    (0.65, False),
+)
 # +120 to maximum Life / 45% increased Fire Damage / +2 to Level of all Minion Skills
 _MOD_NUM = re.compile(
     r"^([+\-]?\d+(?:\.\d+)?)\s*(?:to|%)\s*(.+)$|^(.+?)\s*([+\-]?\d+(?:\.\d+)?)\s*$"
@@ -203,25 +206,27 @@ def _search_rare_with_fallback(
 
     base_type = intent.get("base_type")
     last: dict[str, Any] = {}
-    for ratio in _RARE_SEARCH_RELAX_RATIOS:
-        stat_groups = build_pob_rare_stat_groups(resolved, relax_ratio=ratio)
+    for relax_ratio, use_base in _RARE_SEARCH_PLANS:
+        if use_base and not base_type:
+            continue
+        stat_groups = build_pob_rare_stat_groups(resolved, relax_ratio=relax_ratio)
         if not stat_groups:
             continue
-        attempts = (True, False) if base_type else (False,)
-        for with_base in attempts:
-            attempt = dict(intent)
-            attempt["stat_groups"] = stat_groups
-            if with_base and base_type:
-                attempt["base_type"] = base_type
-            else:
-                attempt.pop("base_type", None)
-            search = search_trade(attempt, league=league, market=market)
-            last = search
-            if search.get("error"):
-                continue
-            total = int(search.get("total_results") or 0)
-            if total > 0 and search.get("trade_url"):
-                return search
+        attempt = dict(intent)
+        attempt["stat_groups"] = stat_groups
+        if use_base and base_type:
+            attempt["base_type"] = base_type
+        else:
+            attempt.pop("base_type", None)
+        search = search_trade(attempt, league=league, market=market)
+        last = search
+        if search.get("rate_limited"):
+            return search
+        if search.get("error"):
+            continue
+        total = int(search.get("total_results") or 0)
+        if total > 0 and search.get("trade_url"):
+            return search
     return last
 
 
@@ -418,6 +423,8 @@ def quote_pob_rare_sync(
     }
     if search.get("error"):
         base["error"] = search["error"]
+        if search.get("rate_limited"):
+            base["rate_limited"] = True
         return base
     if not search.get("trade_url"):
         base["error"] = "未找到交易结果"
@@ -439,6 +446,8 @@ def quote_pob_rare_sync(
     )
     if listing.get("error"):
         base["error"] = listing["error"]
+        if listing.get("rate_limited"):
+            base["rate_limited"] = True
         return base
     base.update(
         {

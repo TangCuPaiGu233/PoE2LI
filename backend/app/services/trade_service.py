@@ -858,7 +858,7 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
     if resp.status_code == 429:
         wait_time = 60
         logger.warning(f"Trade API rate limited, waiting {wait_time}s")
-        return {"error": f"搜索过于频繁，请 {wait_time} 秒后重试"}
+        return {"error": f"搜索过于频繁，请 {wait_time} 秒后重试", "rate_limited": True}
 
     if resp.status_code == 401 and market == "cn":
         logger.error("CN Trade API 401: POESESSID missing or expired")
