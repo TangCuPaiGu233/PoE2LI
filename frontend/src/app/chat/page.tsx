@@ -24,29 +24,17 @@ const TOOL_LABELS: Record<string, string> = {
 function ThinkingPanel({
   steps,
   reasoning,
-  defaultOpen,
+  showPending,
 }: {
   steps?: string[];
   reasoning?: string;
-  defaultOpen?: boolean;
+  showPending?: boolean;
 }) {
   const hasSteps = !!(steps && steps.length);
   const hasReasoning = !!reasoning?.trim();
-  if (!hasSteps && !hasReasoning) {
-    if (!defaultOpen) return null;
-    return (
-      <details className="mt-2 min-w-0 max-w-full" open={defaultOpen}>
-        <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">
-          思考过程
-        </summary>
-        <div className="mt-2 p-3 ninja-panel text-xs leading-relaxed max-h-48 overflow-y-auto">
-          <p className="text-[var(--ninja-text-dim)] animate-pulse-glow">正在分析意图...</p>
-        </div>
-      </details>
-    );
-  }
+  if (!hasSteps && !hasReasoning && !showPending) return null;
   return (
-    <details className="mt-2 min-w-0 max-w-full" open={defaultOpen}>
+    <details className="mb-2 min-w-0 max-w-full">
       <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">
         思考过程
       </summary>
@@ -54,6 +42,9 @@ function ThinkingPanel({
         {hasSteps && steps!.map((t, i) => (
           <p key={`step-${i}`} className="text-[var(--ninja-text-muted)]">{t}</p>
         ))}
+        {!hasSteps && showPending && (
+          <p className="text-[var(--ninja-text-dim)] animate-pulse-glow">正在分析意图...</p>
+        )}
         {hasReasoning && (
           <p className="text-[var(--ninja-accent)] opacity-60 whitespace-pre-wrap">{reasoning}</p>
         )}
@@ -268,7 +259,18 @@ export default function ChatPage() {
               </div>
 
               <div className={`min-w-0 max-w-[78%] ${m.role === "user" ? "text-right" : ""}`}>
-                                <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
+                {m.role === "assistant" && (() => {
+                  const isLast = i === messages.length - 1;
+                  const liveStream = streaming && isLast;
+                  return (
+                    <ThinkingPanel
+                      steps={liveStream ? thinking : m.thinkingSteps}
+                      reasoning={liveStream ? reasoning : m.reasoning}
+                      showPending={liveStream && thinking.length === 0 && !reasoning}
+                    />
+                  );
+                })()}
+                <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
                   m.role === "user"
                     ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
                     : "ninja-panel text-[var(--ninja-text-body)]"
@@ -314,18 +316,6 @@ export default function ChatPage() {
                     </details>
                   )}
                 </div>
-                {m.role === "assistant" && (() => {
-                  const isLast = i === messages.length - 1;
-                  const liveStream = streaming && isLast;
-                  if (liveStream) {
-                    return (
-                      <ThinkingPanel steps={thinking} reasoning={reasoning} defaultOpen />
-                    );
-                  }
-                  return (
-                    <ThinkingPanel steps={m.thinkingSteps} reasoning={m.reasoning} />
-                  );
-                })()}
               </div>
             </article>
           ))}
@@ -336,7 +326,7 @@ export default function ChatPage() {
                 AI
               </div>
               <div className="min-w-0 max-w-[78%]">
-                <ThinkingPanel steps={thinking} reasoning={reasoning} defaultOpen />
+                <ThinkingPanel steps={thinking} reasoning={reasoning} showPending={thinking.length === 0 && !reasoning} />
               </div>
             </article>
           )}
