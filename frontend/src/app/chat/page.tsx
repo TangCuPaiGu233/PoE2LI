@@ -7,7 +7,7 @@ import ChatMarkdown from "@/components/chat/ChatMarkdown";
 // ── types ──
 interface TradeMatch { label: string; url: string; count: number }
 interface TradeResult { best_match: TradeMatch | null; alternatives: TradeMatch[]; explanation: string }
-interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult; trades?: TradeResult[] }
+interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult; trades?: TradeResult[]; followUps?: string[] }
 
 const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
 
@@ -90,7 +90,7 @@ export default function ChatPage() {
     setMessages(all); setThinking(["已收到问题，正在连接服务器…"]); setReasoning(""); setSkill("idle"); setStreaming(true);
 
     const history = all.filter(m => m.role === "user" || m.role === "assistant").map(m => ({ role: m.role, content: m.content }));
-    let acc = ""; let sk = "idle";
+    let acc = ""; let sk = "idle"; let pendingFollowUps: string[] | null = null;
 
     try {
       const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }) });
@@ -139,7 +139,25 @@ export default function ChatPage() {
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
             else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; if (l?.role === "assistant") { const trades = [...(l.trades || (l.trade ? [l.trade] : [])), ev.content as TradeResult]; return [...p.slice(0, -1), { ...l, trades, trade: undefined }]; } return [...p, { role: "assistant", content: "", trades: [ev.content as TradeResult] }]; }); }
             else if (ev.type === "sources") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: l.content, sources: ev.content }] : p; }); }
-            else if (ev.type === "done") { setReasoning(r => { if (r) setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, reasoning: r }] : p; }); return ""; }); setThinking([]); setStreaming(false); setSkill("idle"); }
+            else if (ev.type === "follow_ups") { const qs = Array.isArray(ev.content) ? ev.content.filter((q: unknown) => typeof q === "string" && q.trim()) : []; if (qs.length) pendingFollowUps = qs.slice(0, 3); }
+            else if (ev.type === "done") {
+              setReasoning(r => {
+                if (r) setMessages(p => {
+                  const l = p[p.length - 1];
+                  return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, reasoning: r }] : p;
+                });
+                return "";
+              });
+              if (pendingFollowUps?.length) {
+                const fu = pendingFollowUps;
+                pendingFollowUps = null;
+                setMessages(p => {
+                  const l = p[p.length - 1];
+                  return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, followUps: fu }] : p;
+                });
+              }
+              setThinking([]); setStreaming(false); setSkill("idle");
+            }
           } catch { /* skip malformed */ }
         }
       }
@@ -280,6 +298,25 @@ export default function ChatPage() {
 
           <div ref={bottomRef} />
         </main>
+
+        {/* follow-up suggestions */}
+        {!streaming && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && (messages[messages.length - 1]?.followUps?.length ?? 0) > 0 && (
+          <div className="shrink-0 pb-3 border-b border-[var(--ninja-border)]">
+            <p className="ninja-section-title mb-2">你可能还想问</p>
+            <div className="flex flex-col gap-1.5">
+              {messages[messages.length - 1].followUps!.map((q, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => { setInput(q); inputRef.current?.focus(); }}
+                  className="ninja-chip text-left w-full justify-start py-2 px-3 whitespace-normal leading-snug"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* input */}
         <footer className="shrink-0 pt-3 border-t border-[var(--ninja-border)]">

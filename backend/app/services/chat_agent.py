@@ -12,6 +12,8 @@ import asyncio
 
 from openai import AsyncOpenAI
 
+from app.services.follow_up_suggestions import generate_follow_up_questions
+
 from app.services.chat_tools import (
     TOOL_DEFINITIONS,
     TOOL_LABELS,
@@ -74,6 +76,44 @@ def _parse_tool_args(raw: str | None) -> dict[str, Any]:
         return {}
 
 
+
+
+async def _follow_up_event(user_msg: str, answer: str) -> dict[str, Any] | None:
+    questions = await generate_follow_up_questions(user_msg, answer)
+    if questions:
+        return {"type": "follow_ups", "content": questions}
+    return None
+
+
+async def _stream_with_follow_ups(
+    user_msg: str,
+    source: AsyncIterator[dict[str, Any]],
+) -> AsyncIterator[dict[str, Any]]:
+    answer_acc = ""
+    async for event in source:
+        if event.get("type") == "answer":
+            chunk = event.get("content") or ""
+            if isinstance(chunk, str):
+                answer_acc += chunk
+        if event.get("type") == "done":
+            fu = await _follow_up_event(user_msg, answer_acc)
+            if fu:
+                yield fu
+        yield event
+        if event.get("type") == "done":
+            return
+
+
+async def _yield_done_with_follow_ups(
+    user_msg: str,
+    answer: str,
+) -> AsyncIterator[dict[str, Any]]:
+    fu = await _follow_up_event(user_msg, answer)
+    if fu:
+        yield fu
+    yield {"type": "done"}
+
+
 async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:
     """Run the agent loop and yield SSE event dicts."""
     from app.services.multi_item_price import is_price_query, stream_multi_item_prices, is_build_cost_query, stream_build_cost
@@ -82,7 +122,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     if is_build_cost_query(user_msg):
         yield {"type": "thinking", "content": "检测到 BD 造价查询，进入专用流水线…"}
-        async for event in stream_build_cost(user_msg, market="cn"):
+        async for event in _stream_with_follow_ups(user_msg, stream_build_cost(user_msg, market="cn")):
             if event.get("type") == "route" and event.get("content") == "default_agent":
                 break
             yield event
@@ -93,7 +133,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     if is_price_query(user_msg):
         yield {"type": "thinking", "content": "检测到多件查价，进入市价流水线…"}
-        async for event in stream_multi_item_prices(user_msg, market="cn"):
+        async for event in _stream_with_follow_ups(user_msg, stream_multi_item_prices(user_msg, market="cn")):
             if event.get("type") == "route" and event.get("content") == "default_agent":
                 break
             yield event
@@ -117,6 +157,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     yield {"type": "thinking", "content": "AI 正在分析意图并规划工具..."}
 
     used_tools = False
+    answer_acc = ""
     tool_round = 0
     while tool_round < MAX_TOOL_ROUNDS:
         tool_round += 1
@@ -131,8 +172,10 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             )
         except Exception as e:
             logger.error("[CHAT] agent plan failed: %s", e)
-            yield {"type": "answer", "content": f"AI 规划失败: {e}"}
-            yield {"type": "done"}
+            err = f"AI 规划失败: {e}"
+            yield {"type": "answer", "content": err}
+            async for ev in _yield_done_with_follow_ups(user_msg, err):
+                yield ev
             return
 
         choice = response.choices[0]
@@ -142,6 +185,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         if not tool_calls:
             # Final text from model (non-streaming fallback)
             if msg.content:
+                answer_acc += msg.content
                 yield {"type": "answer", "content": msg.content}
             break
 
@@ -208,7 +252,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if not used_tools:
         if ctx.last_sources:
             yield {"type": "sources", "content": ctx.last_sources}
-        yield {"type": "done"}
+        async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
+            yield ev
         return
 
     # Stream final synthesis after tool rounds
@@ -233,12 +278,16 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             if reasoning:
                 yield {"type": "reasoning", "content": reasoning}
             if delta.content:
+                answer_acc += delta.content
                 yield {"type": "answer", "content": delta.content}
     except Exception as e:
         logger.error("[CHAT] agent stream failed: %s", e)
-        yield {"type": "answer", "content": f"生成失败: {e}"}
+        err = f"生成失败: {e}"
+        answer_acc += err
+        yield {"type": "answer", "content": err}
 
     if ctx.last_sources:
         yield {"type": "sources", "content": ctx.last_sources}
 
-    yield {"type": "done"}
+    async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
+        yield ev
