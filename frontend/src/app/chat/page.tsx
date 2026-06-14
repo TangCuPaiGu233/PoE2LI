@@ -30,11 +30,16 @@ function ThinkingPanel({
   reasoning?: string;
   showPending?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const hasSteps = !!(steps && steps.length);
   const hasReasoning = !!reasoning?.trim();
   if (!hasSteps && !hasReasoning && !showPending) return null;
   return (
-    <details className="mb-2 min-w-0 max-w-full">
+    <details
+      className="mb-2 min-w-0 max-w-full"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">
         思考过程
       </summary>
@@ -120,10 +125,13 @@ export default function ChatPage() {
     setInput(""); setShowWelcome(false);
     stickToBottomRef.current = true;
     const userMsg: Message = { role: "user", content: q };
-    const all = [...messages, userMsg];
+    const assistantDraft: Message = { role: "assistant", content: "" };
+    const all = [...messages, userMsg, assistantDraft];
     setMessages(all); setThinking(["已收到问题，正在连接服务器…"]); setReasoning(""); setSkill("idle"); setStreaming(true);
 
-    const history = all.filter(m => m.role === "user" || m.role === "assistant").map(m => ({ role: m.role, content: m.content }));
+    const history = [...messages, userMsg]
+      .filter(m => m.role === "user" || (m.role === "assistant" && m.content.trim()))
+      .map(m => ({ role: m.role, content: m.content }));
     let acc = ""; let sk = "idle"; let pendingFollowUps: string[] | null = null;
     let thinkLog: string[] = ["已收到问题，正在连接服务器…"];
     let reasonLog = "";
@@ -131,7 +139,16 @@ export default function ChatPage() {
     try {
       const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }) });
       const reader = resp.body?.getReader();
-      if (!reader) { setMessages(p => [...p, { role: "assistant", content: "无响应" }]); setStreaming(false); return; }
+      if (!reader) {
+        setMessages(p => {
+          const l = p[p.length - 1];
+          return l?.role === "assistant"
+            ? [...p.slice(0, -1), { ...l, content: "无响应" }]
+            : [...p, { role: "assistant", content: "无响应" }];
+        });
+        setStreaming(false);
+        return;
+      }
 
       const dec = new TextDecoder(); let buf = "";
       while (true) {
@@ -205,7 +222,14 @@ export default function ChatPage() {
           } catch { /* skip malformed */ }
         }
       }
-    } catch (e) { setMessages(p => [...p, { role: "assistant", content: `网络错误: ${e}` }]); }
+    } catch (e) {
+      setMessages(p => {
+        const l = p[p.length - 1];
+        return l?.role === "assistant"
+          ? [...p.slice(0, -1), { ...l, content: `网络错误: ${e}` }]
+          : [...p, { role: "assistant", content: `网络错误: ${e}` }];
+      });
+    }
     setStreaming(false); setSkill("idle");
   }, [messages, streaming]);
 
@@ -258,7 +282,7 @@ export default function ChatPage() {
                 {m.role === "user" ? "你" : "AI"}
               </div>
 
-              <div className={`min-w-0 max-w-[78%] ${m.role === "user" ? "text-right" : ""}`}>
+              <div className={`min-w-0 max-w-[78%] flex flex-col ${m.role === "user" ? "text-right" : ""}`}>
                 {m.role === "assistant" && (() => {
                   const isLast = i === messages.length - 1;
                   const liveStream = streaming && isLast;
@@ -270,6 +294,7 @@ export default function ChatPage() {
                     />
                   );
                 })()}
+                {(m.role === "user" || m.content.trim() || (m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 || (m.sources && m.sources.length > 0)) && (
                 <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
                   m.role === "user"
                     ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
@@ -316,20 +341,11 @@ export default function ChatPage() {
                     </details>
                   )}
                 </div>
+                )}
               </div>
             </article>
           ))}
 
-          {streaming && messages[messages.length - 1]?.role !== "assistant" && (
-            <article className="flex gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-md bg-[rgba(30,203,139,0.12)] border border-[rgba(30,203,139,0.3)] flex items-center justify-center text-xs font-medium text-[var(--ninja-accent)] mt-0.5">
-                AI
-              </div>
-              <div className="min-w-0 max-w-[78%]">
-                <ThinkingPanel steps={thinking} reasoning={reasoning} showPending={thinking.length === 0 && !reasoning} />
-              </div>
-            </article>
-          )}
 
           <div ref={bottomRef} />
         </main>
