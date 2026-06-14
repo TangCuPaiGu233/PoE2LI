@@ -38,6 +38,7 @@ const CHIPS = [
   "帮我找一条加2召唤技能等级的项链",
   "灵魂行者有哪些升华技能",
   "扭曲项链都能提供什么词条",
+  "帮我估算忍者网BD造价",
 ];
 
 export default function ChatPage() {
