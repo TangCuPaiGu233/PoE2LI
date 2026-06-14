@@ -149,17 +149,17 @@ export default function ChatPage() {
   const onKey = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
-      <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col h-screen">
+    <div className="text-[var(--ninja-text)] antialiased">
+      <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col min-h-[calc(100vh-3rem)]">
         {/* header */}
-        <header className="shrink-0 flex items-center justify-between pb-3 border-b border-zinc-800">
+        <header className="shrink-0 flex items-center justify-between pb-3 border-b border-[var(--ninja-border)]">
           <div className="flex items-baseline gap-3">
-            <a href="/" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">首页</a>
-            <h1 className="text-sm font-medium text-zinc-200">流放知识库</h1>
+            <a href="/" className="text-xs text-[var(--ninja-text-muted)] hover:text-[var(--ninja-text)] transition-colors">首页</a>
+            <h1 className="text-sm font-medium text-[var(--ninja-text)]">流放知识库</h1>
           </div>
           <div className="flex items-center gap-2">
             {streaming && skill !== "idle" && (
-              <span className="text-xs text-amber-500/60 border border-amber-700/30 bg-amber-950/20 rounded-full px-2 py-0.5">
+              <span className="ninja-badge border-[rgba(30,203,139,0.35)] text-[var(--ninja-accent)] bg-[rgba(30,203,139,0.08)]">
                 {SKILL_LABELS[skill] || skill}
               </span>
             )}
@@ -170,15 +170,15 @@ export default function ChatPage() {
         <main ref={mainRef} className="flex-1 overflow-y-auto py-6 space-y-8">
           {showWelcome && messages.length === 0 && (
             <div className="pt-12 pb-8">
-              <p className="text-xs text-zinc-600 mb-1 tracking-widest uppercase">Ask anything</p>
-              <p className="text-2xl text-zinc-200 font-medium mb-8 leading-snug">
+              <p className="ninja-section-title mb-1">Ask anything</p>
+              <p className="text-2xl text-[var(--ninja-text)] font-semibold mb-2 leading-snug">
                 PoE2 知识助手<br />
-                <span className="text-zinc-500 text-base font-normal">BD 设计 · 装备搜索 · 机制百科</span>
+                <span className="text-[var(--ninja-text-muted)] text-base font-normal">BD 设计 · 装备搜索 · 机制百科</span>
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {CHIPS.map((c, i) => (
                   <button key={i} onClick={() => send(c)} disabled={streaming}
-                    className="text-xs px-3 py-1.5 rounded-full border border-zinc-800 text-zinc-500 hover:border-amber-700/40 hover:text-amber-400/80 hover:bg-amber-950/20 transition-all duration-300 disabled:opacity-30">
+                    className="ninja-chip disabled:opacity-30">
                     {c}
                   </button>
                 ))}
@@ -190,7 +190,7 @@ export default function ChatPage() {
             <article key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
               style={{ animation: `msgIn 0.3s ease-out ${i * 0.02}s both` }}>
               <div className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-xs font-medium mt-0.5 ${
-                m.role === "user" ? "bg-zinc-800 text-zinc-400 border border-zinc-700" : "bg-amber-950/30 text-amber-400/80 border border-amber-800/30"
+                m.role === "user" ? "bg-[var(--ninja-bg-elevated)] text-[var(--ninja-text-muted)] border border-[var(--ninja-border)]" : "bg-[rgba(30,203,139,0.12)] text-[var(--ninja-accent)] border border-[rgba(30,203,139,0.3)]"
               }`}>
                 {m.role === "user" ? "你" : "AI"}
               </div>
@@ -198,15 +198,15 @@ export default function ChatPage() {
               <div className={`min-w-0 max-w-[78%] ${m.role === "user" ? "text-right" : ""}`}>
                 {m.reasoning && (
                   <details className="mb-2">
-                    <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400 transition-colors tracking-wider uppercase select-none">思考过程</summary>
-                    <div className="mt-2 p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-500 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">{m.reasoning}</div>
+                    <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">思考过程</summary>
+                    <div className="mt-2 p-3 ninja-panel text-xs text-[var(--ninja-text-muted)] leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">{m.reasoning}</div>
                   </details>
                 )}
 
                 <div className={`text-sm leading-relaxed rounded-xl px-3.5 py-2.5 ${
                   m.role === "user"
-                    ? "bg-amber-950/15 border border-amber-800/20 text-amber-50/80"
-                    : "bg-zinc-900/50 border border-zinc-800/40 text-zinc-300"
+                    ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
+                    : "ninja-panel text-[var(--ninja-text-muted)]"
                 }`}>
                   <div className="msg-content">
                   {m.role === "user" ? (
@@ -217,22 +217,22 @@ export default function ChatPage() {
                 </div>
 
                   {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-zinc-800">
-                      <p className="text-xs text-emerald-500/50 tracking-wider uppercase mb-2">交易结果</p>
+                    <div className="mt-3 pt-3 border-t border-[var(--ninja-border)]">
+                      <p className="ninja-section-title mb-2">交易结果</p>
                       {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).map((tr, ti) => (
                         <div key={ti} className="mb-2">
                           {tr.best_match && (
                             <a href={tr.best_match.url} target="_blank" rel="noreferrer"
-                              className="block p-2.5 bg-emerald-950/15 border border-emerald-800/25 rounded-lg mb-1 hover:bg-emerald-950/25 transition-colors">
-                              <div className="text-xs text-emerald-300/80">{tr.best_match.label}</div>
-                              <div className="text-xs text-zinc-500 mt-0.5">{tr.best_match.count} 件</div>
+                              className="block p-2.5 ninja-panel-accent mb-1 hover:bg-[var(--ninja-panel-hover)] transition-colors">
+                              <div className="text-xs text-[var(--ninja-accent)]">{tr.best_match.label}</div>
+                              <div className="text-xs text-[var(--ninja-text-dim)] mt-0.5">{tr.best_match.count} 件</div>
                             </a>
                           )}
                           {tr.alternatives.map((a, j) => (
                             <a key={j} href={a.url} target="_blank" rel="noreferrer"
-                              className="block p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg mb-1 hover:bg-zinc-900/50 transition-colors">
-                              <div className="text-xs text-zinc-400">{a.label}</div>
-                              <div className="text-xs text-zinc-600 mt-0.5">{a.count} 件</div>
+                              className="block p-2 ninja-panel mb-1 hover:bg-[var(--ninja-panel-hover)] transition-colors">
+                              <div className="text-xs text-[var(--ninja-text-muted)]">{a.label}</div>
+                              <div className="text-xs text-[var(--ninja-text-dim)] mt-0.5">{a.count} 件</div>
                             </a>
                           ))}
                         </div>
@@ -241,10 +241,10 @@ export default function ChatPage() {
                   )}
 
                   {m.sources && m.sources.length > 0 && (
-                    <details className="mt-3 pt-2 border-t border-zinc-800">
-                      <summary className="text-xs text-zinc-600 cursor-pointer hover:text-zinc-500 transition-colors">来源 ({m.sources.length})</summary>
+                    <details className="mt-3 pt-2 border-t border-[var(--ninja-border)]">
+                      <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors">来源 ({m.sources.length})</summary>
                       <div className="mt-2 space-y-1">
-                        {m.sources.map((s, j) => <div key={j} className="text-xs text-zinc-600 bg-zinc-900/40 rounded px-2 py-1"><span className="text-zinc-500">[{s.type}]</span> {s.preview}</div>)}
+                        {m.sources.map((s, j) => <div key={j} className="text-xs text-[var(--ninja-text-dim)] bg-[var(--ninja-bg-elevated)] rounded px-2 py-1"><span className="text-[var(--ninja-text-muted)]">[{s.type}]</span> {s.preview}</div>)}
                       </div>
                     </details>
                   )}
@@ -255,22 +255,22 @@ export default function ChatPage() {
 
           {streaming && (
             <article className="flex gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-md bg-amber-950/30 border border-amber-800/30 flex items-center justify-center text-xs font-medium text-amber-400/80 mt-0.5">
+              <div className="shrink-0 w-8 h-8 rounded-md bg-[rgba(30,203,139,0.12)] border border-[rgba(30,203,139,0.3)] flex items-center justify-center text-xs font-medium text-[var(--ninja-accent)] mt-0.5">
                 AI
               </div>
-              <details open className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 bg-zinc-900/40 border border-amber-800/20">
-                <summary className="text-xs text-amber-500/60 tracking-wider uppercase cursor-pointer select-none">
+              <details open className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 ninja-panel border-[rgba(30,203,139,0.2)]">
+                <summary className="text-xs text-[var(--ninja-accent)] tracking-wider uppercase cursor-pointer select-none">
                   思考过程
                 </summary>
                 <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto text-xs leading-relaxed">
                   {thinking.map((t, i) => (
-                    <p key={`t-${i}`} className="text-zinc-500">{t}</p>
+                    <p key={`t-${i}`} className="text-[var(--ninja-text-muted)]">{t}</p>
                   ))}
                   {reasoning && (
-                    <p className="text-amber-500/40 whitespace-pre-wrap">{reasoning}</p>
+                    <p className="text-[var(--ninja-accent)] opacity-60 whitespace-pre-wrap">{reasoning}</p>
                   )}
                   {thinking.length === 0 && !reasoning && (
-                    <p className="text-zinc-600 animate-pulse">正在分析意图...</p>
+                    <p className="text-[var(--ninja-text-dim)] animate-pulse-glow">正在分析意图...</p>
                   )}
                 </div>
               </details>
@@ -281,14 +281,14 @@ export default function ChatPage() {
         </main>
 
         {/* input */}
-        <footer className="shrink-0 pt-3 border-t border-zinc-800">
+        <footer className="shrink-0 pt-3 border-t border-[var(--ninja-border)]">
           <div className="flex gap-2 items-end">
             <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey}
               placeholder={streaming ? "回复中..." : "输入问题，Enter 发送"}
               disabled={streaming}
-              className="flex-1 bg-transparent border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-700/40 transition-colors disabled:opacity-40" />
+              className="ninja-input flex-1 disabled:opacity-40" />
             <button onClick={() => send(input)} disabled={streaming || !input.trim()}
-              className="shrink-0 px-4 py-2.5 rounded-lg bg-amber-950/20 border border-amber-800/25 text-amber-400/60 text-sm font-medium hover:bg-amber-950/30 hover:text-amber-300/80 disabled:bg-transparent disabled:border-zinc-800 disabled:text-zinc-700 transition-all duration-200">
+              className="ninja-btn shrink-0 px-4 py-2.5 disabled:opacity-40">
               {streaming ? "..." : "发送"}
             </button>
           </div>
@@ -303,23 +303,23 @@ export default function ChatPage() {
         .msg-content .md-h2 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.8); margin-top: 0.8rem; margin-bottom: 0.3rem; line-height: 1.3; }
         .msg-content .md-h3 { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.72); margin-top: 0.65rem; margin-bottom: 0.25rem; line-height: 1.3; }
         .msg-content .md-h4 { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.65); margin-top: 0.5rem; margin-bottom: 0.2rem; line-height: 1.3; }
-        .msg-content .md-bold { color: rgba(252,211,77,0.82); font-weight: 500; }
+        .msg-content .md-bold { color: rgba(30,203,139,0.9); font-weight: 500; }
         .msg-content .md-em { font-style: italic; color: rgba(255,255,255,0.55); }
         .msg-content .md-li { display: list-item; margin-left: 1.2rem; list-style: disc; color: rgba(255,255,255,0.5); margin-bottom: 0.15rem; }
         .msg-content .md-li-ol { display: list-item; margin-left: 1.2rem; list-style: decimal; color: rgba(255,255,255,0.5); margin-bottom: 0.15rem; }
-        .msg-content .md-code { font-size: 0.82em; background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: rgba(252,211,77,0.6); font-family: monospace; }
-        .msg-content .md-link { color: rgba(252,211,77,0.7); text-decoration: underline; }
-        .msg-content .md-link:hover { color: rgba(252,211,77,0.9); }
-        .msg-content .md-quote { border-left: 2px solid rgba(252,211,77,0.3); padding-left: 0.75rem; margin: 0.5rem 0; color: rgba(255,255,255,0.45); font-style: italic; }
+        .msg-content .md-code { font-size: 0.82em; background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: rgba(30,203,139,0.6); font-family: monospace; }
+        .msg-content .md-link { color: rgba(30,203,139,0.7); text-decoration: underline; }
+        .msg-content .md-link:hover { color: rgba(30,203,139,0.9); }
+        .msg-content .md-quote { border-left: 2px solid rgba(30,203,139,0.3); padding-left: 0.75rem; margin: 0.5rem 0; color: rgba(255,255,255,0.45); font-style: italic; }
         .msg-content .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 0.6rem 0; }
         .msg-content .md-tag { font-size: 0.65rem; color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); padding: 0 2px; border-radius: 2px; margin: 0 1px; }
-        .msg-content .md-tag-guess { color: rgba(252,211,77,0.32); background: rgba(252,211,77,0.04); }
+        .msg-content .md-tag-guess { color: rgba(30,203,139,0.32); background: rgba(30,203,139,0.04); }
 
         .msg-content .md-table-wrap { overflow-x: auto; margin: 0.65rem 0; border: 1px solid rgba(255,255,255,0.08); border-radius: 0.5rem; }
         .msg-content .md-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
         .msg-content .md-thead { background: rgba(255,255,255,0.04); }
         .msg-content .md-th, .msg-content .md-td { padding: 0.45rem 0.65rem; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; vertical-align: top; }
-        .msg-content .md-th { color: rgba(252,211,77,0.75); font-weight: 600; }
+        .msg-content .md-th { color: rgba(30,203,139,0.75); font-weight: 600; }
         .msg-content .md-td { color: rgba(255,255,255,0.55); }
         .msg-content .md-tr:last-child .md-td { border-bottom: none; }
       `}</style>

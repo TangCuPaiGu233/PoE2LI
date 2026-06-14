@@ -205,19 +205,13 @@ export default function Home() {
   const gems = result?.skillSets?.flatMap((s) => s.gems?.filter((g) => g.nameSpec) || []) || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-gray-100">
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Header */}
+    <div className="max-w-5xl mx-auto px-4 py-8 text-[var(--ninja-text)]">
         <header className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-            流放漓 PoE2LI
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm">Path of Exile 2 智能构建分析工具</p>
-          <nav className="mt-3 flex justify-center gap-4">
-            <a href="/chat" className="text-cyan-500/70 hover:text-cyan-400 text-xs transition">
-              AI 问答 · 装备搜索
-            </a>
-          </nav>
+          <p className="ninja-section-title mb-2">Build Analyzer</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">PoB 构建分析</h1>
+          <p className="text-[var(--ninja-text-muted)] mt-2 text-sm max-w-lg mx-auto">
+            粘贴 PoB 分享码或 poe.ninja 角色链接，自动解析装备并生成中文攻略
+          </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
@@ -231,13 +225,13 @@ export default function Home() {
                   onChange={(e) => setPobCode(e.target.value)}
                   placeholder="粘贴 PoB 分享码 (eNp...) 或 pobb.in / poe.ninja 链接..."
                   rows={3}
-                  className="w-full p-4 pr-24 bg-gray-900 border border-gray-700 rounded-xl text-sm font-mono focus:outline-none focus:border-amber-500 resize-none"
+                  className="ninja-textarea font-mono text-sm pr-24 resize-none"
                 />
                 <div className="absolute right-3 top-3 flex gap-2">
                   <button
                     type="button"
                     onClick={handlePaste}
-                    className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                    className="ninja-btn-ghost"
                   >
                     粘贴
                   </button>
@@ -246,18 +240,18 @@ export default function Home() {
 
               {/* Validation feedback */}
               {pobValid === false && pobCode.length > 10 && (
-                <p className="mt-2 text-xs text-red-400">
+                <p className="mt-2 text-xs text-[var(--ninja-danger)]">
                   支持 PoB 分享码 (eN 开头) 或 https://pobb.in/ 或 https://poe.ninja/ 链接
                 </p>
               )}
               {pobValid === true && (
-                <p className="mt-2 text-xs text-green-400">✓ 格式正确</p>
+                <p className="mt-2 text-xs text-[var(--ninja-accent)]">✓ 格式正确</p>
               )}
 
               <button
                 type="submit"
                 disabled={loading || !pobValid}
-                className="mt-3 w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-gray-900 font-semibold rounded-xl hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="ninja-btn mt-3 w-full py-3"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -275,13 +269,13 @@ export default function Home() {
 
             {/* Error */}
             {error && (
-              <div className="mb-6 p-4 bg-red-950/50 border border-red-800 rounded-xl">
+              <div className="mb-6 ninja-panel-accent p-4" style={{ borderLeftColor: "var(--ninja-danger)" }}>
                 <div className="flex items-start gap-3">
                   <span className="text-red-400 text-lg">⚠</span>
                   <div>
-                    <p className="text-red-300 font-medium">{error.message}</p>
+                    <p className="text-[var(--ninja-danger)] font-medium">{error.message}</p>
                     {error.reason && (
-                      <p className="text-red-400/70 text-xs mt-1">错误类型: {error.reason}</p>
+                      <p className="text-[var(--ninja-text-dim)] text-xs mt-1">错误类型: {error.reason}</p>
                     )}
                   </div>
                 </div>
@@ -292,19 +286,19 @@ export default function Home() {
             {result && (
               <div className="space-y-4">
                 {/* Build Info Card */}
-                <div className="p-5 bg-gray-900/80 border border-gray-800 rounded-xl">
+                <div className="ninja-panel-accent p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-amber-400">
+                    <h2 className="text-lg font-bold text-[var(--ninja-accent)]">
                       {result.build.className} / {result.build.ascendClassName}
                     </h2>
-                    <span className="text-xs text-gray-500">Lv.{result.build.level}</span>
+                    <span className="ninja-badge">Lv.{result.build.level}</span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <Stat label="生命" value={formatNum(stats.Life as number)} color="text-red-400" />
                     <Stat label="魔力" value={formatNum(stats.Mana as number)} color="text-blue-400" />
-                    <Stat label="DPS" value={formatNum(stats.TotalDPS as number)} color="text-yellow-400" />
-                    <Stat label="护甲" value={formatNum(stats.Armour as number)} color="text-gray-400" />
+                    <Stat label="DPS" value={formatNum(stats.TotalDPS as number)} color="text-[var(--ninja-accent)]" />
+                    <Stat label="护甲" value={formatNum(stats.Armour as number)} color="text-[var(--ninja-text-muted)]" />
                     <Stat label="力量" value={String(stats.Str || 0)} color="text-red-300" />
                     <Stat label="敏捷" value={String(stats.Dex || 0)} color="text-green-300" />
                     <Stat label="智慧" value={String(stats.Int || 0)} color="text-blue-300" />
@@ -318,16 +312,16 @@ export default function Home() {
 
                 {/* Gems */}
                 {gems.length > 0 && (
-                  <div className="p-5 bg-gray-900/80 border border-gray-800 rounded-xl">
-                    <h3 className="text-sm font-semibold text-gray-400 mb-3">技能宝石</h3>
+                  <div className="ninja-panel p-5">
+                    <h3 className="ninja-section-title mb-3">技能宝石</h3>
                     <div className="flex flex-wrap gap-2">
                       {gems.map((g, i) => (
                         <span
                           key={i}
-                          className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-lg text-xs"
+                          className="px-2.5 py-1 bg-[var(--ninja-bg-elevated)] border border-[var(--ninja-border)] rounded text-xs text-[var(--ninja-text-muted)]"
                         >
                           {g.nameSpec}
-                          <span className="text-gray-500 ml-1">Lv{g.level}</span>
+                          <span className="text-[var(--ninja-text-dim)] ml-1">Lv{g.level}</span>
                         </span>
                       ))}
                     </div>
@@ -336,14 +330,14 @@ export default function Home() {
 
                 {/* Homework */}
                 {result.homework && (
-                  <div className="p-5 bg-gray-900/80 border border-gray-800 rounded-xl">
+                  <div className="ninja-panel p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-semibold text-gray-400">🤖 AI 攻略</h3>
+                      <h3 className="ninja-section-title">🤖 AI 攻略</h3>
                       <div className="flex gap-3">
-                        <a href="/chat" className="text-xs text-emerald-500/70 hover:text-emerald-400 transition-colors">
+                        <a href="/chat" className="ninja-link text-xs">
                           🔍 在对话里搜装备
                         </a>
-                        <button onClick={copyShareLink} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">
+                        <button onClick={copyShareLink} className="ninja-btn-ghost text-xs">
                           复制链接
                         </button>
                       </div>
@@ -360,10 +354,10 @@ export default function Home() {
 
                 <a
                   href="/chat"
-                  className="block p-4 bg-cyan-900/20 border border-cyan-700/30 rounded-xl text-center hover:bg-cyan-900/30 transition-colors"
+                  className="block ninja-panel-accent p-4 text-center hover:bg-[var(--ninja-panel-hover)] transition-colors"
                 >
-                  <span className="text-cyan-400 text-sm">AI 问答中深入讨论这个 Build</span>
-                  <p className="text-gray-500 text-xs mt-1">多轮对话、装备推荐、技能搭配</p>
+                  <span className="text-[var(--ninja-accent)] text-sm font-medium">在 AI 问答中深入讨论这个 Build</span>
+                  <p className="text-[var(--ninja-text-dim)] text-xs mt-1">多轮对话、装备推荐、BD 造价</p>
                 </a>
               </div>
             )}
@@ -371,10 +365,10 @@ export default function Home() {
 
           {/* Sidebar - History */}
           <div className="lg:sticky lg:top-8 lg:self-start">
-            <div className="p-4 bg-gray-900/80 border border-gray-800 rounded-xl">
+            <div className="ninja-panel p-4">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className="w-full flex items-center justify-between text-sm font-semibold text-gray-400 mb-3"
+                className="w-full flex items-center justify-between ninja-section-title mb-3"
               >
                 <span>历史记录 ({history.length})</span>
                 <span className="text-xs">{showHistory ? "▲" : "▼"}</span>
@@ -383,7 +377,7 @@ export default function Home() {
               {showHistory && (
                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                   {history.length === 0 ? (
-                    <p className="text-xs text-gray-600 text-center py-4">暂无记录</p>
+                    <p className="text-xs text-[var(--ninja-text-dim)] text-center py-4">暂无记录</p>
                   ) : (
                     history.map((b) => (
                       <button
@@ -391,15 +385,15 @@ export default function Home() {
                         onClick={() => loadBuild(b.id)}
                         className={`w-full p-3 rounded-lg text-left text-xs transition-colors ${
                           result?.id === b.id
-                            ? "bg-amber-500/10 border border-amber-500/30"
-                            : "bg-gray-800/50 border border-transparent hover:bg-gray-800"
+                            ? "bg-[rgba(30,203,139,0.08)] border-[rgba(30,203,139,0.35)]"
+                            : "bg-[var(--ninja-bg-elevated)] border-[var(--ninja-border)] hover:border-[var(--ninja-border-strong)]"
                         }`}
                       >
-                        <div className="font-medium text-gray-200">
+                        <div className="font-medium text-[var(--ninja-text)]">
                           {b.build.className}{" "}
-                          <span className="text-gray-500">Lv.{b.build.level}</span>
+                          <span className="text-[var(--ninja-text-dim)]">Lv.{b.build.level}</span>
                         </div>
-                        <div className="text-gray-500 mt-0.5">
+                        <div className="text-[var(--ninja-text-muted)] mt-0.5">
                           {b.build.ascendClassName || "无升华"}
                         </div>
                       </button>
@@ -409,7 +403,6 @@ export default function Home() {
               )}
             </div>
           </div>
-        </div>
       </div>
     </div>
   );
@@ -417,9 +410,9 @@ export default function Home() {
 
 function Stat({ label, value, color = "text-white" }: { label: string; value: string; color?: string }) {
   return (
-    <div className="p-2.5 bg-gray-800/50 rounded-lg">
-      <div className="text-[10px] text-gray-500 mb-0.5">{label}</div>
-      <div className={`text-sm font-bold ${color}`}>{value}</div>
+    <div className="ninja-stat">
+      <div className="ninja-stat-label">{label}</div>
+      <div className={`ninja-stat-value ${color}`}>{value}</div>
     </div>
   );
 }
@@ -428,17 +421,17 @@ function CollapsibleBlock({ title, content, defaultOpen = false }: { title: stri
   if (!content) return null;
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-gray-800 rounded-lg overflow-hidden">
+    <div className="border border-[var(--ninja-border)] rounded overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-800/50 transition-colors"
+        className="w-full flex items-center justify-between p-3 text-left hover:bg-[var(--ninja-panel-hover)] transition-colors"
       >
-        <span className="text-xs font-semibold text-gray-400">{title}</span>
-        <span className="text-gray-600 text-xs">{open ? "▲" : "▼"}</span>
+        <span className="text-xs font-semibold text-[var(--ninja-text-muted)]">{title}</span>
+        <span className="text-[var(--ninja-text-dim)] text-xs">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <div className="px-3 pb-3">
-          <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{content}</p>
+          <p className="text-sm text-[var(--ninja-text-muted)] leading-relaxed whitespace-pre-line pt-2">{content}</p>
         </div>
       )}
     </div>
