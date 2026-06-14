@@ -17,6 +17,7 @@ FILES = [
     ("backend/app/services/trade_concepts.py", "/tmp/trade_concepts.py"),
     ("backend/app/services/chat_tools.py", "/tmp/chat_tools.py"),
     ("backend/app/services/chat_agent.py", "/tmp/chat_agent.py"),
+    ("backend/app/services/multi_affix_compare.py", "/tmp/multi_affix_compare.py"),
 ]
 
 
@@ -47,6 +48,7 @@ def main() -> None:
         "/usr/local/bin/docker cp /tmp/trade_concepts.py poe2li-backend:/app/app/services/trade_concepts.py",
         "/usr/local/bin/docker cp /tmp/chat_tools.py poe2li-backend:/app/app/services/chat_tools.py",
         "/usr/local/bin/docker cp /tmp/chat_agent.py poe2li-backend:/app/app/services/chat_agent.py",
+        "/usr/local/bin/docker cp /tmp/multi_affix_compare.py poe2li-backend:/app/app/services/multi_affix_compare.py",
         "/usr/local/bin/docker restart poe2li-backend",
     ]:
         print(">", cmd)

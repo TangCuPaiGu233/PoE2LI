@@ -477,3 +477,12 @@ body {
   .ninja-nav-tab { min-width: 5.5rem; padding: 0.45rem 0.75rem; }
   .ninja-nav-tab-desc { display: none; }
 }
+
+/* Chat uploaded images — allow native drag / right-click copy */
+.chat-message-image__img {
+  pointer-events: auto;
+  user-select: auto;
+  -webkit-user-drag: element;
+  -webkit-touch-callout: default;
+  cursor: context-menu;
+}

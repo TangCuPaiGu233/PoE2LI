@@ -53,9 +53,10 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 14. **用户附图**：消息可能含 PoE2 游戏截图（装备、天赋、技能、市集等）。先描述图中可见内容，再结合工具/知识库回答；看不清的数值如实说明，不要编造。
 15. **估价/值多少钱**：只能引用 trade_search 返回的 `listing_price.display`；若无 listing_price 或 price_note 说无在售，必须明确「无法从市集估价」，**禁止**编造具体金额区间（如 3-8 崇高、建议挂 5E 等）。
 16. **trade_search 的 query**：只写词缀/装备类型/暗金名；**不要**把截图里的物品等级(物等/ilvl)写进 query，除非用户原话明确要求物等条件。
-17. **trade_search 每轮最多 2 次**：第一次 query 写全全部词缀（蓝玉 + 所有后缀/前缀）；若返回链接则直接作答，**禁止**反复缩小 query 连续搜索。
+17. **trade_search 每轮最多 2 次**（单件装备、缩小条件重试）：第一次 query 写全全部词缀；若返回链接则直接作答，**禁止**为同一件装备反复缩小 query。
 18. **暗金查价**（人格分裂、猎首等）：trade_search 的 query **只写暗金名**，不要加红玉/蓝玉基底或无关词缀描述。
 19. **追问价格/其他变体词缀**：仍须 trade_search；结合对话里的物品名构造 query，禁止不查市集就报具体价格。
+20. **多词条/多变体分别比价**（「不同词条分别多少钱」「各词缀价格对比」）：每条 query **只含一个词条或一种变体**，逐项调用 trade_search（系统也可能自动走逐项流水线）；全部搜完后用 markdown 表格或列表**汇总**，禁止把多个词条塞进一次搜索，禁止未搜索就报各词条价格。
 
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
@@ -65,7 +66,8 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 
 
 def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
-    if ctx.trade_search_calls >= 2:
+    max_calls = 8 if ctx.trade_compare_mode else 2
+    if ctx.trade_search_calls >= max_calls:
         return [t for t in TOOL_DEFINITIONS if t["function"]["name"] != "trade_search"]
     return TOOL_DEFINITIONS
 
@@ -269,6 +271,7 @@ async def _emit_forced_rag(
 async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:
     """Run the agent loop and yield SSE event dicts."""
     from app.services.multi_item_price import is_price_query, stream_multi_item_prices, is_build_cost_query, stream_build_cost
+    from app.services.multi_affix_compare import is_multi_affix_compare_query, stream_multi_affix_compare
 
     user_msg = resolve_user_text(messages)
     last_msg = messages[-1] if messages else {}
@@ -294,6 +297,20 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         else:
             return
 
+    if not has_images and is_multi_affix_compare_query(user_msg, messages):
+        yield {"type": "thinking", "content": "检测到多词条比价，进入逐项搜索流水线…"}
+        async for event in _stream_with_follow_ups(
+            user_msg,
+            stream_multi_affix_compare(user_msg, messages=messages, market="cn"),
+        ):
+            if event.get("type") == "route" and event.get("content") == "default_agent":
+                break
+            yield event
+            if event.get("type") == "done":
+                return
+        else:
+            return
+
     if not has_images and is_price_query(user_msg):
         yield {"type": "thinking", "content": "检测到多件查价，进入市价流水线…"}
         async for event in _stream_with_follow_ups(user_msg, stream_multi_item_prices(user_msg, market="cn")):
@@ -306,6 +323,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             return
 
     ctx = ChatToolContext(user_msg=user_msg)
+    if is_multi_affix_compare_query(user_msg, messages):
+        ctx.trade_compare_mode = True
     client = _llm_client()
 
     agent_messages = build_agent_messages(messages, _build_system_message(user_msg))

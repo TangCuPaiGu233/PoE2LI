@@ -43,6 +43,7 @@ class ChatToolContext:
     last_recommend: dict | None = None
     rag_search_calls: int = 0
     trade_search_calls: int = 0
+    trade_compare_mode: bool = False
     last_build_summary: str | None = None
 
 
@@ -128,7 +129,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "description": (
                 "Search the official PoE2 trade market. Returns trade URLs, match counts, "
                 "listing_price (real cheapest listing when available), and price_note. "
-                "Do NOT put item level (物等/ilvl) in query unless the user explicitly requires it."
+                "Do NOT put item level (物等/ilvl) in query unless the user explicitly requires it. "
+                "When comparing many affixes/variants, call once per affix with a single-mod query, then summarize."
             ),
             "parameters": {
                 "type": "object",
@@ -375,13 +377,14 @@ def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResul
 def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
     from app.services.trade_agent import run_agent as trade_run_agent, sanitize_trade_query
 
-    if ctx.trade_search_calls >= 2:
+    max_calls = 8 if ctx.trade_compare_mode else 2
+    if ctx.trade_search_calls >= max_calls:
         prev = ctx.last_trade or {}
         return ToolRunResult(
             content=json.dumps(
                 {
                     "error": "trade_search_limit",
-                    "message": "本轮已搜索 2 次，请基于已有链接作答，勿重复缩小 query 再搜",
+                    "message": f"本轮已搜索 {max_calls} 次，请基于已有结果汇总作答",
                     "previous": prev,
                 },
                 ensure_ascii=False,

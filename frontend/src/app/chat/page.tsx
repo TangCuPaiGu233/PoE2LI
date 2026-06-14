@@ -10,6 +10,7 @@ import {
 } from "@/lib/chatImage";
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMarkdown from "@/components/chat/ChatMarkdown";
+import ChatMessageImage from "@/components/chat/ChatMessageImage";
 
 // ── types ──
 interface TradeMatch {
@@ -464,10 +465,11 @@ export default function ChatPage() {
                       {m.images && m.images.length > 0 && (
                         <div className={`flex flex-wrap gap-2 mb-2 ${m.role === "user" ? "justify-end" : ""}`}>
                           {m.images.map((src, j) => (
-                            <img
+                            <ChatMessageImage
                               key={j}
                               src={src}
                               alt={`附件 ${j + 1}`}
+                              fileName={`chat-${i + 1}-${j + 1}.jpg`}
                               className="max-h-40 max-w-full rounded-lg border border-[rgba(30,203,139,0.25)] object-contain"
                             />
                           ))}
@@ -567,9 +569,11 @@ export default function ChatPage() {
                         {img.error}
                       </div>
                     ) : (
-                      <img
+                      <ChatMessageImage
                         src={img.dataUrl}
                         alt={img.name || "附件"}
+                        fileName={img.name || "pasted-image.jpg"}
+                        thumb
                         className="h-16 w-16 object-cover rounded-md border border-[var(--ninja-border)]"
                       />
                     )}
