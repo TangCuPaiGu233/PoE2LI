@@ -82,3 +82,22 @@ async def test_stream_build_cost_includes_rares():
     assert any("Life Ring" in a and "5" in a for a in answers)
     assert any("Headhunter" in a for a in answers)
     assert call_order == ["rare", "unique"]
+
+def test_trade_link_line_includes_item_url():
+    from app.services.multi_item_price import _format_item_answer, _trade_link_line
+
+    quote = {
+        "amount": 10,
+        "currency": "divine",
+        "trade_result": {
+            "best_match": {
+                "label": "Headhunter (100 条)",
+                "url": "https://poe.game.qq.com/trade2/search/poe2/league/abc123",
+                "count": 100,
+            }
+        },
+    }
+    link = _trade_link_line(quote)
+    assert "abc123" in link
+    text = _format_item_answer("Headhunter", quote)
+    assert "abc123" in text

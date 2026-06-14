@@ -7,7 +7,7 @@ import ChatMarkdown from "@/components/chat/ChatMarkdown";
 // ── types ──
 interface TradeMatch { label: string; url: string; count: number }
 interface TradeResult { best_match: TradeMatch | null; alternatives: TradeMatch[]; explanation: string }
-interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult }
+interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult; trades?: TradeResult[] }
 
 const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
 
@@ -136,7 +136,7 @@ export default function ChatPage() {
               setThinking(p => [...p, `${prefix} · ${label}: ${preview}`]);
             } else if (ev.type === "reasoning") setReasoning(p => p + ev.content);
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
-            else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, trade: ev.content }] : [...p, { role: "assistant", content: "", trade: ev.content }]; }); }
+            else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; if (l?.role === "assistant") { const trades = [...(l.trades || (l.trade ? [l.trade] : [])), ev.content as TradeResult]; return [...p.slice(0, -1), { ...l, trades, trade: undefined }]; } return [...p, { role: "assistant", content: "", trades: [ev.content as TradeResult] }]; }); }
             else if (ev.type === "sources") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: l.content, sources: ev.content }] : p; }); }
             else if (ev.type === "done") { setReasoning(r => { if (r) setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, reasoning: r }] : p; }); return ""; }); setThinking([]); setStreaming(false); setSkill("idle"); }
           } catch { /* skip malformed */ }
@@ -216,22 +216,26 @@ export default function ChatPage() {
                   )}
                 </div>
 
-                  {m.trade && (
+                  {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 && (
                     <div className="mt-3 pt-3 border-t border-zinc-800">
                       <p className="text-xs text-emerald-500/50 tracking-wider uppercase mb-2">交易结果</p>
-                      {m.trade.best_match && (
-                        <a href={m.trade.best_match.url} target="_blank" rel="noreferrer"
-                          className="block p-2.5 bg-emerald-950/15 border border-emerald-800/25 rounded-lg mb-2 hover:bg-emerald-950/25 transition-colors">
-                          <div className="text-xs text-emerald-300/80">{m.trade.best_match.label}</div>
-                          <div className="text-xs text-zinc-500 mt-0.5">{m.trade.best_match.count} 件</div>
-                        </a>
-                      )}
-                      {m.trade.alternatives.map((a, j) => (
-                        <a key={j} href={a.url} target="_blank" rel="noreferrer"
-                          className="block p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg mb-1.5 hover:bg-zinc-900/50 transition-colors">
-                          <div className="text-xs text-zinc-400">{a.label}</div>
-                          <div className="text-xs text-zinc-600 mt-0.5">{a.count} 件</div>
-                        </a>
+                      {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).map((tr, ti) => (
+                        <div key={ti} className="mb-2">
+                          {tr.best_match && (
+                            <a href={tr.best_match.url} target="_blank" rel="noreferrer"
+                              className="block p-2.5 bg-emerald-950/15 border border-emerald-800/25 rounded-lg mb-1 hover:bg-emerald-950/25 transition-colors">
+                              <div className="text-xs text-emerald-300/80">{tr.best_match.label}</div>
+                              <div className="text-xs text-zinc-500 mt-0.5">{tr.best_match.count} 件</div>
+                            </a>
+                          )}
+                          {tr.alternatives.map((a, j) => (
+                            <a key={j} href={a.url} target="_blank" rel="noreferrer"
+                              className="block p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg mb-1 hover:bg-zinc-900/50 transition-colors">
+                              <div className="text-xs text-zinc-400">{a.label}</div>
+                              <div className="text-xs text-zinc-600 mt-0.5">{a.count} 件</div>
+                            </a>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}

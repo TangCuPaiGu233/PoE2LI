@@ -97,7 +97,7 @@ def test_format_rare_item_answer_no_listing_friendly():
     text = _format_rare_item_answer({"label": "Life Ring"}, quote)
     assert "\u67e5\u8be2\u5931\u8d25" not in text
     assert "2/3" in text
-    assert "\u4ea4\u6613\u94fe\u63a5" in text
+    assert "2/3" in text  # link only when trade_result provides url
 
 
 def test_format_summary_no_listing_counts_success():
@@ -108,3 +108,22 @@ def test_format_summary_no_listing_counts_success():
     text = _format_summary(quotes)
     assert "\u6210\u529f **1**" in text
     assert "\u5931\u8d25 **1**" in text
+
+def test_format_rare_item_answer_includes_link_when_url_present():
+    quote = {
+        "item": "Life Ring",
+        "no_listing": True,
+        "note": "市集中暂无完全匹配的在售物品",
+        "mods_matched": 2,
+        "mods_total": 3,
+        "trade_result": {
+            "best_match": {
+                "label": "Life Ring (0 条)",
+                "url": "https://poe.game.qq.com/trade2/search/poe2/league/xyz",
+                "count": 0,
+            }
+        },
+    }
+    text = _format_rare_item_answer({"label": "Life Ring"}, quote)
+    assert "xyz" in text
+    assert "查看搜索条件" in text

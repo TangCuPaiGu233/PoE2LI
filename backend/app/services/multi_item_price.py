@@ -108,16 +108,35 @@ def _currency_label(currency: str) -> str:
     }.get((currency or "").lower(), currency or "?")
 
 
+
+
+def _trade_url_from_quote(quote):
+    tr = quote.get("trade_result") or {}
+    bm = tr.get("best_match") or {}
+    url = (bm.get("url") or "").strip()
+    return url or None
+
+def _trade_link_line(quote):
+    url = _trade_url_from_quote(quote)
+    if not url:
+        return ""
+    bm = (quote.get("trade_result") or {}).get("best_match") or {}
+    count = bm.get("count")
+    if quote.get("no_listing"):
+        label = f"查看搜索条件（{count if count is not None else 0} 条在售）"
+    else:
+        label = f"打开国服市集（{count if count is not None else '?'} 条）"
+    return f"\n\n[{label}]({url})"
 def _format_item_answer(item: str, quote: dict[str, Any]) -> str:
     if quote.get("error"):
-        return f"### {item}\n\n查询失败：{quote.get('error')}"
+        return f"### {item}\n\n查询失败：{quote.get('error')}{_trade_link_line(quote)}"
     amount = quote.get("amount")
     currency = _currency_label(str(quote.get("currency", "")))
     name = quote.get("item_name") or item
     line = f"**{amount}** {currency}"
     if name and name != item:
         line += f"（市集条目：{name}）"
-    return f"### {item}\n\n当前最低标价：{line}"
+    return f"### {item}\n\n当前最低标价：{line}{_trade_link_line(quote)}"
 
 
 def _format_summary(quotes: list[dict[str, Any]]) -> str:
@@ -159,7 +178,7 @@ def _format_summary(quotes: list[dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
-            "*价格为市集当前最低价，实际成交可能浮动；点击上方交易链接可查看详情。*",
+            "*价格为市集当前最低价，实际成交可能浮动；各装备下方链接对应该装备的市集搜索。*",
         ]
     )
     return "\n".join(lines)
@@ -309,15 +328,15 @@ def _format_rare_item_answer(item: dict[str, Any], quote: dict[str, Any]) -> str
         note = quote.get("note") or "市集中暂无完全匹配的在售物品"
         return (
             f"### {label}\n\n"
-            f"{note}{mod_note}。\n\n"
-            f"可点击上方交易链接浏览相近在售物品。"
+            f"{note}{mod_note}。"
+            f"{_trade_link_line(quote)}"
         )
     if quote.get("error"):
         extra = ""
         missed = quote.get("mods_missed") or []
         if missed:
             extra = f"\uff08\u672a\u6620\u5c04\u8bcd\u7f00\uff1a{missed[0]}\u7b49\uff09"
-        return f"### {label}\n\n\u67e5\u8be2\u5931\u8d25\uff1a{quote.get('error')}{extra}"
+        return f"### {label}\n\n\u67e5\u8be2\u5931\u8d25\uff1a{quote.get('error')}{extra}{_trade_link_line(quote)}"
     amount = quote.get("amount")
     currency = _currency_label(str(quote.get("currency", "")))
     matched = quote.get("mods_matched")
@@ -327,7 +346,7 @@ def _format_rare_item_answer(item: dict[str, Any], quote: dict[str, Any]) -> str
     name = quote.get("item_name")
     if name:
         line += f"\uff08\u5e02\u96c6\uff1a{name}\uff09"
-    return f"### {label}\n\n\u5f53\u524d\u6700\u4f4e\u6807\u4ef7\uff1a{line}"
+    return f"### {label}\n\n\u5f53\u524d\u6700\u4f4e\u6807\u4ef7\uff1a{line}{_trade_link_line(quote)}"
 
 
 def _extract_unique_names(data) -> list[str]:
