@@ -7,7 +7,7 @@ import ChatMarkdown from "@/components/chat/ChatMarkdown";
 // ── types ──
 interface TradeMatch { label: string; url: string; count: number }
 interface TradeResult { best_match: TradeMatch | null; alternatives: TradeMatch[]; explanation: string }
-interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; trade?: TradeResult; trades?: TradeResult[]; followUps?: string[] }
+interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; thinkingSteps?: string[]; trade?: TradeResult; trades?: TradeResult[]; followUps?: string[] }
 
 const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
 
@@ -18,6 +18,49 @@ const TOOL_LABELS: Record<string, string> = {
   trade_search: "搜索交易市场",
   recommend: "对比推荐装备",
 };
+
+
+
+function ThinkingPanel({
+  steps,
+  reasoning,
+  defaultOpen,
+}: {
+  steps?: string[];
+  reasoning?: string;
+  defaultOpen?: boolean;
+}) {
+  const hasSteps = !!(steps && steps.length);
+  const hasReasoning = !!reasoning?.trim();
+  if (!hasSteps && !hasReasoning) {
+    if (!defaultOpen) return null;
+    return (
+      <details className="mt-2 min-w-0 max-w-full" open={defaultOpen}>
+        <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">
+          思考过程
+        </summary>
+        <div className="mt-2 p-3 ninja-panel text-xs leading-relaxed max-h-48 overflow-y-auto">
+          <p className="text-[var(--ninja-text-dim)] animate-pulse-glow">正在分析意图...</p>
+        </div>
+      </details>
+    );
+  }
+  return (
+    <details className="mt-2 min-w-0 max-w-full" open={defaultOpen}>
+      <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">
+        思考过程
+      </summary>
+      <div className="mt-2 p-3 ninja-panel text-xs text-[var(--ninja-text-muted)] leading-relaxed max-h-48 overflow-y-auto space-y-1.5">
+        {hasSteps && steps!.map((t, i) => (
+          <p key={`step-${i}`} className="text-[var(--ninja-text-muted)]">{t}</p>
+        ))}
+        {hasReasoning && (
+          <p className="text-[var(--ninja-accent)] opacity-60 whitespace-pre-wrap">{reasoning}</p>
+        )}
+      </div>
+    </details>
+  );
+}
 
 function detectStreamSkill(text: string, toolName?: string, current = "idle"): string {
   if (toolName === "trade_search" || text.includes("交易市场")) return "trade_search";
@@ -91,6 +134,8 @@ export default function ChatPage() {
 
     const history = all.filter(m => m.role === "user" || m.role === "assistant").map(m => ({ role: m.role, content: m.content }));
     let acc = ""; let sk = "idle"; let pendingFollowUps: string[] | null = null;
+    let thinkLog: string[] = ["已收到问题，正在连接服务器…"];
+    let reasonLog = "";
 
     try {
       const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }) });
@@ -110,7 +155,8 @@ export default function ChatPage() {
               const t = ev.content || "";
               sk = detectStreamSkill(t, undefined, sk);
               setSkill(sk);
-              setThinking(p => [...p, t]);
+              thinkLog.push(t);
+              setThinking([...thinkLog]);
             } else if (ev.type === "tool_use") {
               const c = ev.content || {};
               const name = typeof c.name === "string" ? c.name : "";
@@ -125,7 +171,9 @@ export default function ChatPage() {
                   .map(([k, v]) => `${k}: ${String(v).slice(0, 60)}`)
                   .join(", ");
               }
-              setThinking(p => [...p, argsHint ? `工具调用 · ${label} (${argsHint})` : `工具调用 · ${label}`]);
+              const toolLine = argsHint ? `工具调用 · ${label} (${argsHint})` : `工具调用 · ${label}`;
+              thinkLog.push(toolLine);
+              setThinking([...thinkLog]);
             } else if (ev.type === "tool_result") {
               const c = ev.content || {};
               const name = typeof c.name === "string" ? c.name : "";
@@ -134,29 +182,34 @@ export default function ChatPage() {
               setSkill(sk);
               const preview = typeof c.preview === "string" ? c.preview : "";
               const prefix = c.ok === false ? "工具失败" : "工具完成";
-              setThinking(p => [...p, `${prefix} · ${label}: ${preview}`]);
-            } else if (ev.type === "reasoning") setReasoning(p => p + ev.content);
+              thinkLog.push(`${prefix} · ${label}: ${preview}`);
+              setThinking([...thinkLog]);
+            } else if (ev.type === "reasoning") { reasonLog += ev.content; setReasoning(reasonLog); }
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
             else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; if (l?.role === "assistant") { const trades = [...(l.trades || (l.trade ? [l.trade] : [])), ev.content as TradeResult]; return [...p.slice(0, -1), { ...l, trades, trade: undefined }]; } return [...p, { role: "assistant", content: "", trades: [ev.content as TradeResult] }]; }); }
             else if (ev.type === "sources") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: l.content, sources: ev.content }] : p; }); }
             else if (ev.type === "follow_ups") { const qs = Array.isArray(ev.content) ? ev.content.filter((q: unknown) => typeof q === "string" && q.trim()) : []; if (qs.length) pendingFollowUps = qs.slice(0, 3); }
             else if (ev.type === "done") {
-              setReasoning(r => {
-                if (r) setMessages(p => {
-                  const l = p[p.length - 1];
-                  return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, reasoning: r }] : p;
-                });
-                return "";
+              const fu = pendingFollowUps?.length ? pendingFollowUps.slice(0, 3) : null;
+              pendingFollowUps = null;
+              const savedSteps = thinkLog.length ? [...thinkLog] : undefined;
+              const savedReasoning = reasonLog || undefined;
+              setMessages(p => {
+                const l = p[p.length - 1];
+                if (l?.role !== "assistant") return p;
+                return [...p.slice(0, -1), {
+                  ...l,
+                  ...(savedReasoning ? { reasoning: savedReasoning } : {}),
+                  ...(savedSteps ? { thinkingSteps: savedSteps } : {}),
+                  ...(fu ? { followUps: fu } : {}),
+                }];
               });
-              if (pendingFollowUps?.length) {
-                const fu = pendingFollowUps;
-                pendingFollowUps = null;
-                setMessages(p => {
-                  const l = p[p.length - 1];
-                  return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, followUps: fu }] : p;
-                });
-              }
-              setThinking([]); setStreaming(false); setSkill("idle");
+              thinkLog = [];
+              reasonLog = "";
+              setThinking([]);
+              setReasoning("");
+              setStreaming(false);
+              setSkill("idle");
             }
           } catch { /* skip malformed */ }
         }
@@ -215,14 +268,7 @@ export default function ChatPage() {
               </div>
 
               <div className={`min-w-0 max-w-[78%] ${m.role === "user" ? "text-right" : ""}`}>
-                {m.reasoning && (
-                  <details className="mb-2">
-                    <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">思考过程</summary>
-                    <div className="mt-2 p-3 ninja-panel text-xs text-[var(--ninja-text-muted)] leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">{m.reasoning}</div>
-                  </details>
-                )}
-
-                <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
+                                <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
                   m.role === "user"
                     ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
                     : "ninja-panel text-[var(--ninja-text-body)]"
@@ -268,31 +314,30 @@ export default function ChatPage() {
                     </details>
                   )}
                 </div>
+                {m.role === "assistant" && (() => {
+                  const isLast = i === messages.length - 1;
+                  const liveStream = streaming && isLast;
+                  if (liveStream) {
+                    return (
+                      <ThinkingPanel steps={thinking} reasoning={reasoning} defaultOpen />
+                    );
+                  }
+                  return (
+                    <ThinkingPanel steps={m.thinkingSteps} reasoning={m.reasoning} />
+                  );
+                })()}
               </div>
             </article>
           ))}
 
-          {streaming && (
+          {streaming && messages[messages.length - 1]?.role !== "assistant" && (
             <article className="flex gap-3">
               <div className="shrink-0 w-8 h-8 rounded-md bg-[rgba(30,203,139,0.12)] border border-[rgba(30,203,139,0.3)] flex items-center justify-center text-xs font-medium text-[var(--ninja-accent)] mt-0.5">
                 AI
               </div>
-              <details open className="min-w-0 max-w-[78%] rounded-xl px-3.5 py-2.5 ninja-panel border-[rgba(30,203,139,0.2)]">
-                <summary className="text-xs text-[var(--ninja-accent)] tracking-wider uppercase cursor-pointer select-none">
-                  思考过程
-                </summary>
-                <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto text-xs leading-relaxed">
-                  {thinking.map((t, i) => (
-                    <p key={`t-${i}`} className="text-[var(--ninja-text-muted)]">{t}</p>
-                  ))}
-                  {reasoning && (
-                    <p className="text-[var(--ninja-accent)] opacity-60 whitespace-pre-wrap">{reasoning}</p>
-                  )}
-                  {thinking.length === 0 && !reasoning && (
-                    <p className="text-[var(--ninja-text-dim)] animate-pulse-glow">正在分析意图...</p>
-                  )}
-                </div>
-              </details>
+              <div className="min-w-0 max-w-[78%]">
+                <ThinkingPanel steps={thinking} reasoning={reasoning} defaultOpen />
+              </div>
             </article>
           )}
 
