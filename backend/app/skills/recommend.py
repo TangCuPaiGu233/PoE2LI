@@ -1,4 +1,5 @@
 """recommend.py — 装备/物品对比推荐 Skill。工具: recommend_agent。"""
+from app.core.game_context import attach_poe2_rule
 from app.skills.base import BaseSkill
 
 
@@ -17,7 +18,7 @@ class RecommendSkill(BaseSkill):
     def system_prompt(self, **kwargs) -> str:
         context = kwargs.get("context", "")
         user_msg = kwargs.get("user_msg", "")
-        return (
+        return attach_poe2_rule(
             "你是 PoE2 装备推荐专家。基于已完成的推荐分析结果回答用户。\n"
             "1. 先给出明确首选结论\n"
             "2. 简要对比各候选项优劣\n"

@@ -9,7 +9,9 @@ import re
 
 logger = logging.getLogger(__name__)
 
-FOLLOW_UP_SYSTEM = """你是 PoE2 对话助手。根据用户刚才的问题和助手已给出的回答，生成 3 条用户最可能继续追问的中文短句。
+from app.core.game_context import POE2_SITE_RULE
+
+FOLLOW_UP_SYSTEM = POE2_SITE_RULE + "\n\n" + """你是 PoE2 对话助手。根据用户刚才的问题和助手已给出的回答，生成 3 条用户最可能继续追问的中文短句。
 
 要求：
 - 每条是完整、可单独发送的用户问题（15~45 字为宜）

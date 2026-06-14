@@ -1,5 +1,6 @@
 """trade_search.py — 装备搜索 Skill。工具: trade_api / entity_resolve。"""
 import json
+from app.core.game_context import attach_poe2_rule
 from app.skills.base import BaseSkill
 
 
@@ -23,7 +24,7 @@ class TradeSearchSkill(BaseSkill):
         best = trade_result.get("best_match")
         alts = trade_result.get("alternatives", [])
 
-        return (
+        return attach_poe2_rule(
             "你是 PoE2 交易助手。帮用户理解搜索结果。\n\n"
             "用户查询: " + user_msg + "\n\n"
             "最佳匹配: " + json.dumps(best, ensure_ascii=False) + "\n"

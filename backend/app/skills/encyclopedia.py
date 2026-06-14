@@ -1,4 +1,5 @@
 """encyclopedia.py — 百科问答 Skill。工具: rag_search / entity_resolve。"""
+from app.core.game_context import attach_poe2_rule
 from app.skills.base import BaseSkill
 
 
@@ -41,4 +42,4 @@ class EncyclopediaSkill(BaseSkill):
             "用户问题: ", user_msg, "\n\n",
             "资料:\n", context,
         ])
-        return "".join(parts)
+        return attach_poe2_rule("".join(parts))

@@ -14,6 +14,7 @@ from openai import OpenAI
 from app.models.schemas import DecodeResponse
 from app.core.database import SessionLocal
 from app.models.build import ModTranslation
+from app.core.game_context import attach_poe2_rule
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def _get_client():
     return _client
 
 # ── Static system prompts (cached across all requests) ──
-HOMEWORK_SYSTEM_PROMPT = """你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
+HOMEWORK_SYSTEM_PROMPT = attach_poe2_rule("""你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
 
 重要规则：
 - 这是 Path of Exile 2，不是 PoE1。PoE2 的技能、装备、机制和 PoE1 差异很大，不要混用。
@@ -58,9 +59,9 @@ HOMEWORK_SYSTEM_PROMPT = """你是一个 Path of Exile 2（流放之路2）构�
   "budget_alternatives": "预算替代：低成本替代方案（无数据则写数据不足）",
   "talent_highlights": "天赋亮点：基于节点数的分析",
   "strength_review": "强度评估：优劣势和适用场景"
-}"""
+}""")
 
-CHAT_SYSTEM_PROMPT = """你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
+CHAT_SYSTEM_PROMPT = attach_poe2_rule("""你是一个专业的 Path of Exile 2（流放之路2，注意是 PoE2 不是 PoE1）游戏助手。
 
 回答规则：
 1. 优先基于【当前构建上下文】和【知识库参考】中的实际数据来回答。
@@ -77,7 +78,7 @@ CHAT_SYSTEM_PROMPT = """你是一个专业的 Path of Exile 2（流放之路2，
   "response": "你对玩家请求的简短回应（比如：没问题，我来帮你找。）"
 }
 
-如果玩家的问题**不涉及**寻找交易装备，请直接以普通纯文本格式回答问题即可，**不要**返回 JSON。"""
+如果玩家的问题**不涉及**寻找交易装备，请直接以普通纯文本格式回答问题即可，**不要**返回 JSON。""")
 
 
 def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:

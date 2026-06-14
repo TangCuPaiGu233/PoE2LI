@@ -13,6 +13,8 @@ from app.services.knowledge_service import (
     ingest_build, bulk_ingest, mark_stale, clear_stale, get_stats,
 )
 from app.services.embedding_service import get_embedding
+from app.core.game_context import POE2_SITE_RULE
+
 from app.services.retrieval_pipeline import (
     RetrievalOptions,
     retrieve_knowledge,
@@ -260,7 +262,9 @@ async def ask_question(req: AskRequest):
     from openai import OpenAI
     client = OpenAI(base_url=llm_url, api_key=llm_key)
 
-    sys_prompt = f"""你是流放之路2 (Path of Exile 2) 知识助手。基于以下来自 poe2db 百科的数据回答用户问题。
+    sys_prompt = f"""{POE2_SITE_RULE}
+
+你是流放之路2 (Path of Exile 2) 知识助手。基于以下来自 poe2db 百科的数据回答用户问题。
 {intent_hint}
 规则：
 - 只基于提供的资料回答，不要编造

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.services.recommend_runtime import get_recommend_agent, _get_llm
 from app.core.redis_client import get_redis
+from app.core.game_context import attach_poe2_rule
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/knowledge", tags=["recommend"])
@@ -129,7 +130,7 @@ async def recommend(req: RecommendRequest):
         resp = client.chat.completions.create(
             model=_os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash"),
             messages=[
-                {"role": "system", "content": f"你是流放之路2知识助手。基于以下资料回答问题。\n\n资料：\n{context}"},
+                {"role": "system", "content": attach_poe2_rule(f"你是流放之路2知识助手。基于以下资料回答问题。\n\n资料：\n{context}")},
                 {"role": "user", "content": req.question},
             ],
             temperature=0.3, max_tokens=1024,

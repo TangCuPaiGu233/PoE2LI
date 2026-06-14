@@ -1,4 +1,5 @@
 """build_design.py — BD 设计 Skill。工具: rag_search / entity_resolve。"""
+from app.core.game_context import attach_poe2_rule
 from app.skills.base import BaseSkill
 
 
@@ -58,4 +59,4 @@ class BuildDesignSkill(BaseSkill):
             "- 资料不足诚实说明\n\n",
             "资料:\n", context,
         ])
-        return "".join(parts)
+        return attach_poe2_rule("".join(parts))
