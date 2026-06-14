@@ -1,41 +1,45 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "PoB 解析" },
-  { href: "/chat", label: "AI 问答" },
+  { href: "/", label: "PoB 解析", desc: "导入 & 攻略" },
+  { href: "/chat", label: "AI 问答", desc: "百科 & 市集" },
 ];
 
 export default function SiteNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="ninja-nav">
-      <Link href="/" className="ninja-nav-brand">
-        <span className="ninja-nav-icon" aria-hidden>
-          漓
-        </span>
-        <span>流放漓</span>
-        <span className="hidden sm:inline text-xs font-normal text-[var(--ninja-text-dim)] ml-0.5">
-          PoE2LI
-        </span>
-      </Link>
+    <header className="ninja-nav-wrap">
+      <nav className="ninja-nav">
+        <Link href="/" className="ninja-nav-brand">
+          <span className="ninja-nav-icon" aria-hidden>漓</span>
+          <span className="ninja-nav-brand-text">流放漓</span>
+        </Link>
 
-      <div className="ninja-nav-links">
-        {LINKS.map(({ href, label }) => (
-          <Link
-            key={href}
-            href={href}
-            className={`ninja-nav-link${pathname === href ? " active" : ""}`}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
+        <div className="ninja-nav-tabs" role="tablist" aria-label="主导航">
+          {LINKS.map(({ href, label, desc }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                role="tab"
+                aria-selected={active}
+                className={`ninja-nav-tab${active ? " active" : ""}`}
+              >
+                <span className="ninja-nav-tab-label">{label}</span>
+                <span className="ninja-nav-tab-desc">{desc}</span>
+              </Link>
+            );
+          })}
+        </div>
 
-      <span className="ninja-badge hidden sm:inline">PoE 2</span>
-    </nav>
+        <div className="ninja-nav-right">
+          <span className="ninja-badge">PoE 2</span>
+        </div>
+      </nav>
+    </header>
   );
 }

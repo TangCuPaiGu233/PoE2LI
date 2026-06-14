@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { addLocalBuildHistory, getLocalBuildHistory, toHistorySummary } from "@/lib/buildHistory";
 
 // Auto-detect API URL: same host, port 8000
 function getApiUrl(): string {
@@ -56,16 +57,8 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(true);
   const [pobValid, setPobValid] = useState<boolean | null>(null);
   
-  const loadHistory = useCallback(async () => {
-    try {
-      const res = await fetch(`${getApiUrl()}/api/builds`);
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data);
-      }
-    } catch {
-      // Ignore
-    }
+  const loadHistory = useCallback(() => {
+    setHistory(getLocalBuildHistory().map(toHistorySummary));
   }, []);
 
   useEffect(() => {
@@ -118,8 +111,8 @@ export default function Home() {
 
       const data = await res.json();
       setLoadingStep("AI 正在生成攻略...");
-
-      // Poll until homework is generated
+      addLocalBuildHistory({ id: data.id, status: data.status || "pending", build: data.build || {}, savedAt: new Date().toISOString() });
+      loadHistory();
       const buildId = data.id;
       let isDone = false;
       let attempts = 0;
@@ -134,6 +127,8 @@ export default function Home() {
         
         if (fullData.status === "done") {
           setResult(fullData);
+          addLocalBuildHistory({ id: buildId, status: "done", build: fullData.build || {}, savedAt: new Date().toISOString() });
+          loadHistory();
           isDone = true;
         } else if (fullData.status === "failed") {
           throw { message: "AI 攻略生成失败，请重试" };
@@ -145,7 +140,7 @@ export default function Home() {
       }
 
       if (!isDone) {
-        throw { message: "AI 生成超时，请稍后在历史记录中查看" };
+        throw { message: "AI 生成超时，请稍后在本机历史中查看" };
       }
 
       loadHistory();
@@ -205,21 +200,21 @@ export default function Home() {
   const gems = result?.skillSets?.flatMap((s) => s.gems?.filter((g) => g.nameSpec) || []) || [];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 text-[var(--ninja-text)]">
-        <header className="text-center mb-8">
-          <p className="ninja-section-title mb-2">Build Analyzer</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">PoB 构建分析</h1>
-          <p className="text-[var(--ninja-text-muted)] mt-2 text-sm max-w-lg mx-auto">
+    <div className="ninja-shell text-[var(--ninja-text)]">
+        <header className="ninja-hero">
+          <p className="ninja-section-title mb-3">Build Analyzer</p>
+          <h1 className="ninja-hero-title">PoB 构建分析</h1>
+          <p className="ninja-hero-sub">
             粘贴 PoB 分享码或 poe.ninja 角色链接，自动解析装备并生成中文攻略
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
           {/* Main */}
           <div>
             {/* Input */}
             <form onSubmit={handleSubmit} className="mb-6">
-              <div className="relative">
+              <div className="ninja-panel-accent p-1 relative">
                 <textarea
                   value={pobCode}
                   onChange={(e) => setPobCode(e.target.value)}
@@ -364,15 +359,19 @@ export default function Home() {
           </div>
 
           {/* Sidebar - History */}
-          <div className="lg:sticky lg:top-8 lg:self-start">
+          <div className="lg:sticky lg:top-24 lg:self-start">
             <div className="ninja-panel p-4">
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className="w-full flex items-center justify-between ninja-section-title mb-3"
               >
-                <span>历史记录 ({history.length})</span>
+                <span>本机历史 ({history.length})</span>
                 <span className="text-xs">{showHistory ? "▲" : "▼"}</span>
               </button>
+
+              {showHistory && (
+                <p className="text-[10px] text-[var(--ninja-text-dim)] mb-2">仅保存在当前浏览器，不会看到其他访客的记录</p>
+              )}
 
               {showHistory && (
                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
