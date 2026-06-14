@@ -12,9 +12,10 @@ import asyncio
 
 from openai import AsyncOpenAI
 
-from app.services.follow_up_suggestions import generate_follow_up_questions
-
+from app.core.llm_config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, llm_thinking_extra_body
 from app.core.game_context import POE2_SITE_RULE, is_ninja_cost_guide_query, NINJA_COST_GUIDE_MARKDOWN
+from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
+from app.services.follow_up_suggestions import generate_follow_up_questions
 
 from app.services.knowledge_guard import (
     build_forced_rag_query,
@@ -49,23 +50,32 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 11. **poe.ninja BD 造价（无链接）**：用户提到忍者网/poe.ninja 并询问 BD 造价，但消息里没有 poe.ninja 角色链接、PoB 码等可解析构建输入时，直接说明如何复制并粘贴链接，不要调用 decode_pob 或 BD 造价流水线。
 12. **WeGame 分享链接**：`stats:` 行含 Life/FireRes/LightningRes 等时，即 WeGame 面板数据，**必须原样引用**（火/冰/闪抗即元素抗性，闪电抗勿改称「魔抗」）。仅当含 `data_limitation` 时才禁止编造面板数值。WeGame 无升华字段。
 13. **服务端强制检索**：当问题或草稿涉及机制/词缀/装备等游戏事实且尚未 rag_search 时，服务端可能自动执行 entity_resolve + rag_search，你必须基于检索结果作答，勿凭空编造。
+14. **用户附图**：消息可能含 PoE2 游戏截图（装备、天赋、技能、市集等）。先描述图中可见内容，再结合工具/知识库回答；看不清的数值如实说明，不要编造。
+15. **估价/值多少钱**：只能引用 trade_search 返回的 `listing_price.display`；若无 listing_price 或 price_note 说无在售，必须明确「无法从市集估价」，**禁止**编造具体金额区间（如 3-8 崇高、建议挂 5E 等）。
+16. **trade_search 的 query**：只写词缀/装备类型/暗金名；**不要**把截图里的物品等级(物等/ilvl)写进 query，除非用户原话明确要求物等条件。
+17. **trade_search 每轮最多 2 次**：第一次 query 写全全部词缀（蓝玉 + 所有后缀/前缀）；若返回链接则直接作答，**禁止**反复缩小 query 连续搜索。
+18. **暗金查价**（人格分裂、猎首等）：trade_search 的 query **只写暗金名**，不要加红玉/蓝玉基底或无关词缀描述。
+19. **追问价格/其他变体词缀**：仍须 trade_search；结合对话里的物品名构造 query，禁止不查市集就报具体价格。
 
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
 - 资料不足就说明不足，标注 [推测] 仅限合理推断
-- 交易搜索结果需在正文中解释最佳匹配含义
+- 交易搜索结果需在正文中解释最佳匹配含义；有 listing_price 时写「市集参考价：XXX」，并说明是近似匹配最低价
 """
 
 
+def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
+    if ctx.trade_search_calls >= 2:
+        return [t for t in TOOL_DEFINITIONS if t["function"]["name"] != "trade_search"]
+    return TOOL_DEFINITIONS
+
+
 def _llm_client() -> AsyncOpenAI:
-    return AsyncOpenAI(
-        base_url=os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
-        api_key=os.getenv("LLM_API_KEY", ""),
-    )
+    return AsyncOpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
 
 
 def _model() -> str:
-    return os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+    return LLM_MODEL
 
 
 def _build_system_message(user_msg: str) -> str:
@@ -83,6 +93,73 @@ def _parse_tool_args(raw: str | None) -> dict[str, Any]:
         return json.loads(raw)
     except json.JSONDecodeError:
         return {}
+
+
+def _first_choice(obj: Any) -> Any | None:
+    choices = getattr(obj, "choices", None) or []
+    return choices[0] if choices else None
+
+
+async def _emit_streamed_answer(
+    client: AsyncOpenAI,
+    messages: list[dict[str, Any]],
+    *,
+    temperature: float = 0.3,
+    max_tokens: int = 2048,
+) -> AsyncIterator[tuple[str, str]]:
+    """Yield (event_type, text) for answer/reasoning. Falls back to non-stream if needed."""
+    stream_kwargs: dict[str, Any] = {
+        "model": _model(),
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True,
+    }
+    thinking = llm_thinking_extra_body()
+    if thinking:
+        stream_kwargs["extra_body"] = thinking
+
+    answer_parts: list[str] = []
+    try:
+        stream = await client.chat.completions.create(**stream_kwargs)
+        async for chunk in stream:
+            choice = _first_choice(chunk)
+            if choice is None:
+                continue
+            delta = choice.delta
+            reasoning = getattr(delta, "reasoning_content", None) or (
+                delta.model_extra.get("reasoning_content")
+                if hasattr(delta, "model_extra") and delta.model_extra
+                else None
+            )
+            if reasoning:
+                yield ("reasoning", reasoning)
+            if delta.content:
+                answer_parts.append(delta.content)
+                yield ("answer", delta.content)
+    except Exception as e:
+        logger.warning("[CHAT] stream synthesis failed, fallback: %s", e)
+
+    if answer_parts:
+        return
+
+    # MiMo sometimes returns empty stream chunks — non-stream fallback
+    fb_kwargs = dict(stream_kwargs)
+    fb_kwargs.pop("stream", None)
+    fb_kwargs.pop("extra_body", None)
+    if thinking:
+        fb_kwargs["extra_body"] = thinking
+    resp = await client.chat.completions.create(**fb_kwargs)
+    choice = _first_choice(resp)
+    if choice is None:
+        raise RuntimeError("LLM returned no choices")
+    msg = choice.message
+    reasoning = getattr(msg, "reasoning_content", None) or ""
+    if reasoning:
+        yield ("reasoning", reasoning)
+    text = msg.content or ""
+    if text:
+        yield ("answer", text)
 
 
 
@@ -193,15 +270,20 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     """Run the agent loop and yield SSE event dicts."""
     from app.services.multi_item_price import is_price_query, stream_multi_item_prices, is_build_cost_query, stream_build_cost
 
-    user_msg = (messages[-1].get("content") if messages else "") or ""
+    user_msg = resolve_user_text(messages)
+    last_msg = messages[-1] if messages else {}
+    has_images = message_has_images(last_msg)
 
-    if is_ninja_cost_guide_query(user_msg):
+    if has_images:
+        yield {"type": "thinking", "content": "已收到图片，正在视觉分析…"}
+
+    if not has_images and is_ninja_cost_guide_query(user_msg):
         yield {"type": "answer", "content": NINJA_COST_GUIDE_MARKDOWN}
         async for ev in _yield_done_with_follow_ups(user_msg, NINJA_COST_GUIDE_MARKDOWN):
             yield ev
         return
 
-    if is_build_cost_query(user_msg):
+    if not has_images and is_build_cost_query(user_msg):
         yield {"type": "thinking", "content": "检测到 BD 造价查询，进入专用流水线…"}
         async for event in _stream_with_follow_ups(user_msg, stream_build_cost(user_msg, market="cn")):
             if event.get("type") == "route" and event.get("content") == "default_agent":
@@ -212,7 +294,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         else:
             return
 
-    if is_price_query(user_msg):
+    if not has_images and is_price_query(user_msg):
         yield {"type": "thinking", "content": "检测到多件查价，进入市价流水线…"}
         async for event in _stream_with_follow_ups(user_msg, stream_multi_item_prices(user_msg, market="cn")):
             if event.get("type") == "route" and event.get("content") == "default_agent":
@@ -226,14 +308,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     ctx = ChatToolContext(user_msg=user_msg)
     client = _llm_client()
 
-    agent_messages: list[dict[str, Any]] = [
-        {"role": "system", "content": _build_system_message(user_msg)},
-    ]
-    for m in messages[-8:]:
-        role = m.get("role", "user")
-        content = m.get("content") or ""
-        if role in ("user", "assistant") and content:
-            agent_messages.append({"role": role, "content": content})
+    agent_messages = build_agent_messages(messages, _build_system_message(user_msg))
 
     yield {"type": "thinking", "content": "AI 正在分析意图并规划工具..."}
 
@@ -246,7 +321,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             response = await client.chat.completions.create(
                 model=_model(),
                 messages=agent_messages,
-                tools=TOOL_DEFINITIONS,
+                tools=_active_tools(ctx),
                 tool_choice="auto",
                 temperature=0.2,
                 max_tokens=1024,
@@ -259,7 +334,14 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                 yield ev
             return
 
-        choice = response.choices[0]
+        choice = _first_choice(response)
+        if choice is None:
+            err = "AI 规划失败: LLM 未返回有效结果"
+            logger.error("[CHAT] agent plan empty choices")
+            yield {"type": "answer", "content": err}
+            async for ev in _yield_done_with_follow_ups(user_msg, err):
+                yield ev
+            return
         msg = choice.message
         tool_calls = getattr(msg, "tool_calls", None) or []
 
@@ -355,26 +437,12 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}
 
     try:
-        stream = await client.chat.completions.create(
-            model=_model(),
-            messages=agent_messages,
-            temperature=0.3,
-            max_tokens=2048,
-            stream=True,
-            extra_body={"thinking": {"type": "enabled"}},
-        )
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-            reasoning = getattr(delta, "reasoning_content", None) or (
-                delta.model_extra.get("reasoning_content")
-                if hasattr(delta, "model_extra") and delta.model_extra
-                else None
-            )
-            if reasoning:
-                yield {"type": "reasoning", "content": reasoning}
-            if delta.content:
-                answer_acc += delta.content
-                yield {"type": "answer", "content": delta.content}
+        async for kind, text in _emit_streamed_answer(client, agent_messages):
+            if kind == "reasoning":
+                yield {"type": "reasoning", "content": text}
+            else:
+                answer_acc += text
+                yield {"type": "answer", "content": text}
     except Exception as e:
         logger.error("[CHAT] agent stream failed: %s", e)
         err = f"生成失败: {e}"

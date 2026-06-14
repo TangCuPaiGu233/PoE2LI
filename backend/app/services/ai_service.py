@@ -1,8 +1,8 @@
 """AI service for generating build playbooks.
 
 Supports dual LLM providers via env vars:
-  - SiliconFlow (default, paid): deepseek-ai/DeepSeek-V4-Flash
-  - OpenRouter (backup, free tier): qwen/qwen3-next-80b-a3b-instruct:free
+  - MiMo (default): MiMo-V2.5 @ https://api.xiaomimimo.com/v1
+  - DeepSeek (backup): deepseek-ai/DeepSeek-V4-Flash @ SiliconFlow
 Switch by changing LLM_BASE_URL, LLM_API_KEY, LLM_MODEL in docker-compose.yml.
 """
 
@@ -18,10 +18,7 @@ from app.core.game_context import attach_poe2_rule
 
 logger = logging.getLogger(__name__)
 
-# LLM provider — defaults to SiliconFlow paid, switchable to OpenRouter free
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+from app.core.llm_config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, llm_thinking_extra_body
 
 _client = None
 
@@ -98,7 +95,7 @@ def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
-            extra_body={"thinking": {"type": "enabled"}},
+            extra_body=llm_thinking_extra_body(),
         )
         
         content = response.choices[0].message.content or ""
@@ -537,7 +534,7 @@ def chat_about_build(build, question: str, db_session=None) -> str:
                 {"role": "system", "content": CHAT_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            extra_body={"thinking": {"type": "enabled"}},
+            extra_body=llm_thinking_extra_body(),
         )
 
         answer = response.choices[0].message.content or "抱歉，我无法回答这个问题。"
@@ -602,7 +599,7 @@ def generate_homework(build_data: DecodeResponse) -> dict:
                 {"role": "system", "content": HOMEWORK_SYSTEM_PROMPT},
                 {"role": "user", "content": build_data_str},
             ],
-            extra_body={"thinking": {"type": "enabled"}},
+            extra_body=llm_thinking_extra_body(),
         )
 
         content = response.choices[0].message.content or ""

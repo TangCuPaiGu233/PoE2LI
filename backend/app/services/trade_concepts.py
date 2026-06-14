@@ -168,10 +168,18 @@ TRADE_CONCEPTS = {
     },
     "minion_attack_cast_speed": {
         "aliases": ["召唤攻速", "召唤施法速度", "召唤物攻速", "minion speed",
-                     "召唤物施法"],
+                     "召唤物施法", "召唤攻击和施法速度", "召唤生物攻击和施法速度",
+                     "召唤生物攻击施法速度"],
         "stat_patterns": [r"Minions have #% increased Attack and Cast Speed"],
         "item_slots": ["weapon.sceptre", "weapon.wand"],
         "known_ids": ["explicit.stat_3091578504"],
+    },
+    "minion_critical_damage": {
+        "aliases": ["召唤暴击伤害", "召唤物暴击伤害", "召唤生物暴击伤害", "召唤生物暴击伤害加成",
+                     "召唤暴伤", "minion crit damage", "minion critical"],
+        "stat_patterns": [r"Minions have #% increased Critical Damage Bonus"],
+        "item_slots": [],
+        "known_ids": ["explicit.stat_1854213750"],
     },
     "minion_life": {
         "aliases": ["召唤生命", "召唤物生命", "召唤兽生命", "minion life"],
@@ -256,9 +264,16 @@ TRADE_CONCEPTS = {
         "known_ids": [],
     },
     "chaos_damage": {
-        "aliases": ["混沌伤害", "混伤", "chaos damage"],
+        "aliases": ["混沌伤害", "混伤", "chaos damage", "混沌伤害提高"],
         "stat_patterns": [r"#% increased Chaos Damage", r"adds # to # Chaos Damage"],
         "item_slots": ["weapon.sceptre", "weapon.wand", "weapon.staff"],
+        "known_ids": [],
+    },
+    "cold_penetration": {
+        "aliases": ["冰霜穿透", "冰穿透", "穿透冰霜抗性", "伤害穿透冰霜抗性",
+                     "cold penetration", "cold pen"],
+        "stat_patterns": [r"Penetrates #% Cold Resistance"],
+        "item_slots": [],
         "known_ids": [],
     },
     "physical_damage": {
@@ -416,6 +431,9 @@ def is_concept_available(concept_name: str, item_slot: str | None) -> bool:
     If concept has empty item_slots, assume available everywhere.
     """
     if not item_slot:
+        return True
+    # Jewels roll many affix families — slot allowlists target weapons/armour only.
+    if item_slot == "jewel":
         return True
     entry = TRADE_CONCEPTS.get(concept_name)
     if not entry:

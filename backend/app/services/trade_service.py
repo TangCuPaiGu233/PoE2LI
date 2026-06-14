@@ -460,8 +460,10 @@ def parse_intent_ai(query: str) -> dict:
             ],
             temperature=0.1,
             max_tokens=2048,
+            response_format={"type": "json_object"},
         )
-        content = resp.choices[0].message.content.strip()
+        from app.core.llm_config import llm_message_text
+        content = llm_message_text(resp.choices[0].message) if resp.choices else ""
         logger.info(f"LLM parsing took {time.time() - t1:.2f}s")
     except Exception as e:
         logger.error(f"LLM call failed: {e}")

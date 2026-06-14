@@ -42,6 +42,7 @@ class ChatToolContext:
     last_trade: dict | None = None
     last_recommend: dict | None = None
     rag_search_calls: int = 0
+    trade_search_calls: int = 0
     last_build_summary: str | None = None
 
 
@@ -125,8 +126,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "trade_search",
             "description": (
-                "Search the official PoE2 trade market for items matching natural-language intent. "
-                "Returns trade site URLs and match counts."
+                "Search the official PoE2 trade market. Returns trade URLs, match counts, "
+                "listing_price (real cheapest listing when available), and price_note. "
+                "Do NOT put item level (物等/ilvl) in query unless the user explicitly requires it."
             ),
             "parameters": {
                 "type": "object",
@@ -371,22 +373,57 @@ def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResul
 
 
 def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
-    from app.services.trade_agent import run_agent as trade_run_agent
+    from app.services.trade_agent import run_agent as trade_run_agent, sanitize_trade_query
 
+    if ctx.trade_search_calls >= 2:
+        prev = ctx.last_trade or {}
+        return ToolRunResult(
+            content=json.dumps(
+                {
+                    "error": "trade_search_limit",
+                    "message": "本轮已搜索 2 次，请基于已有链接作答，勿重复缩小 query 再搜",
+                    "previous": prev,
+                },
+                ensure_ascii=False,
+            ),
+            trade_result=prev or None,
+        )
+    ctx.trade_search_calls += 1
     query = (args.get("query") or "").strip()
     if not query:
         query = (ctx.user_msg or "")[:200]
-    trade_result = trade_run_agent(query, market="cn")
+    query = sanitize_trade_query(query, ctx.user_msg or "")
+    trade_result = trade_run_agent(query, market="cn", user_msg=ctx.user_msg or "")
     best = trade_result.get("best_match")
     alts = trade_result.get("alternatives", [])
     trade_data = {
         "best_match": (
-            {"label": best["label"], "url": best["url"], "count": best["count"]} if best else None
+            {
+                "label": best["label"],
+                "url": best["url"],
+                "count": best.get("count", 0),
+                "degraded": best.get("degraded", False),
+                "empty": best.get("empty", best.get("count", 0) == 0),
+                "broad": best.get("broad", False),
+            }
+            if best
+            else None
         ),
         "alternatives": [
-            {"label": a["label"], "url": a["url"], "count": a["count"]} for a in alts[:3]
+            {
+                "label": a["label"],
+                "url": a["url"],
+                "count": a.get("count", 0),
+                "empty": a.get("empty", False),
+                "broad": a.get("broad", False),
+                "degraded": a.get("degraded", False),
+            }
+            for a in alts[:3]
         ],
         "explanation": trade_result.get("explanation", ""),
+        "degraded": bool(best and best.get("degraded")),
+        "listing_price": trade_result.get("listing_price"),
+        "price_note": trade_result.get("price_note"),
     }
     ctx.last_trade = trade_data
     return ToolRunResult(

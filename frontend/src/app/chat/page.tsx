@@ -1,13 +1,92 @@
 "use client";
 
 import { apiUrl } from "@/lib/apiUrl";
+import {
+  createPendingPlaceholders,
+  extractImageFilesFromDataTransfer,
+  MAX_IMAGES,
+  resolvePlaceholderImages,
+  type PendingImage,
+} from "@/lib/chatImage";
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMarkdown from "@/components/chat/ChatMarkdown";
 
 // ── types ──
-interface TradeMatch { label: string; url: string; count: number }
-interface TradeResult { best_match: TradeMatch | null; alternatives: TradeMatch[]; explanation: string }
-interface Message { role: "user" | "assistant"; content: string; sources?: { type: string; preview: string }[]; reasoning?: string; thinkingSteps?: string[]; trade?: TradeResult; trades?: TradeResult[]; followUps?: string[] }
+interface TradeMatch {
+  label: string;
+  url: string;
+  count: number;
+  degraded?: boolean;
+  empty?: boolean;
+  broad?: boolean;
+}
+interface TradeResult {
+  best_match: TradeMatch | null;
+  alternatives: TradeMatch[];
+  explanation: string;
+  degraded?: boolean;
+  listing_price?: { display?: string; amount?: number; currency?: string; item_name?: string };
+  price_note?: string;
+}
+
+function tradeCountBadge(m: TradeMatch): string {
+  if (m.empty || m.count === 0) return "无在售 · 可查看筛选";
+  if (m.broad || m.count >= 5000) return `${m.count}+ 件 · 条件较宽`;
+  return `${m.count} 件在售`;
+}
+
+function TradeMatchCard({
+  match,
+  primary,
+  listingPrice,
+}: {
+  match: TradeMatch;
+  primary?: boolean;
+  listingPrice?: TradeResult["listing_price"];
+}) {
+  return (
+    <a
+      href={match.url}
+      target="_blank"
+      rel="noreferrer"
+      className={
+        primary
+          ? "block p-2.5 ninja-panel-accent mb-1 hover:bg-[var(--ninja-panel-hover)] transition-colors"
+          : "block p-2 ninja-panel mb-1 hover:bg-[var(--ninja-panel-hover)] transition-colors"
+      }
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs text-[var(--ninja-accent)] min-w-0">{match.label}</div>
+        <span
+          className={
+            match.empty
+              ? "shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ninja-bg-elevated)] text-[var(--ninja-text-dim)]"
+              : "shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ninja-bg-elevated)] text-[var(--ninja-text-muted)]"
+          }
+        >
+          {tradeCountBadge(match)}
+        </span>
+      </div>
+      {primary && listingPrice?.display && (
+        <div className="text-xs text-[var(--ninja-text-dim)] mt-1">
+          市集参考价 {listingPrice.display}
+          {listingPrice.item_name ? ` · ${listingPrice.item_name}` : ""}
+        </div>
+      )}
+    </a>
+  );
+}
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  images?: string[];
+  sources?: { type: string; preview: string }[];
+  reasoning?: string;
+  thinkingSteps?: string[];
+  trade?: TradeResult;
+  trades?: TradeResult[];
+  followUps?: string[];
+}
 
 const SKILL_LABELS: Record<string, string> = { encyclopedia: "百科", build_design: "BD 设计", trade_search: "交易搜索" };
 
@@ -83,6 +162,10 @@ const CHIPS = [
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [imageError, setImageError] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [thinking, setThinking] = useState<string[]>([]);
   const [reasoning, setReasoning] = useState("");
@@ -90,7 +173,7 @@ export default function ChatPage() {
   const [showWelcome, setShowWelcome] = useState(true);
   const mainRef = useRef<HTMLElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottomRef = useRef(true);
 
   const SCROLL_THRESHOLD = 72;
@@ -120,18 +203,25 @@ export default function ChatPage() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const send = useCallback(async (q: string) => {
-    if (!q.trim() || streaming) return;
-    setInput(""); setShowWelcome(false);
+  const send = useCallback(async (q: string, imageDataUrls?: string[]) => {
+    const text = q.trim();
+    const imgs = imageDataUrls?.length ? imageDataUrls : [];
+    if ((!text && !imgs.length) || streaming) return;
+    setInput(""); setPendingImages([]); setImageError(""); setShowWelcome(false);
     stickToBottomRef.current = true;
-    const userMsg: Message = { role: "user", content: q };
+    const userMsg: Message = { role: "user", content: text, ...(imgs.length ? { images: imgs } : {}) };
     const assistantDraft: Message = { role: "assistant", content: "" };
     const all = [...messages, userMsg, assistantDraft];
     setMessages(all); setThinking(["已收到问题，正在连接服务器…"]); setReasoning(""); setSkill("idle"); setStreaming(true);
 
-    const history = [...messages, userMsg]
+    type ApiMsg = { role: string; content: string; images?: string[] };
+    const history: ApiMsg[] = [...messages, userMsg]
       .filter(m => m.role === "user" || (m.role === "assistant" && m.content.trim()))
-      .map(m => ({ role: m.role, content: m.content }));
+      .map(m => ({
+        role: m.role,
+        content: m.content,
+        ...(m.images?.length ? { images: m.images } : {}),
+      }));
     let acc = ""; let sk = "idle"; let pendingFollowUps: string[] | null = null;
     let thinkLog: string[] = ["已收到问题，正在连接服务器…"];
     let reasonLog = "";
@@ -194,7 +284,7 @@ export default function ChatPage() {
               setThinking([...thinkLog]);
             } else if (ev.type === "reasoning") { reasonLog += ev.content; setReasoning(reasonLog); }
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
-            else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; if (l?.role === "assistant") { const trades = [...(l.trades || (l.trade ? [l.trade] : [])), ev.content as TradeResult]; return [...p.slice(0, -1), { ...l, trades, trade: undefined }]; } return [...p, { role: "assistant", content: "", trades: [ev.content as TradeResult] }]; }); }
+            else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; if (l?.role === "assistant") { return [...p.slice(0, -1), { ...l, trades: [ev.content as TradeResult], trade: undefined }]; } return [...p, { role: "assistant", content: "", trades: [ev.content as TradeResult] }]; }); }
             else if (ev.type === "sources") { setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: l.content, sources: ev.content }] : p; }); }
             else if (ev.type === "follow_ups") { const qs = Array.isArray(ev.content) ? ev.content.filter((q: unknown) => typeof q === "string" && q.trim()) : []; if (qs.length) pendingFollowUps = qs.slice(0, 3); }
             else if (ev.type === "done") {
@@ -233,7 +323,75 @@ export default function ChatPage() {
     setStreaming(false); setSkill("idle");
   }, [messages, streaming]);
 
-  const onKey = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && !isComposing) {
+      e.preventDefault();
+      send(input, pendingImages.filter(p => p.dataUrl && !p.isLoading).map(p => p.dataUrl));
+    }
+  };
+
+  const addImagesFromFiles = useCallback(async (files: File[]) => {
+    if (!files.length || streaming) return;
+    setImageError("");
+    const room = MAX_IMAGES - pendingImages.length;
+    if (room <= 0) {
+      setImageError(`最多 ${MAX_IMAGES} 张图片`);
+      return;
+    }
+    const batch = files.slice(0, room);
+    if (files.length > room) {
+      setImageError(`最多 ${MAX_IMAGES} 张，已添加 ${room} 张`);
+    }
+    const placeholders = createPendingPlaceholders(batch.length);
+    const ids = placeholders.map(p => p.id);
+    setPendingImages(p => [...p, ...placeholders]);
+    const resolved = await resolvePlaceholderImages(placeholders, batch);
+    setPendingImages(p => {
+      const next = [...p];
+      for (let i = 0; i < ids.length; i++) {
+        const idx = next.findIndex(x => x.id === ids[i]);
+        if (idx >= 0) next[idx] = resolved[i];
+      }
+      return next;
+    });
+  }, [pendingImages.length, streaming]);
+
+  useEffect(() => {
+    const onWindowPaste = (e: ClipboardEvent) => {
+      if (streaming) return;
+      const imageFiles = extractImageFilesFromDataTransfer(e.clipboardData);
+      if (!imageFiles.length) return;
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        (active instanceof HTMLElement && active.isContentEditable && active !== inputRef.current)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      inputRef.current?.focus();
+      void addImagesFromFiles(imageFiles);
+    };
+    window.addEventListener("paste", onWindowPaste);
+    return () => window.removeEventListener("paste", onWindowPaste);
+  }, [addImagesFromFiles, streaming]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const imageFiles = extractImageFilesFromDataTransfer(e.dataTransfer);
+    if (imageFiles.length) void addImagesFromFiles(imageFiles);
+  }, [addImagesFromFiles]);
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    const hasImage = extractImageFilesFromDataTransfer(e.dataTransfer).length > 0;
+    if (!hasImage) return;
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const readyImages = pendingImages.filter(p => p.dataUrl && !p.isLoading && !p.error);
+  const canSend = !streaming && (input.trim().length > 0 || readyImages.length > 0) && !pendingImages.some(p => p.isLoading);
 
   return (
     <div className="text-[var(--ninja-text)] antialiased">
@@ -294,7 +452,7 @@ export default function ChatPage() {
                     />
                   );
                 })()}
-                {(m.role === "user" || m.content.trim() || (m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 || (m.sources && m.sources.length > 0)) && (
+                {(m.role === "user" || m.content.trim() || (m.images && m.images.length > 0) || (m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 || (m.sources && m.sources.length > 0)) && (
                 <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
                   m.role === "user"
                     ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
@@ -302,7 +460,23 @@ export default function ChatPage() {
                 }`}>
                   <div className="msg-content">
                   {m.role === "user" ? (
-                    <p className="md-p whitespace-pre-wrap">{m.content}</p>
+                    <>
+                      {m.images && m.images.length > 0 && (
+                        <div className={`flex flex-wrap gap-2 mb-2 ${m.role === "user" ? "justify-end" : ""}`}>
+                          {m.images.map((src, j) => (
+                            <img
+                              key={j}
+                              src={src}
+                              alt={`附件 ${j + 1}`}
+                              className="max-h-40 max-w-full rounded-lg border border-[rgba(30,203,139,0.25)] object-contain"
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {m.content.trim() ? (
+                        <p className="md-p whitespace-pre-wrap">{m.content}</p>
+                      ) : null}
+                    </>
                   ) : (
                     <ChatMarkdown content={m.content} enableEntityChips />
                   )}
@@ -314,19 +488,20 @@ export default function ChatPage() {
                       {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).map((tr, ti) => (
                         <div key={ti} className="mb-2">
                           {tr.best_match && (
-                            <a href={tr.best_match.url} target="_blank" rel="noreferrer"
-                              className="block p-2.5 ninja-panel-accent mb-1 hover:bg-[var(--ninja-panel-hover)] transition-colors">
-                              <div className="text-xs text-[var(--ninja-accent)]">{tr.best_match.label}</div>
-                              <div className="text-xs text-[var(--ninja-text-dim)] mt-0.5">{tr.best_match.count} 件</div>
-                            </a>
+                            <TradeMatchCard
+                              match={tr.best_match}
+                              primary
+                              listingPrice={tr.listing_price}
+                            />
                           )}
                           {tr.alternatives.map((a, j) => (
-                            <a key={j} href={a.url} target="_blank" rel="noreferrer"
-                              className="block p-2 ninja-panel mb-1 hover:bg-[var(--ninja-panel-hover)] transition-colors">
-                              <div className="text-xs text-[var(--ninja-text-muted)]">{a.label}</div>
-                              <div className="text-xs text-[var(--ninja-text-dim)] mt-0.5">{a.count} 件</div>
-                            </a>
+                            <TradeMatchCard key={j} match={a} />
                           ))}
+                          {tr.price_note && tr.best_match?.empty && (
+                            <p className="text-[10px] text-[var(--ninja-text-dim)] mt-1 px-0.5">
+                              {tr.price_note}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -369,18 +544,78 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* input */}
+        {/* input — paste / drag-drop images (goose ChatInput pattern) */}
         <footer className="shrink-0 pt-3 border-t border-[var(--ninja-border)]">
-          <div className="flex gap-2 items-end">
-            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey}
-              placeholder={streaming ? "回复中..." : "输入问题，Enter 发送"}
-              disabled={streaming}
-              className="ninja-input flex-1 disabled:opacity-40" />
-            <button onClick={() => send(input)} disabled={streaming || !input.trim()}
-              className="ninja-btn shrink-0 px-4 py-2.5 disabled:opacity-40">
-              {streaming ? "..." : "发送"}
-            </button>
+          <div
+            className={`rounded-xl border transition-colors ${
+              isDragOver
+                ? "border-[rgba(30,203,139,0.55)] bg-[rgba(30,203,139,0.06)]"
+                : "border-[var(--ninja-border)] bg-[var(--ninja-bg-elevated)]/40"
+            }`}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={() => setIsDragOver(false)}
+          >
+            {pendingImages.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-2 pb-0">
+                {pendingImages.map(img => (
+                  <div key={img.id} className="relative">
+                    {img.isLoading ? (
+                      <div className="h-16 w-16 rounded-md border border-[var(--ninja-border)] bg-[var(--ninja-bg-elevated)] animate-pulse" />
+                    ) : img.error ? (
+                      <div className="h-16 w-24 rounded-md border border-red-500/40 px-1 text-[10px] text-red-400 flex items-center justify-center text-center">
+                        {img.error}
+                      </div>
+                    ) : (
+                      <img
+                        src={img.dataUrl}
+                        alt={img.name || "附件"}
+                        className="h-16 w-16 object-cover rounded-md border border-[var(--ninja-border)]"
+                      />
+                    )}
+                    {!img.isLoading && (
+                      <button
+                        type="button"
+                        aria-label="移除图片"
+                        onClick={() => setPendingImages(p => p.filter(x => x.id !== img.id))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--ninja-bg-elevated)] border border-[var(--ninja-border)] text-[10px] text-[var(--ninja-text-muted)] hover:text-[var(--ninja-text)]"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {imageError && (
+              <p className="text-xs text-red-400/90 px-3 pt-2">{imageError}</p>
+            )}
+            <div className="flex gap-2 items-end p-2">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={onKey}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                rows={1}
+                placeholder={streaming ? "回复中..." : "输入问题；可直接 Ctrl+V 粘贴截图，或拖入图片"}
+                disabled={streaming}
+                className="ninja-input flex-1 min-h-[2.75rem] max-h-40 resize-y disabled:opacity-40 bg-transparent border-0 focus:ring-0"
+              />
+              <button
+                type="button"
+                onClick={() => send(input, readyImages.map(p => p.dataUrl))}
+                disabled={!canSend}
+                className="ninja-btn shrink-0 px-4 py-2.5 disabled:opacity-40"
+              >
+                {streaming ? "..." : "发送"}
+              </button>
+            </div>
           </div>
+          <p className="text-[10px] text-[var(--ninja-text-dim)] mt-1.5 px-1">
+            Enter 发送 · Shift+Enter 换行 · 支持截图粘贴与拖放（最多 {MAX_IMAGES} 张）
+          </p>
         </footer>
       </div>
 

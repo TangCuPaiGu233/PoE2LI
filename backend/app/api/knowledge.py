@@ -314,7 +314,7 @@ async def ask_question(req: AskRequest):
 # ── SSE Streaming Chat endpoint ──
 
 class ChatRequest(BaseModel):
-    messages: list[dict]  # [{"role":"user"/"assistant","content":"..."}]
+    messages: list[dict]  # role, content (str), optional images: [data:image/...;base64,...]
     stream: bool = True
 
 
@@ -441,8 +441,9 @@ def _rewrite_standalone_question(
 async def _stream_chat(messages: list[dict]):
     """AI-first agent runtime (ClawCode-style ReAct + tool registry)."""
     from app.services.chat_agent import stream_chat_agent
+    from app.services.chat_multimodal import resolve_user_text
 
-    user_msg = messages[-1]["content"] if messages else ""
+    user_msg = resolve_user_text(messages)
     logger.info("[CHAT] agent_runtime | query=%s", user_msg[:120])
 
     async for event in stream_chat_agent(messages):
