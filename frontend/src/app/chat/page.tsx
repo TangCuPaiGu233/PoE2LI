@@ -169,7 +169,7 @@ export default function ChatPage() {
 
   return (
     <div className="text-[var(--ninja-text)] antialiased">
-      <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col min-h-[calc(100vh-3rem)]">
+      <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col min-h-[calc(100vh-3rem)]">
         {/* header */}
         <header className="shrink-0 flex items-center justify-between pb-3 border-b border-[var(--ninja-border)]">
           <div className="flex items-baseline gap-3">
@@ -222,10 +222,10 @@ export default function ChatPage() {
                   </details>
                 )}
 
-                <div className={`text-sm leading-relaxed rounded-xl px-3.5 py-2.5 ${
+                <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
                   m.role === "user"
                     ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
-                    : "ninja-panel text-[var(--ninja-text-muted)]"
+                    : "ninja-panel text-[var(--ninja-text-body)]"
                 }`}>
                   <div className="msg-content">
                   {m.role === "user" ? (
@@ -309,7 +309,7 @@ export default function ChatPage() {
                   key={i}
                   type="button"
                   onClick={() => { setInput(q); inputRef.current?.focus(); }}
-                  className="ninja-chip text-left w-full justify-start py-2 px-3 whitespace-normal leading-snug"
+                  className="ninja-follow-chip whitespace-normal"
                 >
                   {q}
                 </button>
@@ -335,30 +335,31 @@ export default function ChatPage() {
 
       <style>{`
         @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .msg-content .md-p { margin-bottom: 0.5rem; }
+        .msg-content { font-size: 1rem; line-height: 1.75; color: var(--ninja-text-body); }
+        .msg-content .md-p { margin-bottom: 0.65rem; color: var(--ninja-text-body); }
         .msg-content .md-p:last-child { margin-bottom: 0; }
-        .msg-content .md-h1 { font-size: 1.05rem; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 1rem; margin-bottom: 0.4rem; line-height: 1.3; }
-        .msg-content .md-h2 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.8); margin-top: 0.8rem; margin-bottom: 0.3rem; line-height: 1.3; }
-        .msg-content .md-h3 { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.72); margin-top: 0.65rem; margin-bottom: 0.25rem; line-height: 1.3; }
-        .msg-content .md-h4 { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.65); margin-top: 0.5rem; margin-bottom: 0.2rem; line-height: 1.3; }
-        .msg-content .md-bold { color: rgba(30,203,139,0.9); font-weight: 500; }
-        .msg-content .md-em { font-style: italic; color: rgba(255,255,255,0.55); }
-        .msg-content .md-li { display: list-item; margin-left: 1.2rem; list-style: disc; color: rgba(255,255,255,0.5); margin-bottom: 0.15rem; }
-        .msg-content .md-li-ol { display: list-item; margin-left: 1.2rem; list-style: decimal; color: rgba(255,255,255,0.5); margin-bottom: 0.15rem; }
-        .msg-content .md-code { font-size: 0.82em; background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: rgba(30,203,139,0.6); font-family: monospace; }
-        .msg-content .md-link { color: rgba(30,203,139,0.7); text-decoration: underline; }
-        .msg-content .md-link:hover { color: rgba(30,203,139,0.9); }
-        .msg-content .md-quote { border-left: 2px solid rgba(30,203,139,0.3); padding-left: 0.75rem; margin: 0.5rem 0; color: rgba(255,255,255,0.45); font-style: italic; }
+        .msg-content .md-h1 { font-size: 1.2rem; font-weight: 600; color: var(--ninja-text); margin-top: 1rem; margin-bottom: 0.45rem; line-height: 1.4; }
+        .msg-content .md-h2 { font-size: 1.1rem; font-weight: 600; color: var(--ninja-text); margin-top: 0.85rem; margin-bottom: 0.35rem; line-height: 1.4; }
+        .msg-content .md-h3 { font-size: 1.02rem; font-weight: 600; color: var(--ninja-text); margin-top: 0.7rem; margin-bottom: 0.3rem; line-height: 1.4; }
+        .msg-content .md-h4 { font-size: 0.98rem; font-weight: 600; color: var(--ninja-text); margin-top: 0.55rem; margin-bottom: 0.25rem; line-height: 1.4; }
+        .msg-content .md-bold { color: #3eeaa8; font-weight: 600; }
+        .msg-content .md-em { font-style: italic; color: var(--ninja-text-muted); }
+        .msg-content .md-li { display: list-item; margin-left: 1.35rem; list-style: disc; color: var(--ninja-text-body); margin-bottom: 0.35rem; line-height: 1.7; }
+        .msg-content .md-li-ol { display: list-item; margin-left: 1.35rem; list-style: decimal; color: var(--ninja-text-body); margin-bottom: 0.35rem; line-height: 1.7; }
+        .msg-content .md-code { font-size: 0.9em; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: #5dffc0; font-family: ui-monospace, monospace; }
+        .msg-content .md-link { color: #3eeaa8; text-decoration: underline; text-underline-offset: 2px; }
+        .msg-content .md-link:hover { color: #6ff0c4; }
+        .msg-content .md-quote { border-left: 3px solid rgba(30,203,139,0.4); padding-left: 0.85rem; margin: 0.65rem 0; color: var(--ninja-text-muted); font-style: italic; }
         .msg-content .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 0.6rem 0; }
         .msg-content .md-tag { font-size: 0.65rem; color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); padding: 0 2px; border-radius: 2px; margin: 0 1px; }
         .msg-content .md-tag-guess { color: rgba(30,203,139,0.32); background: rgba(30,203,139,0.04); }
 
         .msg-content .md-table-wrap { overflow-x: auto; margin: 0.65rem 0; border: 1px solid rgba(255,255,255,0.08); border-radius: 0.5rem; }
-        .msg-content .md-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        .msg-content .md-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .msg-content .md-thead { background: rgba(255,255,255,0.04); }
         .msg-content .md-th, .msg-content .md-td { padding: 0.45rem 0.65rem; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; vertical-align: top; }
         .msg-content .md-th { color: rgba(30,203,139,0.75); font-weight: 600; }
-        .msg-content .md-td { color: rgba(255,255,255,0.55); }
+        .msg-content .md-td { color: var(--ninja-text-body); }
         .msg-content .md-tr:last-child .md-td { border-bottom: none; }
       `}</style>
     </div>

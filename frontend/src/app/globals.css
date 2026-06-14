@@ -10,9 +10,10 @@
   --ninja-accent: #1ecb8b;
   --ninja-accent-dim: #17a873;
   --ninja-accent-glow: rgba(30, 203, 139, 0.25);
-  --ninja-text: #e5e8eb;
-  --ninja-text-muted: #8b9aab;
-  --ninja-text-dim: #5c6b7a;
+  --ninja-text: #eef1f4;
+  --ninja-text-muted: #b4c0cc;
+  --ninja-text-dim: #8494a3;
+  --ninja-text-body: #d8dee6;
   --ninja-danger: #ef4444;
   --ninja-warning: #f59e0b;
   --background: var(--ninja-bg);
@@ -31,9 +32,13 @@
 body {
   background: var(--ninja-bg);
   color: var(--ninja-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Atmospheric background like poe.ninja */
@@ -199,7 +204,8 @@ body {
 .ninja-textarea {
   width: 100%;
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
+  line-height: 1.5;
   color: var(--ninja-text);
   background: var(--ninja-bg-elevated);
   border: 1px solid var(--ninja-border);
@@ -240,14 +246,37 @@ body {
 }
 
 .ninja-chip {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  padding: 0.45rem 0.85rem;
   border-radius: 9999px;
   border: 1px solid var(--ninja-border);
-  color: var(--ninja-text-muted);
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--ninja-text-body);
+  background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.ninja-follow-chip {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--ninja-border-strong);
+  color: var(--ninja-text-body);
+  background: var(--ninja-bg-elevated);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.ninja-follow-chip:hover {
+  border-color: rgba(30, 203, 139, 0.45);
+  color: var(--ninja-text);
+  background: rgba(30, 203, 139, 0.06);
 }
 
 .ninja-chip:hover:not(:disabled) {
@@ -262,11 +291,11 @@ body {
 }
 
 .ninja-section-title {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ninja-text-dim);
+  letter-spacing: 0.06em;
+  color: var(--ninja-text-muted);
 }
 
 .ninja-link {
