@@ -16,6 +16,11 @@ from app.services.follow_up_suggestions import generate_follow_up_questions
 
 from app.core.game_context import POE2_SITE_RULE, is_ninja_cost_guide_query, NINJA_COST_GUIDE_MARKDOWN
 
+from app.services.knowledge_guard import (
+    build_forced_rag_query,
+    should_force_rag,
+)
+
 from app.services.chat_tools import (
     TOOL_DEFINITIONS,
     TOOL_LABELS,
@@ -43,6 +48,7 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 10. rag_search 必须传入非空 query（英文检索词）；若未提供则服务端会用用户原话前 200 字兜底。同一轮对话最多调用 3 次 rag_search。
 11. **poe.ninja BD 造价（无链接）**：用户提到忍者网/poe.ninja 并询问 BD 造价，但消息里没有 poe.ninja 角色链接、PoB 码等可解析构建输入时，直接说明如何复制并粘贴链接，不要调用 decode_pob 或 BD 造价流水线。
 12. **WeGame 分享链接**：`stats:` 行含 Life/FireRes/LightningRes 等时，即 WeGame 面板数据，**必须原样引用**（火/冰/闪抗即元素抗性，闪电抗勿改称「魔抗」）。仅当含 `data_limitation` 时才禁止编造面板数值。WeGame 无升华字段。
+13. **服务端强制检索**：当问题或草稿涉及机制/词缀/装备等游戏事实且尚未 rag_search 时，服务端可能自动执行 entity_resolve + rag_search，你必须基于检索结果作答，勿凭空编造。
 
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
@@ -115,6 +121,72 @@ async def _yield_done_with_follow_ups(
     if fu:
         yield fu
     yield {"type": "done"}
+
+
+
+async def _emit_forced_rag(
+    ctx: ChatToolContext,
+    user_msg: str,
+    agent_messages: list[dict[str, Any]],
+    draft_hint: str = "",
+) -> AsyncIterator[dict[str, Any]]:
+    query = build_forced_rag_query(user_msg, draft_hint)
+    steps: list[tuple[str, dict[str, Any], str]] = [
+        ("entity_resolve", {"text": user_msg}, "forced_entity"),
+        ("rag_search", {"query": query, "expand_concepts": True}, "forced_rag"),
+    ]
+
+    yield {"type": "thinking", "content": "检测到需要知识库支撑，自动检索资料..."}
+
+    tool_calls_payload: list[dict[str, Any]] = []
+    tool_messages: list[dict[str, Any]] = []
+    for fn, args, tc_id in steps:
+        label = TOOL_LABELS.get(fn, fn)
+        yield {"type": "thinking", "content": f"调用工具: {label}..."}
+        yield {"type": "tool_use", "content": {"name": fn, "arguments": args}}
+        tool_calls_payload.append(
+            {
+                "id": tc_id,
+                "type": "function",
+                "function": {
+                    "name": fn,
+                    "arguments": json.dumps(args, ensure_ascii=False),
+                },
+            }
+        )
+
+        try:
+            result = await execute_tool(fn, args, ctx)
+            preview = result.content[:240] + ("..." if len(result.content) > 240 else "")
+            yield {
+                "type": "tool_result",
+                "content": {"name": fn, "ok": True, "preview": preview},
+            }
+            result_content = result.content
+        except Exception as e:
+            logger.error("[CHAT] forced tool %s failed: %s", fn, e)
+            result_content = json.dumps({"error": str(e)}, ensure_ascii=False)
+            yield {
+                "type": "tool_result",
+                "content": {"name": fn, "ok": False, "preview": str(e)[:200]},
+            }
+
+        tool_messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": tc_id,
+                "content": result_content,
+            }
+        )
+
+    agent_messages.append(
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": tool_calls_payload,
+        }
+    )
+    agent_messages.extend(tool_messages)
 
 
 async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:
@@ -192,7 +264,12 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         tool_calls = getattr(msg, "tool_calls", None) or []
 
         if not tool_calls:
-            # Final text from model (non-streaming fallback)
+            draft = msg.content or ""
+            if should_force_rag(user_msg, ctx, draft_text=draft):
+                async for ev in _emit_forced_rag(ctx, user_msg, agent_messages, draft_hint=draft):
+                    yield ev
+                used_tools = True
+                continue
             if msg.content:
                 answer_acc += msg.content
                 yield {"type": "answer", "content": msg.content}
@@ -258,12 +335,21 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                 },
             )
 
-    if not used_tools:
-        if ctx.last_sources:
-            yield {"type": "sources", "content": ctx.last_sources}
-        async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
+    if used_tools and should_force_rag(user_msg, ctx):
+        async for ev in _emit_forced_rag(ctx, user_msg, agent_messages):
             yield ev
-        return
+
+    if not used_tools:
+        if should_force_rag(user_msg, ctx, draft_text=answer_acc):
+            async for ev in _emit_forced_rag(ctx, user_msg, agent_messages, draft_hint=answer_acc):
+                yield ev
+            used_tools = True
+        else:
+            if ctx.last_sources:
+                yield {"type": "sources", "content": ctx.last_sources}
+            async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
+                yield ev
+            return
 
     # Stream final synthesis after tool rounds
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}
