@@ -139,7 +139,7 @@ function ThinkingPanel({
 }
 
 function detectStreamSkill(text: string, toolName?: string, current = "idle"): string {
-  if (toolName === "trade_search" || text.includes("交易市场")) return "trade_search";
+  if (toolName === "trade_search" || text.includes("交易市场") || text.includes("交易搜索")) return "trade_search";
   if (
     toolName === "decode_pob" ||
     /PoB|pobb\.in|decode_pob|decode/i.test(text) ||
@@ -147,7 +147,8 @@ function detectStreamSkill(text: string, toolName?: string, current = "idle"): s
     text.includes("解析 PoB")
   )
     return "build_design";
-  if (toolName === "rag_search" || text.includes("检索") || text.includes("知识库")) return "encyclopedia";
+  if (toolName === "rag_search" || text.includes("检索") || text.includes("知识库") || text.includes("百科检索")) return "encyclopedia";
+  if (text.includes("编排器") || text.includes("子 Agent") || text.includes("子任务")) return current !== "idle" ? current : "encyclopedia";
   if (text.includes("分析")) return "encyclopedia";
   return current;
 }
@@ -255,6 +256,14 @@ export default function ChatPage() {
               sk = detectStreamSkill(t, undefined, sk);
               setSkill(sk);
               thinkLog.push(t);
+              setThinking([...thinkLog]);
+            } else if (ev.type === "sub_agent_done") {
+              const c = ev.content || {};
+              const label = typeof c.label === "string" ? c.label : (typeof c.agent === "string" ? c.agent : "子任务");
+              const toolName = typeof c.agent === "string" ? c.agent : undefined;
+              sk = detectStreamSkill(label, toolName, sk);
+              setSkill(sk);
+              thinkLog.push(`子 Agent · ${label}`);
               setThinking([...thinkLog]);
             } else if (ev.type === "tool_use") {
               const c = ev.content || {};
