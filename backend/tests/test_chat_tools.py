@@ -42,6 +42,17 @@ def test_detect_input_signals_plain_text_empty():
     assert detect_input_signals("什么是火焰伤害") == []
 
 
+def test_detect_input_signals_bare_trade_base():
+    signals = detect_input_signals("扭曲项链")
+    assert "trade_base_type:扭曲项链=Distorted Amulet" in signals
+    assert "bare_item_name:use_entity_resolve_and_rag_not_trade" in signals
+
+
+def test_detect_input_signals_affix_question():
+    signals = detect_input_signals("扭曲项链都能提供什么词条")
+    assert "item_knowledge_query:use_entity_resolve_and_rag_not_trade" in signals
+
+
 def test_format_build_summary_minimal():
     data = DecodeResponse(
         build=BuildInfo(className="Ranger", ascendClassName="Deadeye", level="95"),

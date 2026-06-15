@@ -258,6 +258,27 @@ def detect_input_signals(text: str) -> list[str]:
         signals.append("pob_share_code")
     if re.search(r"https?://", text):
         signals.append("contains_http_url")
+
+    from app.services.trade_items_index import match_base_type_in_text
+
+    base_hit = match_base_type_in_text(text)
+    if base_hit:
+        cn, en = base_hit
+        signals.append(f"trade_base_type:{cn}={en}")
+
+    affix_ask = re.search(
+        r"(词条|词缀|能提供|出什么|什么属性|基底|介绍|是什么|有什么用|属性)",
+        text,
+    )
+    trade_ask = re.search(
+        r"(搜|找|买|卖|多少钱|市价|查价|价格|trade|集市|值多少)",
+        text,
+    )
+    if base_hit and affix_ask:
+        signals.append("item_knowledge_query:use_entity_resolve_and_rag_not_trade")
+    elif base_hit and not trade_ask and len(text.strip()) <= 24:
+        signals.append("bare_item_name:use_entity_resolve_and_rag_not_trade")
+
     return signals
 
 

@@ -878,9 +878,16 @@ def _infer_item_slot(query: str) -> str | None:
 
 
 def _infer_base_type(query: str, item_slot: str | None, market: str = "cn") -> str | None:
-    """Infer Trade API base type (CN type string) e.g. 蓝玉 for cobalt jewels."""
-    if item_slot != "jewel":
+    """Infer Trade API base type from query (all slots, via official trade index)."""
+    from app.services.trade_items_index import infer_base_type_label
+
+    hit = infer_base_type_label(query, market=market)
+    if hit:
+        return hit
+
+    if item_slot != "jewel" and "jewel" not in (item_slot or ""):
         return None
+
     from app.services.pob_rare_trade import resolve_base_type_cn
 
     cn_bases = (

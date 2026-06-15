@@ -301,6 +301,34 @@ def resolve_item_query(query: str, limit: int = 15) -> list[dict[str, str]]:
     return out
 
 
+def match_base_type_in_text(text: str) -> tuple[str, str] | None:
+    """If text contains a known trade base (CN or EN), return (cn, en)."""
+    q = (text or "").strip()
+    if not q:
+        return None
+    cn_map = _cn_to_en_map()
+    ql = q.lower()
+    for cn in sorted(cn_map.keys(), key=len, reverse=True):
+        if len(cn) >= 2 and cn in q:
+            return cn, cn_map[cn]
+    en_map = _en_to_cn_map()
+    for en in sorted(en_map.keys(), key=len, reverse=True):
+        if len(en) < 4:
+            continue
+        if en.lower() in ql:
+            return en_map[en], en
+    return None
+
+
+def infer_base_type_label(text: str, *, market: str = "cn") -> str | None:
+    """Trade API `type` field for a base mentioned in free text."""
+    hit = match_base_type_in_text(text)
+    if not hit:
+        return None
+    cn, en = hit
+    return cn if market == "cn" else en
+
+
 def counts_summary() -> dict[str, Any]:
     data = _load_en_cn()
     return {
