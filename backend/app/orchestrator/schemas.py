@@ -67,6 +67,7 @@ class SkillAgentResult(BaseModel):
 class DispatchPlan(BaseModel):
     tasks: list[TaskSpec] = Field(default_factory=list)
     planning_note: str = ""
+    session_turn_count: int = 0
 
 
 def _short_json(obj: Any, max_len: int = 8000) -> str:

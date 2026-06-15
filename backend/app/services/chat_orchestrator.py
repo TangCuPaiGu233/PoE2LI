@@ -11,6 +11,7 @@ from app.core.game_context import POE2_SITE_RULE
 from app.orchestrator.dispatcher import dispatch_parallel
 from app.orchestrator.planner import plan_dispatch
 from app.orchestrator.schemas import SkillAgentResult
+from app.orchestrator.session_context import build_session_context
 from app.services.chat_agent import _emit_streamed_answer, _llm_client
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.chat_response_guard import strip_ungrounded_price_claims
@@ -56,6 +57,7 @@ def _build_synthesis_messages(
     results: list[SkillAgentResult],
     *,
     has_images: bool,
+    prior_snippet: str = "",
 ) -> list[dict[str, Any]]:
     blocks: list[str] = []
     for r in results:
@@ -70,6 +72,13 @@ def _build_synthesis_messages(
         blocks.append(r.to_synthesis_block())
 
     user_body = "用户问题:\n" + user_msg
+    if prior_snippet.strip():
+        user_body = (
+            "对话上下文（供指代消解，勿重复无关历史）:\n"
+            + prior_snippet.strip()
+            + "\n\n"
+            + user_body
+        )
     if has_images:
         user_body += "\n\n(用户消息含游戏截图，请结合可见内容作答；看不清的如实说明)"
     user_body += "\n\n---\n子 Agent 结果:\n\n" + "\n\n---\n".join(blocks)
@@ -96,12 +105,13 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
     if has_images:
         yield {"type": "thinking", "content": "已收到图片，正在分析…"}
 
-    plan = plan_dispatch(user_msg)
+    session = build_session_context(messages)
+    plan = plan_dispatch(session=session)
     task_count = len(plan.tasks)
     agent_names = ", ".join(_AGENT_LABELS.get(t.agent, t.agent) for t in plan.tasks)
     yield {
         "type": "thinking",
-        "content": f"编排器规划 {task_count} 个子任务: {agent_names}",
+        "content": f"AI 正在规划 {task_count} 个子任务: {agent_names}",
     }
 
     if plan.planning_note:
@@ -157,7 +167,12 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
 
     yield {"type": "thinking", "content": "正在综合子 Agent 结果生成回答…"}
 
-    synth_messages = _build_synthesis_messages(user_msg, results, has_images=has_images)
+    synth_messages = _build_synthesis_messages(
+        user_msg,
+        results,
+        has_images=has_images,
+        prior_snippet=session.prior_snippet,
+    )
     if has_images:
         synth_messages = build_agent_messages(messages, SYNTHESIS_SYSTEM)
         # Append sub-agent blocks as extra user context
@@ -210,7 +225,8 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
 
 
 def chat_runtime_name() -> str:
-    return os.getenv("CHAT_RUNTIME", "orchestrator").strip().lower()
+    """Default: legacy ReAct agent (LLM chooses tools). Set CHAT_RUNTIME=orchestrator for parallel sub-agents."""
+    return os.getenv("CHAT_RUNTIME", "legacy").strip().lower()
 
 
 async def stream_chat(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:

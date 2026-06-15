@@ -14,6 +14,7 @@ from openai import AsyncOpenAI
 
 from app.core.llm_config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, llm_thinking_extra_body
 from app.core.game_context import POE2_SITE_RULE
+from app.orchestrator.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
 
@@ -57,6 +58,13 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 21. **词缀解析/归一化**：装备或词缀搜索前，先理解用户提到的抗性/伤害/召唤等级/移速等，写成标准中文词缀名，再 `resolve_trade_stat(canonical_label=...)`；`canonical_label` **不得**包含数值后缀（如 +4、15% 等），数值只写在 operator/value 或用户说明中；禁止把口语/缩写原样传入。
 22. **歧义处理**：若 `need_disambiguation` 为 true，结合 suggestions 与上下文选定 stat_id 并说明理由，再调用 `trade_search`。
 23. **trade_search query 用词**：`trade_search` 的 query 必须使用已确认的 `text_cn`（来自 resolve 的 best 或你选定的那条 suggestion）。
+
+## 多轮对话（必读历史，工具参数由你构造）
+24. 当前句很短或含「这个/这件/上面/差不多/同款」而**未重复描述装备** → 必须从对话历史还原物品再 `trade_search`，禁止用「值多少钱」等当 query。
+25. 用户纠正搜索（「不是珠宝」「别搜蓝玉」）→ 根据历史中真实装备类型/词缀**重新** `trade_search`；纠正句只作说明，不要当搜索词。
+26. 「如何搭配/配装/怎么配/装备选择」→ `entity_resolve` + `rag_search`，由你分析配装；**不要**用 `recommend`（`recommend` 仅用于用户明确对比多个具名装备「哪个更好」）。
+27. 附图 + 问价：先描述图中装备，再 `trade_search`；query 写词缀/类型，不要把纠正或情绪句塞进 query。
+28. 规划工具时默认**已阅读**上方完整对话；同一轮可先 `rag_search` 再 `trade_search`，顺序由你决定。
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
 - 资料不足就说明不足，标注 [推测] 仅限合理推断
@@ -211,7 +219,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if has_images:
         yield {"type": "thinking", "content": "已收到图片，正在视觉分析…"}
 
-    ctx = ChatToolContext(user_msg=user_msg)
+    session = build_session_context(messages)
+    ctx = ChatToolContext(user_msg=session.effective_user_msg())
     client = _llm_client()
 
     agent_messages = build_agent_messages(messages, _build_system_message(user_msg))

@@ -27,10 +27,15 @@ def _trade_match_quality(trade_data: dict[str, Any] | None) -> str:
     return "exact"
 
 
+def _effective_user_msg(spec: TaskSpec, *, fallback: str) -> str:
+    return str(spec.payload.get("effective_user_msg") or fallback or spec.user_phrase)
+
+
 async def run_task(spec: TaskSpec, *, user_msg: str) -> SkillAgentResult:
     """Run a single sub-agent task."""
     started = time.perf_counter()
-    ctx = ChatToolContext(user_msg=user_msg or spec.user_phrase)
+    effective = _effective_user_msg(spec, fallback=user_msg)
+    ctx = ChatToolContext(user_msg=effective)
     agent = spec.agent
 
     try:
