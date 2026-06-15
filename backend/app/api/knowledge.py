@@ -439,14 +439,14 @@ def _rewrite_standalone_question(
 
 
 async def _stream_chat(messages: list[dict]):
-    """AI-first agent runtime (ClawCode-style ReAct + tool registry)."""
-    from app.services.chat_agent import stream_chat_agent
+    """Orchestrator (default) or legacy ReAct — see CHAT_RUNTIME env."""
     from app.services.chat_multimodal import resolve_user_text
+    from app.services.chat_orchestrator import chat_runtime_name, stream_chat
 
     user_msg = resolve_user_text(messages)
-    logger.info("[CHAT] agent_runtime | query=%s", user_msg[:120])
+    logger.info("[CHAT] runtime=%s | query=%s", chat_runtime_name(), user_msg[:120])
 
-    async for event in stream_chat_agent(messages):
+    async for event in stream_chat(messages):
         yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
