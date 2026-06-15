@@ -371,10 +371,19 @@ def structured_entity_lookup(
     entities: list[tuple[str, str, str]],
     league: str | None = None,
     game_version: str | None = None,
+    *,
+    intent: str = "detail",
 ) -> list[dict]:
-    """Direct DB fetch for resolved entity names (ascendancy / item / skill)."""
+    """Direct DB fetch for resolved entity names (ascendancy / item / skill).
+
+    Uses retrieval intent (detail vs catalog), not per-entity ad-hoc rules in callers.
+    """
+    from app.services.rag_retrieval_policy import RetrievalIntent, structured_fetch_mode
+
+    rag_intent: RetrievalIntent = "catalog" if intent == "catalog" else "detail"
     direct_chunks: list[dict] = []
     for etype, en_name, chunk_type_filter in entities:
+        mode = structured_fetch_mode(etype, rag_intent)
         filters = [
             KnowledgeChunk.stale == False,  # noqa: E712
             KnowledgeChunk.content.ilike(f"%{en_name}%"),
@@ -384,34 +393,37 @@ def structured_entity_lookup(
         elif chunk_type_filter in ("item", "skill"):
             filters.append(KnowledgeChunk.chunk_type == chunk_type_filter)
         apply_version_filters(filters, league, game_version)
-        row_limit = 80 if etype == "ascendancy" else 40
+        row_limit = 80 if mode == "multi" else 40
         rows = db.query(KnowledgeChunk).filter(*filters).limit(row_limit).all()
         if not rows:
             continue
 
-        if etype == "ascendancy":
+        if mode == "multi":
             picked: list[tuple[int, KnowledgeChunk]] = []
             for row in rows:
                 score = _entity_chunk_score(row, en_name, etype)
                 if score < 15:
                     continue
-                try:
-                    data = json.loads(row.content)
-                    asc = (data.get("ascendancy") or "").strip()
-                    if asc and asc.lower() != en_name.lower():
-                        continue
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                if etype == "ascendancy":
+                    try:
+                        data = json.loads(row.content)
+                        asc = (data.get("ascendancy") or "").strip()
+                        if asc and asc.lower() != en_name.lower():
+                            continue
+                    except (json.JSONDecodeError, TypeError):
+                        pass
                 picked.append((score, row))
             picked.sort(key=lambda x: x[0], reverse=True)
             if not picked:
                 continue
-            for score, row in picked[:16]:
+            cap = 16 if etype == "ascendancy" else 8
+            for score, row in picked[:cap]:
                 direct_chunks.append(chunk_to_dict(row, min(1.0, score / 100.0)))
             logger.info(
-                "structured_lookup: ascendancy %s chunks=%d",
+                "structured_lookup: %s %s mode=multi chunks=%d",
+                etype,
                 en_name,
-                len(picked[:16]),
+                min(len(picked), cap),
             )
             continue
 

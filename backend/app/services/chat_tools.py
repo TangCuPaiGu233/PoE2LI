@@ -15,8 +15,8 @@ from app.core.database import SessionLocal
 from app.models.schemas import DecodeResponse, ErrorResponse
 from app.services.embedding_service import get_embedding
 from app.services.pob_service import decode_pob
+from app.services.rag_retrieval_policy import build_rag_options, classify_retrieval_intent
 from app.services.retrieval_pipeline import (
-    RetrievalOptions,
     build_context,
     build_search_query,
     default_game_version,
@@ -335,70 +335,34 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
     expand = bool(args.get("expand_concepts", True)) and not fast
     aliases, entities = extract_alias_keywords(ctx.user_msg)
     search_query = build_search_query(ctx.user_msg, aliases, [query])
-    has_ascendancy = any(etype == "ascendancy" for etype, _, _ in entities)
-
-    # Fast short-circuit: single skill/item detail only (not ascendancy — needs many asc_nodes)
-    if fast and entities and not has_ascendancy and all(
-        etype in ("skill", "item") for etype, _, _ in entities
-    ):
-        db = SessionLocal()
-        try:
-            direct = structured_entity_lookup(
-                db, entities, league=ctx.league, game_version=ctx.game_version,
-            )
-        finally:
-            db.close()
-        if direct:
-            context = build_context(direct[:8])
-            sources = [
-                {
-                    "type": c.get("chunk_type", "?"),
-                    "source": c.get("source", "?"),
-                    "preview": (c.get("content") or "")[:100],
-                }
-                for c in direct[:5]
-            ]
-            ctx.last_sources = sources
-            elapsed = (_time.perf_counter() - t0) * 1000
-            logger.info(
-                "[CHAT] tool rag_search fast structured chunks=%d %.0fms",
-                len(direct),
-                elapsed,
-            )
-            return ToolRunResult(
-                content=json.dumps(
-                    {"chunk_count": len(direct), "context": context[:12000], "fast": True},
-                    ensure_ascii=False,
-                ),
-                sources=sources,
-            )
+    rag_intent = classify_retrieval_intent(ctx.user_msg)
 
     embedding = get_embedding(search_query)
     if not embedding:
         return ToolRunResult(content=json.dumps({"error": "embedding_unavailable"}, ensure_ascii=False))
 
-    retrieval = retrieve_dual_path(
-        ctx.user_msg,
-        query,
-        RetrievalOptions(
-            top_k=14 if has_ascendancy else (5 if fast else 6),
-            classify_text=ctx.user_msg,
-            q_embedding=embedding,
-            league=ctx.league,
-            game_version=ctx.game_version,
-            alias_keywords=aliases,
-            expand_concepts=False,
-            multi_source=not fast,
-            per_source=3 if fast else 5,
-        ),
+    rag_opts, _ = build_rag_options(
+        user_msg=ctx.user_msg,
+        query=query,
+        entities=entities,
+        fast=fast,
+        q_embedding=embedding,
+        league=ctx.league,
+        game_version=ctx.game_version,
+        alias_keywords=aliases,
     )
+    retrieval = retrieve_dual_path(ctx.user_msg, query, rag_opts)
     chunks = list(retrieval.chunks)
 
     if entities:
         db = SessionLocal()
         try:
             direct = structured_entity_lookup(
-                db, entities, league=ctx.league, game_version=ctx.game_version,
+                db,
+                entities,
+                league=ctx.league,
+                game_version=ctx.game_version,
+                intent=rag_intent,
             )
             seen = {c.get("content", "")[:100] for c in chunks}
             for dc in direct:
