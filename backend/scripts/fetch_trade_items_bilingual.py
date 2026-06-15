@@ -9,6 +9,7 @@ Entries only have `type` (display name). Alignment: same group `id`, zip by inde
 Outputs:
   - trade_items_bilingual.json  — groups + flat items map
   - trade_items_en_cn.json      — en_to_cn, cn_to_en, cn_to_group lookups
+                                — consumed by entity_resolver (official 国服译名)
   - base_en_cn.json             — backward-compat {version, source, en_to_cn}
 """
 

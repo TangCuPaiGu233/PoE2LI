@@ -66,6 +66,8 @@ def load_local_unique_names() -> set[str]:
     try:
         from app.services.entity_dict import ITEM_CN_ALIASES
         names.update(ITEM_CN_ALIASES.values())
+        from app.services.trade_items_index import _en_to_cn_map
+        names.update(_en_to_cn_map().keys())
     except Exception:
         pass
     return names

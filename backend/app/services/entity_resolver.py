@@ -15,37 +15,60 @@ from app.services.name_validation import is_trusted_en_name
 # ── Lazy-loaded alias maps ──
 _cn_to_en: dict[str, tuple[str, str, int, str]] | None = None
 _all_en_names: list[str] | None = None
-_aliases_mtime: float | None = None  # All known EN entity names for fuzzy matching
+_aliases_mtime: float | None = None  # legacy — use _aliases_cache_key
+_aliases_cache_key: tuple | None = None
 
 
-def _aliases_file_mtime() -> float | None:
+def _data_dir() -> str:
     data_dir = "/app/data"
     if not os.path.isdir(data_dir):
         data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-    path = os.path.join(data_dir, "game_aliases.json")
-    try:
-        return os.path.getmtime(path) if os.path.exists(path) else None
-    except OSError:
-        return None
+    return data_dir
+
+
+def _aliases_cache_key_paths() -> tuple[str, ...]:
+    base = _data_dir()
+    return (
+        os.path.join(base, "game_aliases.json"),
+        os.path.join(base, "trade_items_en_cn.json"),
+        os.path.join(base, "trade_items_bilingual.json"),
+    )
+
+
+def _aliases_file_mtime() -> tuple | None:
+    """Cache bust when alias source files change."""
+    mtimes: list[float | None] = []
+    for path in _aliases_cache_key_paths():
+        try:
+            mtimes.append(os.path.getmtime(path) if os.path.exists(path) else None)
+        except OSError:
+            mtimes.append(None)
+    return tuple(mtimes)
+
+
+def _load_trade_official_cn_aliases() -> dict[str, str]:
+    """All CN→EN from PoE2 Trade API (bases + uniques, Tencent-aligned)."""
+    from app.services.trade_items_index import _cn_to_en_map
+
+    return dict(_cn_to_en_map())
 
 
 def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
-    global _cn_to_en, _all_en_names, _aliases_mtime
-    mtime = _aliases_file_mtime()
-    if _cn_to_en is not None and mtime is not None and _aliases_mtime == mtime:
+    global _cn_to_en, _all_en_names, _aliases_mtime, _aliases_cache_key
+    cache_key = _aliases_file_mtime()
+    if _cn_to_en is not None and cache_key is not None and _aliases_cache_key == cache_key:
         return _cn_to_en
-    if _cn_to_en is not None and mtime is None and _aliases_mtime is None:
+    if _cn_to_en is not None and cache_key is None and _aliases_cache_key is None:
         return _cn_to_en
-    _aliases_mtime = mtime
+    _aliases_cache_key = cache_key
+    _aliases_mtime = None
     _cn_to_en = None
     _all_en_names = None
 
     _cn_to_en = {}
     _all_en_names = []
 
-    data_dir = "/app/data"
-    if not os.path.isdir(data_dir):
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    data_dir = _data_dir()
 
     def _add(cn, en, etype, confidence=50, source="unknown"):
         if not cn or not en:
@@ -59,6 +82,10 @@ def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
         if en not in _all_en_names:
             _all_en_names.append(en)
 
+    # 0. Official Trade API CN names (bases + uniques) — highest priority for items
+    for cn, en in _load_trade_official_cn_aliases().items():
+        _add(cn, en, "item", confidence=99, source="trade_api")
+
     # 1. Caimogu skills
     skills_path = os.path.join(data_dir, "caimogu_skills.json")
     if os.path.exists(skills_path):
@@ -67,10 +94,10 @@ def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
                 _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill",
                      confidence=90, source="caimogu_skill")
 
-    # 2. Curated item colloquial names (国服译名 + 社区俗称，见 entity_dict.ITEM_CN_ALIASES)
+    # 2. Community slang / unique nicknames only (never official trade CN bases)
     from app.services.entity_dict import ITEM_CN_ALIASES
     for cn, en in ITEM_CN_ALIASES.items():
-        _add(cn, en, "item", confidence=95, source="curated_item")
+        _add(cn, en, "item", confidence=96, source="colloquial_item")
 
     # 3. Caimogu items (Tencent-aligned CN, loaded BEFORE poe2db)
     items_path = os.path.join(data_dir, "caimogu_items.json")

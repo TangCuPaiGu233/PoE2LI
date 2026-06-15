@@ -105,12 +105,12 @@ CLASS_CN_TO_EN: dict[str, str] = {
 }
 
 # ═══════════════════════════════════════════════════════════════════
+# 仅社区俗称 / 暗金别名 — 国服基底与暗金译名以 trade_items_en_cn.json 为准
+# 禁止在此填写 Trade API 已有的中文基底名（会与官方译名冲突）
+# ═══════════════════════════════════════════════════════════════════
 ITEM_CN_ALIASES: dict[str, str] = {
     "沉默之雷": "Mjölner",
-    # 国服 Trade API 官方译名（见 trade_items_en_cn.json）
-    "畸变项链": "Twisted Amulet",
-    "扭曲项链": "Distorted Amulet",
-    # 社区俗称：Delirium 涂油项链底（非国服「扭曲项链」）
+    # Delirium 涂油底社区叫法（国服「畸变项链」= Twisted Amulet 已由 Trade 覆盖）
     "扭曲护身符": "Twisted Amulet",
 }
 
