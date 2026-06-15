@@ -335,9 +335,12 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
     expand = bool(args.get("expand_concepts", True)) and not fast
     aliases, entities = extract_alias_keywords(ctx.user_msg)
     search_query = build_search_query(ctx.user_msg, aliases, [query])
+    has_ascendancy = any(etype == "ascendancy" for etype, _, _ in entities)
 
-    # Fast path: structured DB hit for resolved skill/item — skip vector + expansion
-    if fast and entities:
+    # Fast short-circuit: single skill/item detail only (not ascendancy — needs many asc_nodes)
+    if fast and entities and not has_ascendancy and all(
+        etype in ("skill", "item") for etype, _, _ in entities
+    ):
         db = SessionLocal()
         try:
             direct = structured_entity_lookup(
@@ -378,7 +381,7 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
         ctx.user_msg,
         query,
         RetrievalOptions(
-            top_k=5 if fast else 6,
+            top_k=14 if has_ascendancy else (5 if fast else 6),
             classify_text=ctx.user_msg,
             q_embedding=embedding,
             league=ctx.league,

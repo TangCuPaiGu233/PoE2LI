@@ -384,9 +384,37 @@ def structured_entity_lookup(
         elif chunk_type_filter in ("item", "skill"):
             filters.append(KnowledgeChunk.chunk_type == chunk_type_filter)
         apply_version_filters(filters, league, game_version)
-        rows = db.query(KnowledgeChunk).filter(*filters).limit(40).all()
+        row_limit = 80 if etype == "ascendancy" else 40
+        rows = db.query(KnowledgeChunk).filter(*filters).limit(row_limit).all()
         if not rows:
             continue
+
+        if etype == "ascendancy":
+            picked: list[tuple[int, KnowledgeChunk]] = []
+            for row in rows:
+                score = _entity_chunk_score(row, en_name, etype)
+                if score < 15:
+                    continue
+                try:
+                    data = json.loads(row.content)
+                    asc = (data.get("ascendancy") or "").strip()
+                    if asc and asc.lower() != en_name.lower():
+                        continue
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                picked.append((score, row))
+            picked.sort(key=lambda x: x[0], reverse=True)
+            if not picked:
+                continue
+            for score, row in picked[:16]:
+                direct_chunks.append(chunk_to_dict(row, min(1.0, score / 100.0)))
+            logger.info(
+                "structured_lookup: ascendancy %s chunks=%d",
+                en_name,
+                len(picked[:16]),
+            )
+            continue
+
         best = max(rows, key=lambda r: _entity_chunk_score(r, en_name, etype))
         if _entity_chunk_score(best, en_name, etype) < 15:
             continue

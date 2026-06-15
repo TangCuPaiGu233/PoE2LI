@@ -41,6 +41,33 @@ def test_rag_search_fast_disables_multi_source():
     assert payload.get("fast") is True
 
 
+def test_rag_search_fast_skips_short_circuit_for_ascendancy():
+    captured: list = []
+
+    def fake_dual(orig, rew, options=None):
+        captured.append(options)
+        return RetrievalResult(
+            chunks=[{"id": 1, "content": "Spirit Walker notable", "chunk_type": "asc_nodes", "source": "pob", "similarity": 0.9}],
+            intent="encyclopedia",
+            search_query=rew,
+        )
+
+    ctx = ChatToolContext(user_msg="灵魂行者有哪些升华技能")
+    with (
+        patch(
+            "app.services.chat_tools.extract_alias_keywords",
+            return_value=(["Spirit Walker", "灵魂行者"], [("ascendancy", "Spirit Walker", "asc_nodes")]),
+        ),
+        patch("app.services.chat_tools.structured_entity_lookup", return_value=[]),
+        patch("app.services.chat_tools.get_embedding", return_value=[0.1] * 1024),
+        patch("app.services.chat_tools.retrieve_dual_path", side_effect=fake_dual),
+    ):
+        _run_rag_search({"query": "灵魂行者升华", "fast": True}, ctx)
+
+    assert captured
+    assert captured[0].top_k >= 14
+
+
 def test_rag_search_fast_structured_short_circuit():
     direct = [
         {
