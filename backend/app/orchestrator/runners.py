@@ -101,11 +101,10 @@ async def _run_encyclopedia(
     ctx: ChatToolContext,
     started: float,
 ) -> SkillAgentResult:
-    await execute_tool("entity_resolve", {"text": spec.user_phrase}, ctx)
     rag_query = str(spec.payload.get("query") or spec.user_phrase)
     result = await execute_tool(
         "rag_search",
-        {"query": rag_query, "expand_concepts": True},
+        {"query": rag_query, "fast": True},
         ctx,
     )
     payload = json.loads(result.content) if result.content else {}
@@ -128,11 +127,10 @@ async def _run_build_design(
     ctx: ChatToolContext,
     started: float,
 ) -> SkillAgentResult:
-    await execute_tool("entity_resolve", {"text": spec.user_phrase}, ctx)
     rag_query = str(spec.payload.get("query") or spec.user_phrase)
     result = await execute_tool(
         "rag_search",
-        {"query": rag_query, "expand_concepts": True},
+        {"query": rag_query, "fast": True},
         ctx,
     )
     payload = json.loads(result.content) if result.content else {}

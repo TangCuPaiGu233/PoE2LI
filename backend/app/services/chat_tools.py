@@ -325,12 +325,51 @@ def _run_entity_resolve(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunRe
 
 
 def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    import time as _time
+
+    t0 = _time.perf_counter()
     query = (args.get("query") or "").strip()
     if not query:
         query = (ctx.user_msg or "")[:200]
-    expand = args.get("expand_concepts", True)
+    fast = bool(args.get("fast"))
+    expand = bool(args.get("expand_concepts", True)) and not fast
     aliases, entities = extract_alias_keywords(ctx.user_msg)
     search_query = build_search_query(ctx.user_msg, aliases, [query])
+
+    # Fast path: structured DB hit for resolved skill/item — skip vector + expansion
+    if fast and entities:
+        db = SessionLocal()
+        try:
+            direct = structured_entity_lookup(
+                db, entities, league=ctx.league, game_version=ctx.game_version,
+            )
+        finally:
+            db.close()
+        if direct:
+            context = build_context(direct[:8])
+            sources = [
+                {
+                    "type": c.get("chunk_type", "?"),
+                    "source": c.get("source", "?"),
+                    "preview": (c.get("content") or "")[:100],
+                }
+                for c in direct[:5]
+            ]
+            ctx.last_sources = sources
+            elapsed = (_time.perf_counter() - t0) * 1000
+            logger.info(
+                "[CHAT] tool rag_search fast structured chunks=%d %.0fms",
+                len(direct),
+                elapsed,
+            )
+            return ToolRunResult(
+                content=json.dumps(
+                    {"chunk_count": len(direct), "context": context[:12000], "fast": True},
+                    ensure_ascii=False,
+                ),
+                sources=sources,
+            )
+
     embedding = get_embedding(search_query)
     if not embedding:
         return ToolRunResult(content=json.dumps({"error": "embedding_unavailable"}, ensure_ascii=False))
@@ -339,14 +378,15 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
         ctx.user_msg,
         query,
         RetrievalOptions(
-            top_k=6,
+            top_k=5 if fast else 6,
             classify_text=ctx.user_msg,
             q_embedding=embedding,
             league=ctx.league,
             game_version=ctx.game_version,
             alias_keywords=aliases,
             expand_concepts=False,
-            multi_source=True,
+            multi_source=not fast,
+            per_source=3 if fast else 5,
         ),
     )
     chunks = list(retrieval.chunks)
@@ -380,11 +420,18 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
         for c in chunks[:5]
     ]
     ctx.last_sources = sources
+    elapsed = (_time.perf_counter() - t0) * 1000
+    logger.info(
+        "[CHAT] tool rag_search chunks=%d fast=%s %.0fms",
+        len(chunks),
+        fast,
+        elapsed,
+    )
     payload = {
         "chunk_count": len(chunks),
         "context": context[:12000],
+        "fast": fast,
     }
-    logger.info("[CHAT] tool rag_search chunks=%d", len(chunks))
     return ToolRunResult(content=json.dumps(payload, ensure_ascii=False), sources=sources)
 
 

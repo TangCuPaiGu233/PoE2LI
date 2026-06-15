@@ -14,6 +14,8 @@ Configuration via environment variables:
 
 import os
 import logging
+import hashlib
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,7 @@ EMBEDDING_API_MODEL = os.getenv("EMBEDDING_API_MODEL", "BAAI/bge-m3")
 
 # Local fallback settings (optional)
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
+EMBEDDING_CACHE_TTL = int(os.getenv("EMBEDDING_CACHE_TTL", "86400"))
 
 # ── Internal state ─────────────────────────────────────────────
 
@@ -50,18 +53,62 @@ def get_embedding(text: str) -> list[float] | None:
     if not text or not text.strip():
         return None
 
+    normalized = text.strip()
+    cached = _get_cached_embedding(normalized)
+    if cached is not None:
+        return cached
+
     if EMBEDDING_PROVIDER == "api":
         # API first, local fallback
-        result = _get_api_embedding(text)
+        result = _get_api_embedding(normalized)
         if result is not None:
+            _set_cached_embedding(normalized, result)
             return result
-        return _get_local_embedding(text)
+        result = _get_local_embedding(normalized)
     else:
         # Local first (default), API fallback
-        result = _get_local_embedding(text)
+        result = _get_local_embedding(normalized)
         if result is not None:
+            _set_cached_embedding(normalized, result)
             return result
-        return _get_api_embedding(text)
+        result = _get_api_embedding(normalized)
+
+    if result is not None:
+        _set_cached_embedding(normalized, result)
+    return result
+
+
+def _embedding_cache_key(text: str) -> str:
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
+    return f"emb:{EMBEDDING_DIM}:{digest}"
+
+
+def _get_cached_embedding(text: str) -> list[float] | None:
+    try:
+        from app.core.redis_client import get_redis
+
+        raw = get_redis().get(_embedding_cache_key(text))
+        if not raw:
+            return None
+        data = json.loads(raw)
+        if isinstance(data, list) and len(data) == EMBEDDING_DIM:
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def _set_cached_embedding(text: str, embedding: list[float]) -> None:
+    try:
+        from app.core.redis_client import get_redis
+
+        get_redis().setex(
+            _embedding_cache_key(text),
+            EMBEDDING_CACHE_TTL,
+            json.dumps(embedding),
+        )
+    except Exception:
+        pass
 
 
 # ── Local: sentence-transformers ───────────────────────────────
