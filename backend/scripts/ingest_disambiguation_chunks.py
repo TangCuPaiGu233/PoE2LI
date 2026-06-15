@@ -34,12 +34,25 @@ DISAMBIGUATION_CHUNKS = [
         ),
     },
     {
+        "chunk_id": "faq_twisted_vs_distorted_amulet",
+        "search_text": (
+            "FAQ: Twisted Amulet vs Distorted Amulet / 畸变项链 vs 扭曲项链\n"
+            "[CN Official] 扭曲项链 = Distorted Amulet (Trade API base type). "
+            "[CN Official] 畸变项链 = Twisted Amulet (Delirium instilled-notable base). "
+            "Community slang 扭曲护身符 often means Twisted Amulet (涂油/Instilled Notables), "
+            "NOT the same as 扭曲项链 Distorted Amulet. "
+            "When user asks 扭曲项链词条, answer Distorted Amulet affix pool unless they "
+            "clearly mean Delirium instilling / 涂油 / Instilled Notables."
+        ),
+    },
+    {
         "chunk_id": "faq_twisted_amulet_instilled",
         "search_text": (
-            "FAQ: Twisted Amulet / 扭曲项链 Instilled Notables\n"
-            "Twisted Amulet can be Instilled to gain random Instilled Notables on the amulet. "
+            "FAQ: Twisted Amulet / 畸变项链 Instilled Notables\n"
+            "Twisted Amulet (畸变项链) can be Instilled to gain random Instilled Notables on the amulet. "
             "Instilled Notables are special passive-like bonuses from the Instilling mechanic (涂油/instill). "
-            "See Instilled Notables list for possible outcomes."
+            "See Instilled Notables list for possible outcomes. "
+            "Do NOT confuse with Distorted Amulet (扭曲项链), a different base type."
         ),
     },
     {

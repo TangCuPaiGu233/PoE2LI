@@ -67,7 +67,7 @@ def _load_aliases() -> dict[str, tuple[str, str, int, str]]:
                 _add(s.get("cn", "").strip(), s.get("en", "").strip(), "skill",
                      confidence=90, source="caimogu_skill")
 
-    # 2. Curated item colloquial names (扭曲项链 → Twisted Amulet, etc.)
+    # 2. Curated item colloquial names (国服译名 + 社区俗称，见 entity_dict.ITEM_CN_ALIASES)
     from app.services.entity_dict import ITEM_CN_ALIASES
     for cn, en in ITEM_CN_ALIASES.items():
         _add(cn, en, "item", confidence=95, source="curated_item")
