@@ -13,14 +13,9 @@ import asyncio
 from openai import AsyncOpenAI
 
 from app.core.llm_config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, llm_thinking_extra_body
-from app.core.game_context import POE2_SITE_RULE, is_ninja_cost_guide_query, NINJA_COST_GUIDE_MARKDOWN
+from app.core.game_context import POE2_SITE_RULE
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
-
-from app.services.knowledge_guard import (
-    build_forced_rag_query,
-    should_force_rag,
-)
 
 from app.services.chat_tools import (
     TOOL_DEFINITIONS,
@@ -33,15 +28,17 @@ from app.services.chat_tools import (
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 8
+TRADE_SEARCH_MAX_PER_TURN = int(os.getenv("CHAT_TRADE_SEARCH_MAX", "8"))
 
 AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2_SITE_RULE + """
 
 ## 工作方式（必须遵守）
+0. 没有服务端强制路由或专用流水线；所有查价/搜索/检索都由你自主调用工具完成。
 1. 你是编排者：先判断用户意图，再调用工具获取事实，最后基于工具结果用中文回答。
 2. 不要在没有调用工具的情况下编造物品、技能数值、BD 数据或交易链接。
 3. 用户消息若含 PoB 分享码(eN开头)、pobb.in 或 poe.ninja 或 wegame.com.cn/helper/poe2 分享链接 → 必须先调用 decode_pob。
 4. 百科/机制/技能/物品问题 → 先 entity_resolve（如有中文专名），再 rag_search。
-5. 找装备/市价/交易 → trade_search。
+5. 找装备/市价/交易 → trade_search（detail_count 1-10 控制返回前 N 条完整 listing；问价通常 1-3，对比可 2-5）。
 6. 「哪个更好/推荐/对比」→ recommend。
 7. **多物品市价列表**（用户一次问多个装备/暗金分别多少钱）：逐个调用 trade_search，每查完一个物品先输出该物品报价，全部完成后再给汇总；不要在一次 trade_search 里混查多个物品。
 8. 可连续调用多个工具；当前问题与历史无关时（例如仅贴链接），不要沿用上一轮话题。
@@ -49,15 +46,17 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 10. rag_search 必须传入非空 query（英文检索词）；若未提供则服务端会用用户原话前 200 字兜底。同一轮对话最多调用 3 次 rag_search。
 11. **poe.ninja BD 造价（无链接）**：用户提到忍者网/poe.ninja 并询问 BD 造价，但消息里没有 poe.ninja 角色链接、PoB 码等可解析构建输入时，直接说明如何复制并粘贴链接，不要调用 decode_pob 或 BD 造价流水线。
 12. **WeGame 分享链接**：`stats:` 行含 Life/FireRes/LightningRes 等时，即 WeGame 面板数据，**必须原样引用**（火/冰/闪抗即元素抗性，闪电抗勿改称「魔抗」）。仅当含 `data_limitation` 时才禁止编造面板数值。WeGame 无升华字段。
-13. **服务端强制检索**：当问题或草稿涉及机制/词缀/装备等游戏事实且尚未 rag_search 时，服务端可能自动执行 entity_resolve + rag_search，你必须基于检索结果作答，勿凭空编造。
 14. **用户附图**：消息可能含 PoE2 游戏截图（装备、天赋、技能、市集等）。先描述图中可见内容，再结合工具/知识库回答；看不清的数值如实说明，不要编造。
 15. **估价/值多少钱**：只能引用 trade_search 返回的 `listing_price.display`；若无 listing_price 或 price_note 说无在售，必须明确「无法从市集估价」，**禁止**编造具体金额区间（如 3-8 崇高、建议挂 5E 等）。
 16. **trade_search 的 query**：只写词缀/装备类型/暗金名；**不要**把截图里的物品等级(物等/ilvl)写进 query，除非用户原话明确要求物等条件。
-17. **trade_search 每轮最多 2 次**（单件装备、缩小条件重试）：第一次 query 写全全部词缀；若返回链接则直接作答，**禁止**为同一件装备反复缩小 query。
+17. **trade_search 次数**：多物品/多变体比价时逐项调用；同一件装备避免无意义重复搜索。
 18. **暗金查价**（人格分裂、猎首等）：trade_search 的 query **只写暗金名**，不要加红玉/蓝玉基底或无关词缀描述。
 19. **追问价格/其他变体词缀**：仍须 trade_search；结合对话里的物品名构造 query，禁止不查市集就报具体价格。
-20. **多词条/多变体分别比价**（「不同词条分别多少钱」「各词缀价格对比」）：每条 query **只含一个词条或一种变体**，逐项调用 trade_search（系统也可能自动走逐项流水线）；全部搜完后用 markdown 表格或列表**汇总**，禁止把多个词条塞进一次搜索，禁止未搜索就报各词条价格。
+20. **多词条/多变体分别比价**（「不同词条分别多少钱」「各词缀价格对比」）：每条 query **只含一个词条或一种变体**，逐项调用 trade_search；全部搜完后用 markdown 表格或列表**汇总**，禁止把多个词条塞进一次搜索，禁止未搜索就报各词条价格。
 
+21. **词缀解析/归一化**：装备或词缀搜索前，先理解用户提到的抗性/伤害/召唤等级/移速等，写成标准中文词缀名，再 `resolve_trade_stat(canonical_label=...)`；`canonical_label` **不得**包含数值后缀（如 +4、15% 等），数值只写在 operator/value 或用户说明中；禁止把口语/缩写原样传入。
+22. **歧义处理**：若 `need_disambiguation` 为 true，结合 suggestions 与上下文选定 stat_id 并说明理由，再调用 `trade_search`。
+23. **trade_search query 用词**：`trade_search` 的 query 必须使用已确认的 `text_cn`（来自 resolve 的 best 或你选定的那条 suggestion）。
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
 - 资料不足就说明不足，标注 [推测] 仅限合理推断
@@ -66,8 +65,7 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 
 
 def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
-    max_calls = 8 if ctx.trade_compare_mode else 2
-    if ctx.trade_search_calls >= max_calls:
+    if ctx.trade_search_calls >= TRADE_SEARCH_MAX_PER_TURN:
         return [t for t in TOOL_DEFINITIONS if t["function"]["name"] != "trade_search"]
     return TOOL_DEFINITIONS
 
@@ -203,75 +201,8 @@ async def _yield_done_with_follow_ups(
 
 
 
-async def _emit_forced_rag(
-    ctx: ChatToolContext,
-    user_msg: str,
-    agent_messages: list[dict[str, Any]],
-    draft_hint: str = "",
-) -> AsyncIterator[dict[str, Any]]:
-    query = build_forced_rag_query(user_msg, draft_hint)
-    steps: list[tuple[str, dict[str, Any], str]] = [
-        ("entity_resolve", {"text": user_msg}, "forced_entity"),
-        ("rag_search", {"query": query, "expand_concepts": True}, "forced_rag"),
-    ]
-
-    yield {"type": "thinking", "content": "检测到需要知识库支撑，自动检索资料..."}
-
-    tool_calls_payload: list[dict[str, Any]] = []
-    tool_messages: list[dict[str, Any]] = []
-    for fn, args, tc_id in steps:
-        label = TOOL_LABELS.get(fn, fn)
-        yield {"type": "thinking", "content": f"调用工具: {label}..."}
-        yield {"type": "tool_use", "content": {"name": fn, "arguments": args}}
-        tool_calls_payload.append(
-            {
-                "id": tc_id,
-                "type": "function",
-                "function": {
-                    "name": fn,
-                    "arguments": json.dumps(args, ensure_ascii=False),
-                },
-            }
-        )
-
-        try:
-            result = await execute_tool(fn, args, ctx)
-            preview = result.content[:240] + ("..." if len(result.content) > 240 else "")
-            yield {
-                "type": "tool_result",
-                "content": {"name": fn, "ok": True, "preview": preview},
-            }
-            result_content = result.content
-        except Exception as e:
-            logger.error("[CHAT] forced tool %s failed: %s", fn, e)
-            result_content = json.dumps({"error": str(e)}, ensure_ascii=False)
-            yield {
-                "type": "tool_result",
-                "content": {"name": fn, "ok": False, "preview": str(e)[:200]},
-            }
-
-        tool_messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tc_id,
-                "content": result_content,
-            }
-        )
-
-    agent_messages.append(
-        {
-            "role": "assistant",
-            "content": "",
-            "tool_calls": tool_calls_payload,
-        }
-    )
-    agent_messages.extend(tool_messages)
-
-
 async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any]]:
     """Run the agent loop and yield SSE event dicts."""
-    from app.services.multi_item_price import is_price_query, stream_multi_item_prices, is_build_cost_query, stream_build_cost
-    from app.services.multi_affix_compare import is_multi_affix_compare_query, stream_multi_affix_compare
 
     user_msg = resolve_user_text(messages)
     last_msg = messages[-1] if messages else {}
@@ -280,51 +211,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if has_images:
         yield {"type": "thinking", "content": "已收到图片，正在视觉分析…"}
 
-    if not has_images and is_ninja_cost_guide_query(user_msg):
-        yield {"type": "answer", "content": NINJA_COST_GUIDE_MARKDOWN}
-        async for ev in _yield_done_with_follow_ups(user_msg, NINJA_COST_GUIDE_MARKDOWN):
-            yield ev
-        return
-
-    if not has_images and is_build_cost_query(user_msg):
-        yield {"type": "thinking", "content": "检测到 BD 造价查询，进入专用流水线…"}
-        async for event in _stream_with_follow_ups(user_msg, stream_build_cost(user_msg, market="cn")):
-            if event.get("type") == "route" and event.get("content") == "default_agent":
-                break
-            yield event
-            if event.get("type") == "done":
-                return
-        else:
-            return
-
-    if not has_images and is_multi_affix_compare_query(user_msg, messages):
-        yield {"type": "thinking", "content": "检测到多词条比价，进入逐项搜索流水线…"}
-        async for event in _stream_with_follow_ups(
-            user_msg,
-            stream_multi_affix_compare(user_msg, messages=messages, market="cn"),
-        ):
-            if event.get("type") == "route" and event.get("content") == "default_agent":
-                break
-            yield event
-            if event.get("type") == "done":
-                return
-        else:
-            return
-
-    if not has_images and is_price_query(user_msg):
-        yield {"type": "thinking", "content": "检测到多件查价，进入市价流水线…"}
-        async for event in _stream_with_follow_ups(user_msg, stream_multi_item_prices(user_msg, market="cn")):
-            if event.get("type") == "route" and event.get("content") == "default_agent":
-                break
-            yield event
-            if event.get("type") == "done":
-                return
-        else:
-            return
-
     ctx = ChatToolContext(user_msg=user_msg)
-    if is_multi_affix_compare_query(user_msg, messages):
-        ctx.trade_compare_mode = True
     client = _llm_client()
 
     agent_messages = build_agent_messages(messages, _build_system_message(user_msg))
@@ -365,12 +252,6 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         tool_calls = getattr(msg, "tool_calls", None) or []
 
         if not tool_calls:
-            draft = msg.content or ""
-            if should_force_rag(user_msg, ctx, draft_text=draft):
-                async for ev in _emit_forced_rag(ctx, user_msg, agent_messages, draft_hint=draft):
-                    yield ev
-                used_tools = True
-                continue
             if msg.content:
                 answer_acc += msg.content
                 yield {"type": "answer", "content": msg.content}
@@ -436,21 +317,14 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                 },
             )
 
-    if used_tools and should_force_rag(user_msg, ctx):
-        async for ev in _emit_forced_rag(ctx, user_msg, agent_messages):
-            yield ev
 
     if not used_tools:
-        if should_force_rag(user_msg, ctx, draft_text=answer_acc):
-            async for ev in _emit_forced_rag(ctx, user_msg, agent_messages, draft_hint=answer_acc):
-                yield ev
-            used_tools = True
-        else:
-            if ctx.last_sources:
-                yield {"type": "sources", "content": ctx.last_sources}
-            async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
-                yield ev
-            return
+        if ctx.last_sources:
+            yield {"type": "sources", "content": ctx.last_sources}
+        async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
+            yield ev
+        return
+
 
     # Stream final synthesis after tool rounds
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}

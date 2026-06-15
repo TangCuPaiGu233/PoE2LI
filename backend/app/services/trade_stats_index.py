@@ -22,6 +22,240 @@ logger = logging.getLogger(__name__)
 #  Item type mappings (Chinese → Trade API category)
 # ═══════════════════════════════════════════════════════════
 
+
+_STAT_LOOKUP_PATHS = [
+    os.path.join(os.path.dirname(__file__), "..", "..", "data", "trade_stats_en_cn.json"),
+    os.path.join(os.path.dirname(__file__), "data", "trade_stats_en_cn.json"),
+    "/app/data/trade_stats_en_cn.json",
+]
+
+_CLASS_START_CN: dict[str, str] = {
+    "佣兵": "explicit.stat_738592688",
+    "魔巫": "explicit.stat_3359496001",
+    "战士": "explicit.stat_1359862146",
+    "游侠": "explicit.stat_3116298775",
+    "暗影": "explicit.stat_2218479786",
+    "圣堂武僧": "explicit.stat_1688294122",
+}
+
+_VARIANT_ALIASES: dict[str, str] = {
+    "女巫": "魔巫",
+    "行者": "圣堂武僧",
+    "圣堂": "圣堂武僧",
+}
+
+_stat_lookup_cache: dict | None = None
+
+
+def _load_stat_lookup() -> dict:
+    global _stat_lookup_cache
+    if _stat_lookup_cache is not None:
+        return _stat_lookup_cache
+    data: dict = {}
+    for path in _STAT_LOOKUP_PATHS:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            break
+    if not data:
+        logger.warning("trade_stats_en_cn.json not found; CN stat lookup disabled")
+    _stat_lookup_cache = data
+    return data
+
+
+def normalize_variant_label(label: str) -> str:
+    s = (label or "").strip().replace("起点", "").strip()
+    return _VARIANT_ALIASES.get(s, s)
+
+
+def class_start_stat_id(variant: str | None) -> str | None:
+    key = normalize_variant_label(variant or "")
+    if not key:
+        return None
+    return _CLASS_START_CN.get(key)
+
+
+def stat_id_to_cn(stat_id: str) -> str | None:
+    lookup = _load_stat_lookup()
+    return (lookup.get("id_to_cn") or {}).get(stat_id)
+
+
+
+
+def normalize_canonical_stat_label(label: str) -> str:
+    """Strip numeric suffixes (+4 etc.) from AI canonical labels."""
+    s = (label or "").strip()
+    if not s:
+        return s
+    s = re.sub(r"[+＋]\s*\d+(?:\.\d+)?\s*$", "", s).strip()
+    s = re.sub(r"\s*\d+(?:\.\d+)?\s*$", "", s).strip()
+    return s
+
+
+def resolve_stat_query_exact(query: str, apply_slang: bool = False) -> str | None:
+    """Exact CN/EN label match only (no substring or fuzzy)."""
+    q = (query or "").strip()
+    if not q:
+        return None
+    if apply_slang:
+        q = _normalize_stat_search_query(q)
+    lookup = _load_stat_lookup()
+    cn_to_id: dict = lookup.get("cn_to_id") or {}
+    if q in cn_to_id:
+        return cn_to_id[q]
+    for cn, sid in cn_to_id.items():
+        if not cn:
+            continue
+        cn_plain = cn.replace("#%", "").strip()
+        if cn_plain == q or cn == q:
+            return sid
+    _load_full_index()
+    if _full_stat_dict:
+        ql = q.lower()
+        for sid, ref in _full_stat_dict.items():
+            if ref and ref.lower() == ql:
+                return sid
+    return None
+
+
+def resolve_stat_query(query: str) -> str | None:
+    exact = resolve_stat_query_exact(query, apply_slang=True)
+    if exact:
+        return exact
+    q = _normalize_stat_search_query((query or "").strip())
+    if not q:
+        return None
+    lookup = _load_stat_lookup()
+    cn_to_id: dict = lookup.get("cn_to_id") or {}
+    if q in cn_to_id:
+        return cn_to_id[q]
+    for cn, sid in cn_to_id.items():
+        if cn and cn.replace("#%", "").strip() == q:
+            return sid
+    best_key: str | None = None
+    best_len = 0
+    for cn, sid in cn_to_id.items():
+        if not cn:
+            continue
+        cn_plain = cn.replace("#%", "").strip()
+        if cn == q or cn_plain == q:
+            return sid
+        if cn in q or q in cn or cn_plain in q or q in cn_plain:
+            if len(cn) > best_len:
+                best_len = len(cn)
+                best_key = cn
+    if best_key:
+        return cn_to_id[best_key]
+    _load_full_index()
+    if not _full_stat_dict:
+        return None
+    ql = q.lower()
+    for sid, ref in _full_stat_dict.items():
+        if ref and ref.lower() == ql:
+            return sid
+    return find_stat_id(q, stat_type="explicit")
+
+
+_STAT_SLANG_HINTS: dict[str, str] = {
+    "火抗": "火焰抗性",
+    "火抗性": "火焰抗性",
+    "冰抗": "冰霜抗性",
+    "冰抗性": "冰霜抗性",
+    "闪抗": "闪电抗性",
+    "雷抗": "闪电抗性",
+    "电抗": "闪电抗性",
+    "全元素抗": "元素抗性",
+    "全抗": "元素抗性",
+    "三抗": "元素抗性",
+    "召唤等级": "召唤技能等级",
+    "召唤兽等级": "召唤技能等级",
+    "佣兵起点": "佣兵",
+    "总生命": "最大生命",
+    "生命": "最大生命",
+    "跑速": "移动速度",
+    "移速": "移动速度",
+}
+
+def _normalize_stat_search_query(query: str) -> str:
+    q = (query or "").strip()
+    if not q:
+        return q
+    for slang in sorted(_STAT_SLANG_HINTS.keys(), key=len, reverse=True):
+        if slang in q:
+            q = q.replace(slang, _STAT_SLANG_HINTS[slang])
+    return q
+
+
+def resolve_stat_detail(stat_id: str) -> dict | None:
+    sid = (stat_id or "").strip()
+    if not sid:
+        return None
+    lookup = _load_stat_lookup()
+    id_to_cn: dict = lookup.get("id_to_cn") or {}
+    en_to_cn: dict = lookup.get("en_to_cn_by_id") or {}
+    _load_full_index()
+    text_cn = id_to_cn.get(sid) or en_to_cn.get(sid) or ""
+    text_en = (_full_stat_dict or {}).get(sid) or ""
+    stat_type = sid.split(".", 1)[0] if "." in sid else "explicit"
+    return {
+        "stat_id": sid,
+        "text_en": text_en,
+        "text_cn": text_cn,
+        "stat_type": stat_type,
+    }
+
+
+def search_stat_suggestions(query: str, limit: int = 15) -> list[dict]:
+    q = _normalize_stat_search_query(query)
+    if not q:
+        return []
+    ql = q.lower()
+    lookup = _load_stat_lookup()
+    cn_to_id: dict = lookup.get("cn_to_id") or {}
+    scores: dict[str, float] = {}
+
+    for cn, sid in cn_to_id.items():
+        if not cn or not sid:
+            continue
+        cn_plain = cn.replace("#%", "").strip()
+        score = 0.0
+        if cn == q or cn_plain == q:
+            score = 100.0
+        elif cn.startswith(q) or cn_plain.startswith(q):
+            score = 85.0 + min(len(q), 10) * 0.1
+        elif q.startswith(cn_plain) and len(cn_plain) >= 2:
+            score = 75.0
+        elif q in cn:
+            score = 60.0 + min(len(q), 15) * 0.2
+        elif len(cn_plain) >= 3 and cn_plain in q:
+            score = 55.0 + len(cn_plain) * 0.5
+        if score > 0:
+            scores[sid] = max(scores.get(sid, 0.0), score)
+
+    for sid, ref in (_full_stat_dict or {}).items():
+        if not ref or not sid:
+            continue
+        ref_l = ref.lower()
+        if ref_l == ql:
+            scores[sid] = max(scores.get(sid, 0.0), 90.0)
+        elif ref_l.startswith(ql):
+            scores[sid] = max(scores.get(sid, 0.0), 70.0 + min(len(ql), 12) * 0.2)
+        elif ql in ref_l and len(ql) >= 3:
+            scores[sid] = max(scores.get(sid, 0.0), 45.0)
+
+    ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+    out: list[dict] = []
+    for sid, score in ranked:
+        detail = resolve_stat_detail(sid)
+        if not detail:
+            continue
+        detail["score"] = round(score, 2)
+        out.append(detail)
+        if len(out) >= max(1, int(limit or 15)):
+            break
+    return out
+
+
 ITEM_TYPES_ZH = {
     # 饰品
     "项链": ("accessory.amulet", "Amulet"),

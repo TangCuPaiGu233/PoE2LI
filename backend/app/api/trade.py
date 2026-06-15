@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from app.services.trade_agent import run_agent
+from app.services.trade_service import search_trade_item_suggestions
 from app.services.trade_stat_service import ingest_trade_stats, backfill_embeddings, get_ingest_stats, clear_trade_stats
 from app.core.database import SessionLocal
 
@@ -39,6 +40,27 @@ class TradeSearchResponse(BaseModel):
     alternatives: list[SearchMatch] = []
     explanation: str = ""
     need_user_input: bool = False
+
+
+
+
+@router.get("/api/trade/items/suggest")
+async def trade_item_suggest(q: str = "", limit: int = 15):
+    """Autocomplete PoE2 trade base types (prefix match on EN/CN)."""
+    lim = max(1, min(int(limit or 15), 50))
+    suggestions = search_trade_item_suggestions(q, limit=lim)
+    return {"query": q, "limit": lim, "suggestions": suggestions}
+
+@router.get("/api/trade/stats/suggest")
+async def trade_stat_suggest(q: str = "", limit: int = 15):
+    from app.services.trade_service import search_trade_stat_suggestions
+
+    lim = max(1, min(int(limit or 15), 50))
+    return {
+        "query": q,
+        "limit": lim,
+        "suggestions": search_trade_stat_suggestions(q, limit=lim),
+    }
 
 
 @router.post("/api/trade/search", response_model=TradeSearchResponse)

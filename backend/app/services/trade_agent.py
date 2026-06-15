@@ -63,7 +63,7 @@ CRITICAL RULES:
    "最便宜/价格最低" → sort="price", sort_dir="asc"
 2. "价格低于 X E/D/神" → budget={{"max": X, "currency": "exalted"/"divine"/"chaos"}}
    "价格低于 2E" → budget={{"max": 2, "currency": "exalted"}}
-3. Item names (战猫, 猎首, 法血) → set item_slot to best guess, put name in raw_summary
+3. item_slot MUST use full Trade category IDs (e.g. accessory.amulet, NOT amulet); unique/item names go in raw_summary
 4. must_have: stats the item MUST have. Use AND group.
 5. nice_to_have: stats that are NICE to have. COUNT group with count_min.
 6. "至少N条XX" → count_min=N
@@ -114,9 +114,26 @@ def _currency_cn(currency: str) -> str:
         "chaos": "混沌石",
         "divine": "神圣石",
         "exalted": "崇高石",
+        "exalt": "崇高石",
+        "alch": "点金石",
+        "alchemy": "点金石",
         "mirror": "镜子",
     }.get((currency or "").lower(), currency or "?")
 
+
+def _listing_matches_variant(listing, variant_hint):
+    if not variant_hint:
+        return True
+    vl=(listing.get(chr(118)+chr(97)+chr(114)+chr(105)+chr(97)+chr(110)+chr(116)+chr(95)+chr(108)+chr(97)+chr(98)+chr(101)+chr(108)) or chr(32)).strip()
+    if vl==variant_hint:
+        return True
+    core=variant_hint.replace(chr(36215)+chr(28857), chr(32)).strip()
+    if not core:
+        return False
+    if core in vl:
+        return True
+    blob=chr(32).join(listing.get(chr(101)+chr(120)+chr(112)+chr(108)+chr(105)+chr(99)+chr(105)+chr(116)+chr(95)+chr(109)+chr(111)+chr(100)+chr(115)) or [])
+    return core in blob
 
 def _attach_market_price(
     response: dict,
@@ -125,28 +142,90 @@ def _attach_market_price(
     total: int,
     market: str,
     league: str,
+    item_ids: list | None = None,
+    detail_count: int = 1,
+    variant_hint=None,
 ) -> dict:
-    """Attach real listing price from Trade API; forbid LLM from guessing."""
+    """Attach listing details from Trade API; forbid LLM from guessing."""
+    detail_count = max(1, min(int(detail_count or 1), 10))
+    fetch_count = max(detail_count, 10) if variant_hint else detail_count
     if not url or total <= 0:
         response["listing_price"] = None
+        response["listings"] = []
         response["price_note"] = "市集无符合当前搜索条件的在售物品，无法给出真实市价。"
         return response
-    from app.services.trade_service import fetch_cheapest_listing
+    from app.services.trade_service import fetch_trade_listings
 
-    listing = fetch_cheapest_listing(url, market=market, league=league)
-    if listing.get("amount") is not None:
+    fetched = fetch_trade_listings(
+        url,
+        market=market,
+        league=league,
+        item_ids=item_ids,
+        count=fetch_count,
+        skip_rate_limit=True,
+    )
+    listings = fetched.get("listings") or []
+    response["listings"] = listings
+    response["listings_fetched"] = len(listings)
+
+    if not listings:
+        response["listing_price"] = None
+        err = fetched.get("error") or "无法读取 listing"
+        if total > 0 and err == "no listings":
+            response["price_note"] = (
+                f"搜索到 {total} 条在售，但无法读取 listing 详情，请直接打开市集链接查看"
+            )
+        else:
+            response["price_note"] = err
+        return response
+
+    cheapest = None
+    if variant_hint:
+        for listing in listings:
+            price = listing.get("price") or {}
+            if price.get("amount") is None or not price.get("currency"):
+                continue
+            if _listing_matches_variant(listing, variant_hint):
+                cheapest = listing
+                break
+    if cheapest is None:
+        for listing in listings:
+            price = listing.get("price") or {}
+            if price.get("amount") is not None and price.get("currency"):
+                cheapest = listing
+                break
+
+    if cheapest:
+        price = cheapest["price"]
+        explicit_mods = cheapest.get("explicit_mods") or []
+        variant_label = cheapest.get("variant_label")
         response["listing_price"] = {
-            "amount": listing["amount"],
-            "currency": listing["currency"],
-            "item_name": listing.get("item_name", ""),
-            "display": f"{listing['amount']} {_currency_cn(listing['currency'])}",
+            "amount": price["amount"],
+            "currency": price["currency"],
+            "item_name": cheapest.get("display_name") or "",
+            "display": price.get("display") or f"{price['amount']} {_currency_cn(price['currency'])}",
+            "explicit_mods": explicit_mods,
+            "implicit_mods": cheapest.get("implicit_mods") or [],
+            "variant_label": variant_label,
+            "properties": cheapest.get("properties") or [],
+            "requirements": cheapest.get("requirements") or [],
         }
-        response["price_note"] = (
-            "以下为市集在售最低价（按当前搜索条件，可能与截图中该件并非同一件）"
+        note = (
+            f"已返回前 {len(listings)} 条在售详情（共 {total} 条匹配）；"
+            "listing_price 为其中首个有标价的条目"
         )
+        if detail_count == 1:
+            note = "以下为市集在售最低价样本（按当前搜索排序）"
+        if explicit_mods:
+            note += "；描述装备属性须基于 listings[] / listing_price，禁止从百科猜测"
+        if variant_label:
+            note += f"；该件变体：{variant_label}"
+        response["price_note"] = note
     else:
         response["listing_price"] = None
-        response["price_note"] = listing.get("error") or "无法读取 listing 价格"
+        response["price_note"] = (
+            f"搜索到 {total} 条在售，已返回 {len(listings)} 条物品详情，但未读到标价"
+        )
     return response
 
 
@@ -175,6 +254,21 @@ def _normalize_stat_reqs(items: list) -> list[dict]:
 _MINION_CTX = re.compile(r"召唤|minion|Minion|仆从|魔卫|图腾兽", re.I)
 
 
+
+
+def _normalize_intent_slots_and_concepts(intent: dict, query: str) -> dict:
+    from app.services.trade_service import normalize_trade_item_slot
+
+    slot = intent.get("item_slot")
+    if slot:
+        intent["item_slot"] = normalize_trade_item_slot(slot)
+    if _MINION_CTX.search(query or ""):
+        for key in ("must_have", "nice_to_have"):
+            for req in intent.get(key, []) or []:
+                if req.get("concept") == "all_skill_level":
+                    req["concept"] = "minion_skill_level"
+    return intent
+
 def _remap_concepts_from_query(intent: dict, query: str) -> dict:
     """Fix LLM mis-labeling minion mods as player crit."""
     if not _MINION_CTX.search(query or ""):
@@ -186,7 +280,13 @@ def _remap_concepts_from_query(intent: dict, query: str) -> dict:
     return intent
 
 
-def _try_unique_trade(query: str, league: str, market: str) -> dict | None:
+def _try_unique_trade(
+    query: str,
+    league: str,
+    market: str,
+    user_msg: str = "",
+    detail_count: int = 1,
+) -> dict | None:
     """Fast-path: recognized unique name -> search by name, skip rare+mod parse."""
     from app.services.trade_service import resolve_trade_unique_name, search_unique_by_name
 
@@ -200,8 +300,18 @@ def _try_unique_trade(query: str, league: str, market: str) -> dict | None:
         if matched and matched not in query[: max(len(matched) + 2, 8)]:
             return None
 
+    from app.services.chat_item_profile import extract_class_variant_hint
+    from app.services.trade_stats_index import class_start_stat_id
+
+    user_variant = extract_class_variant_hint(query + chr(10) + user_msg)
+    stat_id = class_start_stat_id(user_variant) if user_variant else None
     label = resolved.get("trade_name_cn") or resolved.get("unique_name") or query
-    result = search_unique_by_name(resolved.get("matched") or query, market=market, league=league)
+    result = search_unique_by_name(
+        resolved.get("matched") or query,
+        market=market,
+        league=league,
+        required_stat_ids=[stat_id] if stat_id else None,
+    )
     if result.get("error"):
         logger.warning("Unique fast-path failed: %s", result.get("error"))
         return None
@@ -218,12 +328,19 @@ def _try_unique_trade(query: str, league: str, market: str) -> dict | None:
         "note": f"按暗金「{label}」搜索",
     }
     logger.info("Unique fast-path: %s → %d results", resolved.get("unique_name"), total)
-    return _response_from_link(
+    eff_detail = max(detail_count, 10) if user_variant else detail_count
+    resp = _response_from_link(
         link,
         explanation=link["note"],
         market=market,
         league=league,
+        item_ids=result.get("item_ids"),
+        detail_count=eff_detail,
+        variant_hint=user_variant,
     )
+    if user_variant:
+        resp["user_variant_hint"] = user_variant
+    return resp
 
 
 def _extract_json_object(text: str) -> str:
@@ -264,6 +381,7 @@ def _parse_intent(query: str, user_msg: str = "") -> dict:
         parsed["nice_to_have"] = _normalize_stat_reqs(parsed.get("nice_to_have"))
         parsed = _remap_concepts_from_query(parsed, query)
         parsed = _apply_ilvl_policy(parsed, user_msg, query)
+        parsed = _normalize_intent_slots_and_concepts(parsed, query)
         logger.info(
             "Intent: slot=%s, must=%s, nice=%s",
             parsed.get("item_slot"),
@@ -277,6 +395,32 @@ def _parse_intent(query: str, user_msg: str = "") -> dict:
 
 
 # ── Step 2: Resolve concepts to stat IDs ──
+
+
+
+def _direct_stats_from_query(query: str) -> list[dict]:
+    from app.services.trade_stats_index import (
+        _normalize_stat_search_query,
+        resolve_stat_query_exact,
+        stat_id_to_cn,
+    )
+
+    q = _normalize_stat_search_query((query or "").strip())
+    if not q:
+        return []
+    found: list[dict] = []
+    seen: set[str] = set()
+
+    for chunk in re.split(r"[、,;；\n]+", q):
+        chunk = chunk.strip()
+        if len(chunk) < 2:
+            continue
+        sid = resolve_stat_query_exact(chunk, apply_slang=False)
+        if sid and sid not in seen and len(found) < 6:
+            seen.add(sid)
+            found.append({"id": sid, "source": "chunk_exact", "label_cn": stat_id_to_cn(sid) or chunk})
+    return found
+
 
 def _resolve_concept(db, concept_name: str, item_slot: str | None = None) -> list[dict]:
     """Resolve a concept name to candidate stat IDs.
@@ -361,7 +505,7 @@ def _filter_concept_candidates(concept_name: str, candidates: list[dict]) -> lis
     return candidates
 
 
-def _resolve_all_concepts(db, intent: dict) -> dict:
+def _resolve_all_concepts(db, intent: dict, query: str = "") -> dict:
     """Resolve all concepts in the intent to stat IDs.
 
     Returns: dict with resolved must_have_stats, nice_to_have_stats
@@ -387,6 +531,16 @@ def _resolve_all_concepts(db, intent: dict) -> dict:
             logger.info(f"  must_have '{concept}' → {best['stat_id']} ({best.get('source', '?')})")
         else:
             logger.warning(f"  must_have '{concept}' → NO MATCH FOUND")
+
+
+    direct = _direct_stats_from_query(query)
+    existing_ids = {s.get("id") for s in must_have_stats if s.get("id")}
+    for d in direct:
+        sid = d.get("id")
+        if sid and sid not in existing_ids:
+            must_have_stats.append({"id": sid, "source": "direct_cn"})
+            existing_ids.add(sid)
+            logger.info("  direct_cn '%s' -> %s", d.get("label_cn"), sid)
 
     nice_to_have_stats = []
     for req in intent.get("nice_to_have", []):
@@ -603,6 +757,8 @@ def _execute_plan(plan: dict, item_slot: str | None, league: str,
         "total": result.get("total_results", 0),
         "url": result.get("trade_url", ""),
         "error": result.get("error"),
+        "rate_limited": bool(result.get("rate_limited")),
+        "item_ids": result.get("item_ids"),
         "count_min": plan.get("count_min", 0),
     }
 
@@ -877,6 +1033,9 @@ def _response_from_link(
     need_user_input: bool = False,
     market: str = "cn",
     league: str = "",
+    item_ids: list | None = None,
+    detail_count: int = 1,
+    variant_hint=None,
 ) -> dict:
     resp = {
         "best_match": {
@@ -896,12 +1055,21 @@ def _response_from_link(
         total=int(link.get("total") or 0),
         market=market,
         league=league,
+        item_ids=item_ids,
+        detail_count=detail_count,
+        variant_hint=variant_hint,
     )
 
 
 # ── Agent loop ──
 
-def run_agent(query: str, league: str | None = None, market: str = "cn", user_msg: str = "") -> dict:
+def run_agent(
+    query: str,
+    league: str | None = None,
+    market: str = "cn",
+    user_msg: str = "",
+    detail_count: int = 1,
+) -> dict:
     """Run the Trade Search Agent.
 
     Flow:
@@ -920,7 +1088,9 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
     query = sanitize_trade_query(query, user_msg)
 
     try:
-        unique_resp = _try_unique_trade(query, resolved_league, market)
+        unique_resp = _try_unique_trade(
+            query, resolved_league, market, user_msg=user_msg, detail_count=detail_count,
+        )
         if unique_resp:
             logger.info("Agent complete in %.1fs: unique fast-path", time.time() - t_start)
             return unique_resp
@@ -944,9 +1114,12 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
                 need_user_input=False,
                 market=market,
                 league=resolved_league,
+                detail_count=detail_count,
             )
 
-        item_slot = intent.get("item_slot") or _infer_item_slot(query)
+        from app.services.trade_service import normalize_trade_item_slot
+
+        item_slot = normalize_trade_item_slot(intent.get("item_slot") or _infer_item_slot(query))
         base_type = _infer_base_type(query, item_slot, market)
         item_rarity = "rare" if item_slot == "jewel" else None
         sort = intent.get("sort")
@@ -956,7 +1129,7 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
 
         # Step 2: Resolve concepts to stat IDs (or handle sort-only searches)
         logger.info("=== Step 2: Resolve concepts ===")
-        resolved = _resolve_all_concepts(db, intent)
+        resolved = _resolve_all_concepts(db, intent, query=query)
 
         # Allow sort/budget-only searches (no stat filters needed)
         if not resolved["must_have"] and not resolved["nice_to_have"]:
@@ -973,6 +1146,7 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
                     need_user_input=False,
                     market=market,
                     league=resolved_league,
+                    detail_count=detail_count,
                 )
 
         # Step 3: Build plans
@@ -1004,6 +1178,10 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
                 },
             })
 
+            if result.get("rate_limited"):
+                logger.warning("  Plan '%s' hit rate limit, stopping plan loop", plan["name"])
+                break
+
             # If this plan passed inspection, we can stop
             if inspection and inspection.get("passed"):
                 logger.info(f"  Plan '{plan['name']}' passed inspection, stopping")
@@ -1028,6 +1206,7 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
                 + fb.get("note", ""),
                 market=market,
                 league=resolved_league,
+                detail_count=detail_count,
             )
 
         primary, alt_matches = _build_trade_matches(results, best_plan)
@@ -1045,6 +1224,8 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
             total=primary["count"],
             market=market,
             league=resolved_league,
+            item_ids=best_plan["result"].get("item_ids"),
+            detail_count=detail_count,
         )
 
         elapsed = time.time() - t_start
@@ -1071,6 +1252,7 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
                 explanation=fb.get("note", ""),
                 market=market,
                 league=resolved_league,
+                detail_count=detail_count,
             )
         except Exception as fb_err:
             logger.error("Fallback link failed: %s", fb_err)
@@ -1082,6 +1264,7 @@ def run_agent(query: str, league: str | None = None, market: str = "cn", user_ms
                 fb,
                 market=market,
                 league=resolved_league,
+                detail_count=detail_count,
             )
     finally:
         db.close()

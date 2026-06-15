@@ -38,7 +38,7 @@ Background Agent Workers
 - **Cache**: Redis (official data cache + rate-limit token bucket + Celery broker)
 - **Object Storage**: S3-compatible (MinIO / cloud OSS)
 - **AI Models**: DeepSeek V4 Flash or mimo-v2.5 (cost-first, performance sufficient)
-- **Deployment**: Docker + docker-compose (initial) → K8s (scale). See [nas-deploy-guide.md](nas-deploy-guide.md) for NAS deployment instructions.
+- **Deployment**: Docker + docker-compose. Ops runbook: [docs/ops/deployment.md](docs/ops/deployment.md).
 
 ## P0 Core Loop (v1.0 — the only target for initial release)
 
@@ -132,15 +132,14 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 9. PoE2 is rapidly iterating — parsers/KB must handle format changes with graceful degradation
 10. Don't copy AGPL source (pobb.in) — reference data structures, rewrite in Python
 
-## NAS Connection & Deployment
+## Deployment (概要)
 
-Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
+**NAS 开发测试 → 大版本推腾讯云**。详见 **[docs/ops/deployment.md](docs/ops/deployment.md)**。
 
-| Target | Detail |
-|------|------|
-| **SSH** | `ssh -p 2212 skc@192.168.110.26` |
-| **Path** | `/volume1/docker/PoE2LI` |
-| **Sync** | `git fetch origin && git reset --hard origin/main` |
+| 环境 | 角色 | 访问 | 部署 |
+|------|------|------|------|
+| **NAS** | 开发 / 测试 / **KB 爬虫与灌库** | `192.168.110.26:2212` | `python deploy_nas.py` |
+| **腾讯云** | 公网生产（只读 KB） | http://liufangli.xyz/chat | `python scripts/deploy_tencent.py` |
 
 ## Trade Search & AI Chat — Implementation Notes
 

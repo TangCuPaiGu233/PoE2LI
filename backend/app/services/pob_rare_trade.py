@@ -271,19 +271,23 @@ def _load_base_en_cn_map() -> dict[str, str]:
 
 def resolve_base_type_cn(en_base: str) -> str | None:
     """Map PoB/Trade EN base type to CN realm trade type string."""
-    raw = (en_base or "").strip()
-    if not raw:
-        return None
-    if _has_cjk(raw):
-        return raw
-    hit = _load_base_en_cn_map().get(raw)
+    from app.services import trade_items_index
+
+    hit = trade_items_index.resolve_base_type_cn(en_base)
     if hit:
         return hit
+    raw = (en_base or "").strip()
+    if not raw or _has_cjk(raw):
+        return None
+    legacy = _load_base_en_cn_map().get(raw)
+    if legacy:
+        return legacy
     lower = raw.lower()
     for key, val in _load_base_en_cn_map().items():
         if key.lower() == lower:
             return val
     return None
+
 
 POB_SLOT_TO_ITEM_TYPE: dict[str, str] = {
     "Amulet": "accessory.amulet",

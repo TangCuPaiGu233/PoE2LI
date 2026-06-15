@@ -37,8 +37,8 @@ Background Agent Workers
 - **Database**: PostgreSQL (JSONB for flexible build data) + pgvector extension
 - **Cache**: Redis (official data cache + rate-limit token bucket + Celery broker)
 - **Object Storage**: S3-compatible (MinIO / cloud OSS)
-- **AI Models**: DeepSeek V4 Flash or mimo-v2.5 (cost-first, performance sufficient)
-- **Deployment**: Docker + docker-compose (initial) → K8s (scale). See [nas-deploy-guide.md](nas-deploy-guide.md) for NAS deployment instructions.
+- **AI Models**: mimo-v2.5（LLM，默认）· DeepSeek V4 Flash（备用）· BGE-M3（Embedding，SiliconFlow）
+- **Deployment**: Docker + docker-compose. Ops runbook: [docs/ops/deployment.md](docs/ops/deployment.md).
 
 ## P0 Core Loop (v1.0 — the only target for initial release)
 
@@ -152,66 +152,16 @@ These are empirically validated (2026-06-05) — code MUST follow these:
 9. PoE2 is rapidly iterating — parsers/KB must handle format changes with graceful degradation
 10. Don't copy AGPL source (pobb.in) — reference data structures, rewrite in Python
 
-## NAS Connection & Deployment
+## Deployment (概要)
 
-Detailed instructions: [nas-deploy-guide.md](nas-deploy-guide.md)
+**NAS 开发测试 → 大版本推腾讯云**。运维细节见 **[docs/ops/deployment.md](docs/ops/deployment.md)**。
 
-| Target | Detail |
-|------|------|
-| **SSH** | `ssh -p 2212 skc@192.168.110.26` |
-| **Password** | `SKChaidao@123` |
-| **Path** | `/volume1/docker/PoE2LI` |
-| **Sync** | `git fetch origin && git reset --hard origin/main` |
-| **Deploy** | `python deploy_nas.py` (uses paramiko SSH, runs `docker compose up -d --build --force-recreate`) |
-| **Docker binary** | `/usr/local/bin/docker` (may need PATH) |
+| 环境 | 角色 | 访问 | 部署 |
+|------|------|------|------|
+| **NAS** | 开发 / 测试 / **知识库写入与爬虫** | `192.168.110.26:2212` | `python deploy_nas.py` |
+| **腾讯云** | 公网生产（大版本 + KB 同步） | http://liufangli.xyz/chat | `python scripts/deploy_tencent.py` |
 
-### How to check logs (paramiko Python pattern)
-```python
-import paramiko
-client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect('192.168.110.26', 2212, 'skc', 'SKChaidao@123', timeout=10)
-
-# Check backend logs
-cmd = '/usr/local/bin/docker logs poe2li-backend --tail 30 2>&1'
-stdin, stdout, stderr = client.exec_command(cmd, timeout=15)
-stdout.channel.recv_exit_status()
-print(stdout.read().decode('utf-8', errors='replace'))
-
-# Filter chat logs
-cmd2 = '/usr/local/bin/docker logs poe2li-backend 2>&1 | grep -E "CHAT|POST /api/chat" | tail -15'
-stdin2, stdout2, stderr2 = client.exec_command(cmd2, timeout=15)
-stdout2.channel.recv_exit_status()
-print(stdout2.read().decode('utf-8', errors='replace'))
-
-# Check container status
-cmd3 = '/usr/local/bin/docker ps --format "{{.Names}} {{.Status}}"'
-# ...exec and read output...
-
-client.close()
-```
-
-**IMPORTANT**: Do NOT use multi-line Python strings with `"""` inside paramiko `exec_command()` — the nested quoting breaks. Always write scripts to files on NAS first, then run them. Use `chr()` encoding for CJK characters when inlining.
-
-### Docker operations on NAS
-```bash
-# Rebuild backend with latest code
-cd /volume1/docker/PoE2LI && git fetch origin && git reset --hard origin/main
-/usr/local/bin/docker compose build --no-cache backend
-/usr/local/bin/docker compose up -d --force-recreate backend
-
-# Copy single file into running container
-/usr/local/bin/docker cp /volume1/docker/PoE2LI/backend/scripts/xxx.py poe2li-backend:/app/scripts/xxx.py
-
-# Run script in container  
-/usr/local/bin/docker exec poe2li-backend python3 /app/scripts/xxx.py
-
-# Restart
-/usr/local/bin/docker restart poe2li-backend
-
-# Full deploy
-python deploy_nas.py
-```
+相关：[nas-deploy-guide.md](nas-deploy-guide.md) · [NAS-Docker-服务清单.md](docs/NAS-Docker-服务清单.md)
 
 ## Trade Search & AI Chat — Implementation Notes
 
@@ -229,6 +179,8 @@ python deploy_nas.py
 **Docker deployment caveat**: Only `/app/data` is volume-mounted. Code changes require `docker cp` into the running container or a full `docker compose up -d --build`.
 
 ## Knowledge Base (as of 2026-06-11)
+
+**数据流**：爬虫/灌库/embedding **只在 NAS**；大版本用 `SYNC_NAS_DATA=1` 推到腾讯云。详见 [docs/ops/deployment.md](docs/ops/deployment.md)。
 
 **21,977 chunks** across 5 sources:
 
@@ -363,3 +315,5 @@ Concept expansion during retrieval: reads links → secondary vector search → 
 | `backend/scripts/scrape_caimogu_aliases.py` | Caimogu skill CN name scraper |
 | `frontend/src/app/chat/page.tsx` | Chat UI (taste-skill redesign, markdown renderer) |
 | `deploy_nas.py` | NAS deployment via paramiko SSH |
+| `scripts/deploy_tencent.py` | Tencent Cloud VPS deployment via paramiko SSH |
+| `docker-compose.tencent.yml` | Cloud compose override (no proxy, no public DB ports, celery profile) |

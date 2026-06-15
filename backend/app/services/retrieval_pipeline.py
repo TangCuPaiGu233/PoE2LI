@@ -330,6 +330,42 @@ def reverse_lookup_chunks(
     return results[:top_k]
 
 
+def _entity_chunk_score(row, en_name, etype):
+    raw = row.content or ""
+    data = {}
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            data = parsed
+    except (json.JSONDecodeError, TypeError):
+        pass
+    score = 0
+    if row.source == "poe2db":
+        score += 50
+    elif row.source == "pob":
+        score -= 30
+    if data.get("cn_description"):
+        score += 100
+    cn_data = data.get("cn_data")
+    if cn_data:
+        score += 40
+    if "[CN Description]" in raw:
+        score += 60
+    if data.get("detail_path"):
+        score += 20
+    name_in_data = (data.get("name_en") or "").strip()
+    if name_in_data.lower() == en_name.lower():
+        score += 80
+    else:
+        blob = data.get("search_text") or raw
+        if "Name: " + en_name in blob:
+            score += 40
+        elif en_name.lower() in blob.lower():
+            score += 10
+    if row.chunk_type == etype or (etype == "ascendancy" and row.chunk_type == "asc_nodes"):
+        score += 30
+    return score
+
 def structured_entity_lookup(
     db: Session,
     entities: list[tuple[str, str, str]],
@@ -345,11 +381,17 @@ def structured_entity_lookup(
         ]
         if chunk_type_filter == "asc_nodes":
             filters.append(KnowledgeChunk.chunk_type == "asc_nodes")
+        elif chunk_type_filter in ("item", "skill"):
+            filters.append(KnowledgeChunk.chunk_type == chunk_type_filter)
         apply_version_filters(filters, league, game_version)
-        direct = db.query(KnowledgeChunk).filter(*filters).first()
-        if direct:
-            logger.info("structured_lookup: found %s for %s", etype, en_name)
-            direct_chunks.append(chunk_to_dict(direct))
+        rows = db.query(KnowledgeChunk).filter(*filters).limit(40).all()
+        if not rows:
+            continue
+        best = max(rows, key=lambda r: _entity_chunk_score(r, en_name, etype))
+        if _entity_chunk_score(best, en_name, etype) < 15:
+            continue
+        logger.info("structured_lookup: found %s for %s source=%s", etype, en_name, best.source)
+        direct_chunks.append(chunk_to_dict(best))
     return direct_chunks
 
 

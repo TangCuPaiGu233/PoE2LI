@@ -12,7 +12,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 NAS_ROOT = "/volume1/docker/PoE2LI"
 
 FILES = [
+    "frontend/src/lib/chatImage.ts",
     "frontend/src/components/chat/ChatMessageImage.tsx",
+    "frontend/src/components/chat/ChatMarkdown.tsx",
     "frontend/src/app/chat/page.tsx",
     "frontend/src/app/globals.css",
 ]
