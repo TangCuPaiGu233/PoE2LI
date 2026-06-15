@@ -9,13 +9,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.services.entity_icon_service import resolve_icon_url
-from app.services.entity_resolver import _load_aliases
-from app.services.retrieval_pipeline import (
-    default_game_version,
-    default_league,
-    structured_entity_lookup,
+from app.services.entity_icon_service import (
+    _item_path_from_data,
+    _poe2db_slug,
+    resolve_icon_url,
 )
+from app.services.entity_resolver import _load_aliases
+from app.services.retrieval_pipeline import default_game_version, default_league, structured_entity_lookup
 
 ICON_RE = re.compile(
     r"(?:https?://cdn\.poe2db\.tw/image/)?(Art/2DItems/[^\s\"\'\]]+\.(?:png|webp|jpg))",
@@ -342,6 +342,33 @@ def _extract_icon(content: str, data: dict[str, Any]) -> str | None:
     return None
 
 
+
+
+def _cn_from_item_data(data: dict[str, Any]) -> str:
+    cn = data.get("cn_data")
+    if isinstance(cn, str):
+        try:
+            cn = json.loads(cn)
+        except (json.JSONDecodeError, TypeError):
+            cn = None
+    if not isinstance(cn, dict):
+        return ""
+    parts: list[str] = []
+    name = cn.get("name")
+    if isinstance(name, str) and name.strip():
+        parts.append(name.strip())
+    stats = cn.get("stats_full")
+    if isinstance(stats, str) and stats.strip():
+        parts.append(stats.strip())
+    else:
+        for key in ("item_type", "implicit_mods", "explicit_mods"):
+            val = cn.get(key)
+            if isinstance(val, list):
+                parts.extend(str(x).strip() for x in val if str(x).strip())
+            elif isinstance(val, str) and val.strip():
+                parts.append(val.strip())
+    return " ? ".join(parts)[:320]
+
 def _description_excerpt(
     data: dict[str, Any],
     raw: str,
@@ -353,6 +380,9 @@ def _description_excerpt(
             val = data.get(key)
             if isinstance(val, str) and val.strip():
                 return val.strip()[:320]
+        item_cn = _cn_from_item_data(data)
+        if item_cn and _has_cjk(item_cn):
+            return item_cn
         text_blob = data.get("search_text") or raw
         if "[CN Description]" in text_blob:
             part = text_blob.split("[CN Description]", 1)[1].split("[", 1)[0].strip()
@@ -375,7 +405,7 @@ def _description_excerpt(
 
 
 def _poe2db_url(data: dict[str, Any], etype: str, name_en: str) -> str | None:
-    detail = data.get("detail_path") or data.get("path")
+    detail = data.get("detail_path") or data.get("path") or data.get("item_path")
     if detail:
         return f"https://poe2db.tw/cn/{detail.lstrip('/')}"
     page = POE2DB_TYPE_PATH.get(etype)
@@ -446,8 +476,17 @@ def get_tooltip(db: Session, name: str, *, lang: str = "cn") -> dict[str, Any] |
             "type_label": _type_label(etype, lang),
             "rarity": None,
             "rarity_label": None,
-            "description": "",
-            "icon_url": None,
+            "description": (
+                "暂无中文说明，请点击下方链接查看 poe2db 详情。"
+                if lang == "cn"
+                else ""
+            ),
+            "icon_url": resolve_icon_url(
+                name_en,
+                etype,
+                name_cn=label,
+                allow_fetch=False,
+            ),
             "poe2db_url": _poe2db_url({}, etype, name_en),
         }
 
@@ -472,8 +511,11 @@ def get_tooltip(db: Session, name: str, *, lang: str = "cn") -> dict[str, Any] |
     ) or chunk_icon
 
     description = _description_excerpt(data, raw, lang=lang)
-    if etype == "ascendancy" and lang == "cn" and not _has_cjk(description):
-        description = "暂无中文升华说明，请点击链接查看 poe2db 详情。"
+    if lang == "cn" and not _has_cjk(description):
+        if etype == "ascendancy":
+            description = "暂无中文升华说明，请点击链接查看 poe2db 详情。"
+        else:
+            description = "暂无中文说明，请点击下方链接查看 poe2db 详情。"
 
     return {
         "label": label,

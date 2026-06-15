@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models.build import TradeStat
 from app.services.embedding_service import get_embedding
+from app.services.trade_stats_index import resolve_stat_query, stat_id_to_cn, _load_full_index
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,28 @@ def _batch_embed(texts: list[str], batch_size: int = 100) -> list[list[float] | 
 #  Ingestion — full dictionary
 # ──────────────────────────────────────────────
 
+
+
+def _bilingual_json_path(condensed_path: str) -> str:
+    base = os.path.dirname(condensed_path)
+    return os.path.join(base, "trade_stats_bilingual.json")
+
+
+def _load_bilingual_records(json_path: str) -> dict[str, dict]:
+    bi_path = _bilingual_json_path(json_path)
+    if not os.path.exists(bi_path):
+        logger.warning(f"Bilingual stats not found at {bi_path}")
+        return {}
+    with open(bi_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    stats = payload.get("stats") or {}
+    out: dict[str, dict] = {}
+    for key, row in stats.items():
+        sid = (row.get("id") if isinstance(row, dict) else None) or key
+        if isinstance(row, dict):
+            out[sid] = row
+    return out
+
 def ingest_trade_stats(db: Session, json_path: str, batch_size: int = 100) -> dict:
     """Load condensed stat dictionary, batch-generate embeddings, and store ALL entries.
 
@@ -112,18 +135,26 @@ def ingest_trade_stats(db: Session, json_path: str, batch_size: int = 100) -> di
     new_stats = []
     skipped = 0
 
+    bilingual = _load_bilingual_records(json_path)
+
     for stat_id, ref_text in full_dict.items():
         if stat_id in existing_ids:
             skipped += 1
             continue
 
         stat_type = stat_id.split(".")[0] if "." in stat_id else "unknown"
+        bi = bilingual.get(stat_id) or {}
+        text_zh = (bi.get("text_cn") or stat_id_to_cn(stat_id) or "").strip()
+        if text_zh:
+            embed_text = f"[{stat_type}] {ref_text} | {text_zh}"
+        else:
+            embed_text = f"[{stat_type}] {ref_text}"
         new_stats.append({
             "stat_id": stat_id,
             "ref_text": ref_text,
+            "ref_text_zh": text_zh or None,
             "stat_type": stat_type,
-            # Enriched text for embedding: includes type prefix for disambiguation
-            "embed_text": f"[{stat_type}] {ref_text}",
+            "embed_text": embed_text,
         })
 
     logger.info(f"New stats to ingest: {len(new_stats)}, already existing: {skipped}")
@@ -159,6 +190,7 @@ def ingest_trade_stats(db: Session, json_path: str, batch_size: int = 100) -> di
         ts = TradeStat(
             stat_id=stat_info["stat_id"],
             ref_text=stat_info["ref_text"],
+            ref_text_zh=stat_info.get("ref_text_zh"),
             stat_type=stat_info["stat_type"],
             embedding=embedding,
         )
@@ -213,6 +245,27 @@ def backfill_embeddings(db: Session) -> int:
 #  Vector Search
 # ──────────────────────────────────────────────
 
+
+
+def backfill_ref_text_zh(db: Session, json_path: str | None = None) -> int:
+    if not json_path:
+        json_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "trade_stats_condensed.json")
+        if not os.path.exists(json_path):
+            json_path = "/app/data/trade_stats_condensed.json"
+    bilingual = _load_bilingual_records(json_path)
+    if not bilingual:
+        return 0
+    updated = 0
+    for row in db.query(TradeStat).all():
+        bi = bilingual.get(row.stat_id) or {}
+        text_zh = (bi.get("text_cn") or stat_id_to_cn(row.stat_id) or "").strip()
+        if text_zh and row.ref_text_zh != text_zh:
+            row.ref_text_zh = text_zh
+            updated += 1
+    db.commit()
+    logger.info(f"backfill_ref_text_zh: updated {updated} rows")
+    return updated
+
 def search_stats(
     db: Session,
     query: str,
@@ -232,6 +285,22 @@ def search_stats(
     Returns:
         List of {"stat_id": str, "ref_text": str, "similarity": float}
     """
+    exact_id = resolve_stat_query(query)
+    if exact_id:
+        row = db.query(TradeStat).filter(TradeStat.stat_id == exact_id).first()
+        ref_text = row.ref_text if row else ""
+        if not ref_text:
+            _load_full_index()
+            from app.services.trade_stats_index import _full_stat_dict as _fsd
+            ref_text = _fsd.get(exact_id, "") if _fsd else ""
+        stype = exact_id.split(".")[0] if "." in exact_id else (row.stat_type if row else "explicit")
+        return [{
+            "stat_id": exact_id,
+            "ref_text": ref_text,
+            "stat_type": stype,
+            "similarity": 1.0,
+        }]
+
     query_embedding = get_embedding(query)
     if not query_embedding:
         logger.warning(f"Failed to generate embedding for query: '{query}'")

@@ -432,6 +432,9 @@ def is_concept_available(concept_name: str, item_slot: str | None) -> bool:
     """
     if not item_slot:
         return True
+    from app.services.trade_service import normalize_trade_item_slot
+
+    item_slot = normalize_trade_item_slot(item_slot) or item_slot
     # Jewels roll many affix families — slot allowlists target weapons/armour only.
     if item_slot == "jewel":
         return True

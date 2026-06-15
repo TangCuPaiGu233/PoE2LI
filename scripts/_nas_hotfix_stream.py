@@ -18,6 +18,11 @@ FILES = [
     ("backend/app/services/chat_tools.py", "/tmp/chat_tools.py"),
     ("backend/app/services/chat_agent.py", "/tmp/chat_agent.py"),
     ("backend/app/services/multi_affix_compare.py", "/tmp/multi_affix_compare.py"),
+    ("backend/app/services/chat_async_util.py", "/tmp/chat_async_util.py"),
+    ("backend/app/services/chat_stream_lifecycle.py", "/tmp/chat_stream_lifecycle.py"),
+    ("backend/app/services/chat_item_profile.py", "/tmp/chat_item_profile.py"),
+    ("backend/app/services/trade_service.py", "/tmp/trade_service.py"),
+    ("backend/app/services/chat_response_guard.py", "/tmp/chat_response_guard.py"),
 ]
 
 
@@ -49,6 +54,11 @@ def main() -> None:
         "/usr/local/bin/docker cp /tmp/chat_tools.py poe2li-backend:/app/app/services/chat_tools.py",
         "/usr/local/bin/docker cp /tmp/chat_agent.py poe2li-backend:/app/app/services/chat_agent.py",
         "/usr/local/bin/docker cp /tmp/multi_affix_compare.py poe2li-backend:/app/app/services/multi_affix_compare.py",
+        "/usr/local/bin/docker cp /tmp/chat_async_util.py poe2li-backend:/app/app/services/chat_async_util.py",
+        "/usr/local/bin/docker cp /tmp/chat_stream_lifecycle.py poe2li-backend:/app/app/services/chat_stream_lifecycle.py",
+        "/usr/local/bin/docker cp /tmp/chat_item_profile.py poe2li-backend:/app/app/services/chat_item_profile.py",
+        "/usr/local/bin/docker cp /tmp/trade_service.py poe2li-backend:/app/app/services/trade_service.py",
+        "/usr/local/bin/docker cp /tmp/chat_response_guard.py poe2li-backend:/app/app/services/chat_response_guard.py",
         "/usr/local/bin/docker restart poe2li-backend",
     ]:
         print(">", cmd)

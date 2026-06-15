@@ -78,6 +78,7 @@ class TradeStat(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     stat_id = Column(String(128), unique=True, nullable=False, index=True)  # e.g. explicit.stat_3372524247
     ref_text = Column(Text, nullable=False)  # English ref, e.g. "+#% to Fire Resistance"
+    ref_text_zh = Column(Text, nullable=True)  # CN label from trade2/data/stats (CN realm)
     stat_type = Column(String(16), nullable=True)  # explicit / implicit / pseudo / enchant / crafted
     embedding = Column(Vector(1024), nullable=True)  # BGE-M3 embedding (multilingual)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

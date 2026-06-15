@@ -31,6 +31,8 @@ from typing import Optional
 
 import cloudscraper
 
+from app.services import trade_items_index
+
 from app.services.trade_realm import (
     DEFAULT_MARKET,
     referer_url,
@@ -381,37 +383,52 @@ def _extract_min_max(d: dict | None) -> dict | None:
 
 
 def _resolve_stat(db, s: dict) -> dict | None:
-    """Resolve a single stat via vector search. Returns matched entry or None."""
+    """Resolve a single stat via CN lookup then vector search."""
     from app.services.trade_stat_service import search_stats
+    from app.services.trade_stats_index import resolve_stat_query
 
     desc_zh = s.get("desc_zh", "")
     desc_en = s.get("desc_en", "")
     if not desc_zh and not desc_en:
         return None
 
-    search_query = desc_en if desc_en else desc_zh
-    # Prefer explicit type (Trade API only accepts explicit.* IDs)
-    # Use lower threshold (0.40) to catch edge cases like non-standard terminology
-    matches = search_stats(db, search_query, top_k=5, stat_type="explicit", min_similarity=0.40)
-    if not matches:
-        matches = search_stats(db, search_query, top_k=5, min_similarity=0.40)
+    exact_id = None
+    for candidate in (desc_zh, desc_en):
+        if candidate:
+            exact_id = resolve_stat_query(candidate)
+            if exact_id:
+                break
 
-    if not matches:
-        logger.warning(f"No vector match for stat: '{search_query}' (zh: {desc_zh})")
-        return None
+    if exact_id:
+        result = {
+            "id": exact_id,
+            "zh_name": desc_zh,
+            "matched_ref": exact_id,
+            "similarity": 1.0,
+        }
+        search_query = desc_en or desc_zh
+    else:
+        search_query = desc_en if desc_en else desc_zh
+        matches = search_stats(db, search_query, top_k=5, stat_type="explicit", min_similarity=0.40)
+        if not matches:
+            matches = search_stats(db, search_query, top_k=5, min_similarity=0.40)
+        if not matches:
+            logger.warning(f"No vector match for stat: '{search_query}' (zh: {desc_zh})")
+            return None
+        best = matches[0]
+        raw_id = best["stat_id"]
+        if raw_id.startswith(("pseudo.", "crafted.", "enchant.", "implicit.", "rune.")):
+            normalized_id = raw_id
+        else:
+            stat_num = raw_id.split(".", 1)[-1] if "." in raw_id else raw_id
+            normalized_id = f"explicit.{stat_num}"
+        result = {
+            "id": normalized_id,
+            "zh_name": desc_zh,
+            "matched_ref": best["ref_text"],
+            "similarity": best["similarity"],
+        }
 
-    best = matches[0]
-    # Normalize stat_id to explicit type for Trade API compatibility
-    raw_id = best["stat_id"]
-    stat_num = raw_id.split(".", 1)[-1] if "." in raw_id else raw_id
-    normalized_id = f"explicit.{stat_num}"
-
-    result = {
-        "id": normalized_id,
-        "zh_name": desc_zh,
-        "matched_ref": best["ref_text"],
-        "similarity": best["similarity"],
-    }
     if s.get("min") is not None:
         result["min"] = s["min"]
     if s.get("max") is not None:
@@ -419,10 +436,13 @@ def _resolve_stat(db, s: dict) -> dict | None:
     if s.get("weight") is not None:
         result["weight"] = s["weight"]
 
-    logger.info(
-        f"Vector matched: '{search_query}' → {normalized_id} "
-        f"({best['ref_text'][:40]}, sim={best['similarity']:.2f})"
-    )
+    if exact_id:
+        logger.info(f"CN/exact matched: '{desc_zh or desc_en}' -> {result['id']}")
+    else:
+        logger.info(
+            f"Vector matched: '{search_query}' -> {result['id']} "
+            f"({str(result.get('matched_ref', ''))[:40]}, sim={result['similarity']:.2f})"
+        )
     return result
 
 
@@ -670,6 +690,146 @@ def _rate_limit():
 #  Trade API query builder — full filter support
 # ═══════════════════════════════════════════════════════════
 
+
+
+TRADE_ITEM_SLOT_ALIASES: dict[str, str] = {
+    "amulet": "accessory.amulet",
+    "ring": "accessory.ring",
+    "belt": "accessory.belt",
+    "sceptre": "weapon.sceptre",
+    "wand": "weapon.wand",
+    "staff": "weapon.staff",
+    "bow": "weapon.bow",
+    "spear": "weapon.spear",
+    "crossbow": "weapon.crossbow",
+    "onesword": "weapon.onesword",
+    "oneaxe": "weapon.oneaxe",
+    "onemace": "weapon.onemace",
+    "twosword": "weapon.twosword",
+    "twoaxe": "weapon.twoaxe",
+    "twomace": "weapon.twomace",
+    "chest": "armour.chest",
+    "helmet": "armour.helmet",
+    "gloves": "armour.gloves",
+    "boots": "armour.boots",
+    "shield": "armour.shield",
+    "quiver": "armour.quiver",
+    "jewel": "jewel",
+}
+
+
+def normalize_trade_item_slot(slot: str | None) -> str | None:
+    """Map short slot names to Trade API category IDs."""
+    s = (slot or "").strip()
+    if not s:
+        return None
+    if "." in s:
+        return s
+    key = s.lower()
+    return TRADE_ITEM_SLOT_ALIASES.get(key, s)
+
+
+def resolve_trade_base_type(name: str, market: str = DEFAULT_MARKET) -> str | None:
+    """Return Trade API type field for the given market."""
+    raw = (name or "").strip()
+    if not raw:
+        return None
+    if market == "cn":
+        if trade_items_index.has_cjk(raw):
+            return raw
+        cn = trade_items_index.resolve_base_type_cn(raw)
+        return cn or raw
+    if trade_items_index.has_cjk(raw):
+        en = trade_items_index.resolve_base_type_en(raw)
+        return en or raw
+    return raw
+
+
+def search_trade_item_suggestions(query: str, limit: int = 15) -> list[dict]:
+    """Autocomplete trade base types (EN/CN)."""
+    return trade_items_index.resolve_item_query(query, limit=limit)
+
+
+
+
+def search_trade_stat_suggestions(query: str, limit: int = 15) -> list[dict]:
+    from app.services.trade_stats_index import search_stat_suggestions
+
+    return search_stat_suggestions(query, limit=limit)
+
+
+def resolve_trade_stat(
+    canonical_label: str,
+    *,
+    user_phrase: str = "",
+    db=None,
+    suggest_limit: int = 8,
+) -> dict:
+    """Resolve canonical Chinese stat label to stat_id (exact only for best)."""
+    from app.services.trade_stats_index import (
+        normalize_canonical_stat_label,
+        resolve_stat_query_exact,
+        resolve_stat_detail,
+        search_stat_suggestions,
+    )
+    from app.services.trade_stat_service import search_stats
+    from app.core.database import SessionLocal
+
+    canonical = normalize_canonical_stat_label(canonical_label or "")
+    phrase = (user_phrase or "").strip()
+    suggest_q = canonical or phrase
+    limit = max(1, min(int(suggest_limit or 8), 20))
+
+    suggestions: list[dict] = list(search_stat_suggestions(suggest_q, limit=limit))
+    seen_ids = {s.get("stat_id") for s in suggestions if s.get("stat_id")}
+
+    own_db = db is None
+    if own_db:
+        db = SessionLocal()
+    try:
+        if db is not None and suggest_q:
+            try:
+                vec_hits = search_stats(db, suggest_q, top_k=limit, min_similarity=0.40)
+            except Exception:
+                logger.debug("resolve_trade_stat vector suggest skipped", exc_info=True)
+                vec_hits = []
+            for hit in vec_hits or []:
+                sid = hit.get("stat_id")
+                if not sid or sid in seen_ids:
+                    continue
+                detail = resolve_stat_detail(sid)
+                if not detail:
+                    continue
+                row = dict(detail)
+                row["score"] = float(hit.get("similarity", 0) or 0) * 100.0
+                row["match"] = "vector"
+                suggestions.append(row)
+                seen_ids.add(sid)
+    finally:
+        if own_db and db:
+            db.close()
+
+    suggestions.sort(key=lambda r: (-float(r.get("score") or 0), r.get("stat_id") or ""))
+    suggestions = suggestions[:limit]
+
+    exact_id = resolve_stat_query_exact(canonical, apply_slang=False) if canonical else None
+    best = None
+    need_disambiguation = True
+    if exact_id:
+        best = resolve_stat_detail(exact_id) or {}
+        best["match"] = "exact"
+        best["similarity"] = 1.0
+        need_disambiguation = False
+
+    return {
+        "canonical_label": canonical,
+        "user_phrase": phrase,
+        "best": best,
+        "need_disambiguation": need_disambiguation,
+        "suggestions": suggestions,
+    }
+
+
 def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     """Build the Trade API search request body from parsed intent.
 
@@ -685,7 +845,7 @@ def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     if intent.get("unique_name"):
         query_body["name"] = intent["unique_name"]
     if intent.get("base_type"):
-        query_body["type"] = intent["base_type"]
+        query_body["type"] = resolve_trade_base_type(intent["base_type"], market=market)
     status = trade_status_filter(market)
     if status is not None:
         query_body["status"] = status
@@ -694,7 +854,8 @@ def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     # ── Type filters: category + rarity + ilvl + quality (PoE2 places ilvl/quality here) ──
     type_f = {}
     if intent.get("item_type"):
-        type_f["category"] = {"option": intent["item_type"]}
+        item_type = normalize_trade_item_slot(intent["item_type"])
+        type_f["category"] = {"option": item_type}
     rarity_opt = intent.get("rarity")
     if intent.get("unique_name"):
         rarity_opt = "unique"
@@ -858,9 +1019,8 @@ def search_trade(intent: dict, league: str | None = None, market: str = DEFAULT_
         return {"error": f"Trade API 请求失败: {e}"}
 
     if resp.status_code == 429:
-        wait_time = 60
-        logger.warning(f"Trade API rate limited, waiting {wait_time}s")
-        return {"error": f"搜索过于频繁，请 {wait_time} 秒后重试", "rate_limited": True}
+        logger.warning("Trade API rate limited (429)")
+        return {"error": "交易市场请求过于频繁，请稍后再试", "rate_limited": True}
 
     if resp.status_code == 401 and market == "cn":
         logger.error("CN Trade API 401: POESESSID missing or expired")
@@ -1078,6 +1238,7 @@ def search_unique_by_name(
     item_label: str,
     market: str = DEFAULT_MARKET,
     league: str | None = None,
+    required_stat_ids: list[str] | None = None,
 ) -> dict:
     """Direct unique-item trade search by CN/EN/colloquial name."""
     resolved = resolve_trade_unique_name(item_label)
@@ -1102,10 +1263,240 @@ def search_unique_by_name(
     elif resolved.get("base_type"):
         intent["base_type"] = resolved["base_type"]
 
+    if required_stat_ids:
+        intent["stat_groups"] = [{
+            "type": "and",
+            "stats": [{"id": sid, "min": 1} for sid in required_stat_ids],
+        }]
+
     result = search_trade(intent, league=league, market=market)
     if isinstance(result, dict):
         result["resolved"] = resolved
     return result
+
+
+MAX_TRADE_LISTING_DETAILS = 10
+
+_CURRENCY_CN: dict[str, str] = {
+    "chaos": "混沌石",
+    "divine": "神圣石",
+    "exalted": "崇高石",
+    "exalt": "崇高石",
+    "alch": "点金石",
+    "alchemy": "点金石",
+    "mirror": "镜子",
+    "annul": "无效石",
+    "regal": "富豪石",
+    "vaal": "瓦尔石",
+    "chromatic": "幻色石",
+    "jeweller": "工匠石",
+    "fusing": "连结石",
+}
+
+_FRAME_TYPE_LABELS: dict[int, str] = {
+    0: "normal",
+    1: "magic",
+    2: "rare",
+    3: "unique",
+    4: "gem",
+    5: "currency",
+}
+
+_ITEM_STRIP_KEYS = frozenset({"icon", "w", "h", "verified", "league"})
+
+_LISTING_STRIP_KEYS = frozenset({"whisper", "hideout_token"})
+
+
+def currency_display_cn(currency: str) -> str:
+    return _CURRENCY_CN.get((currency or "").lower(), currency or "?")
+
+
+def _format_prop_values(prop: dict) -> str:
+    name = (prop.get("name") or "").strip()
+    values = prop.get("values") or []
+    parts: list[str] = []
+    for v in values:
+        if isinstance(v, list) and v:
+            parts.append(str(v[0]))
+        elif v is not None:
+            parts.append(str(v))
+    if parts:
+        return f"{name}: {', '.join(parts)}" if name else ", ".join(parts)
+    return name
+
+
+def normalize_trade_listing_entry(entry: dict) -> dict:
+    """Structured view of one Trade API fetch result (listing + item)."""
+    from app.services.chat_item_profile import variant_label_from_mods
+
+    listing = entry.get("listing") or {}
+    price = listing.get("price") or {}
+    item = entry.get("item") or {}
+
+    explicit_mods = list(item.get("explicitMods") or [])
+    implicit_mods = list(item.get("implicitMods") or [])
+
+    amount = price.get("amount")
+    currency = price.get("currency")
+    price_block: dict = {}
+    if amount is not None and currency:
+        price_block = {
+            "amount": amount,
+            "currency": currency,
+            "display": f"{amount} {currency_display_cn(currency)}",
+            "type": price.get("type"),
+        }
+
+    listing_public = {
+        k: v
+        for k, v in listing.items()
+        if k not in _LISTING_STRIP_KEYS and v not in (None, "", [])
+    }
+    if "account" in listing_public and isinstance(listing_public["account"], dict):
+        listing_public["account"] = {
+            k: v for k, v in listing_public["account"].items() if k in ("name", "lastCharacterName")
+        }
+
+    item_public = {
+        k: v for k, v in item.items() if k not in _ITEM_STRIP_KEYS and v not in (None, "", [])
+    }
+
+    frame = item.get("frameType")
+    rarity = _FRAME_TYPE_LABELS.get(frame) if isinstance(frame, int) else None
+
+    name = (item.get("name") or "").strip()
+    type_line = (item.get("typeLine") or "").strip()
+    base_type = (item.get("baseType") or "").strip()
+    if name and type_line:
+        display_name = f"{name} {type_line}"
+    else:
+        display_name = name or type_line or base_type or ""
+
+    out: dict = {
+        "display_name": display_name,
+        "price": price_block or None,
+        "seller": (listing.get("account") or {}).get("name"),
+        "listed_at": listing.get("indexed"),
+        "rarity": rarity,
+        "frame_type": frame,
+        "name": name or None,
+        "type_line": type_line or None,
+        "base_type": base_type or None,
+        "ilvl": item.get("ilvl"),
+        "level_req": _level_requirement(item.get("requirements") or []),
+        "quality": item.get("quality"),
+        "sockets": item.get("sockets"),
+        "links": item.get("links"),
+        "identified": item.get("identified"),
+        "corrupted": item.get("corrupted"),
+        "mirrored": item.get("mirrored"),
+        "split": item.get("split"),
+        "influences": item.get("influences"),
+        "implicit_mods": implicit_mods,
+        "explicit_mods": explicit_mods,
+        "crafted_mods": list(item.get("craftedMods") or []),
+        "fractured_mods": list(item.get("fracturedMods") or []),
+        "enchant_mods": list(item.get("enchantMods") or []),
+        "utility_mods": list(item.get("utilityMods") or []),
+        "properties": [_format_prop_values(p) for p in (item.get("properties") or [])],
+        "requirements": [_format_prop_values(r) for r in (item.get("requirements") or [])],
+        "additional_properties": [
+            _format_prop_values(p) for p in (item.get("additionalProperties") or [])
+        ],
+        "variant_label": variant_label_from_mods(explicit_mods),
+        "flavour_text": item.get("flavourText"),
+        "descr_text": item.get("descrText"),
+        "sec_descr_text": item.get("secDescrText"),
+        "note": item.get("note"),
+        "extended": item.get("extended"),
+        "listing": listing_public or None,
+        "item": item_public or None,
+    }
+    return {k: v for k, v in out.items() if v not in (None, [], {}, "")}
+
+
+def _level_requirement(requirements: list) -> int | None:
+    for req in requirements:
+        name = (req.get("name") or "").lower()
+        if "level" in name or name in ("等级",):
+            values = req.get("values") or []
+            if values and isinstance(values[0], list) and values[0]:
+                try:
+                    return int(str(values[0][0]).replace(",", ""))
+                except ValueError:
+                    pass
+    return None
+
+
+def fetch_trade_listings(
+    trade_url: str,
+    market: str = DEFAULT_MARKET,
+    league: str | None = None,
+    item_ids: list | None = None,
+    count: int = 1,
+    skip_rate_limit: bool = False,
+) -> dict:
+    """Fetch top-N listings with full item+listing details from a search URL."""
+    from app.services.trade_realm import fetch_api_url, resolve_league, search_result_api_url
+
+    count = max(1, min(int(count or 1), MAX_TRADE_LISTING_DETAILS))
+    search_id = trade_url.rstrip("/").split("/")[-1] if trade_url else ""
+    if not search_id:
+        return {"listings": [], "error": "invalid trade URL"}
+
+    resolved_league = resolve_league(market, league)
+    scraper = _get_scraper(market)
+
+    if item_ids:
+        item_ids = list(item_ids)[:count]
+    else:
+        if not skip_rate_limit:
+            _rate_limit()
+        search_url = search_result_api_url(market, resolved_league, search_id)
+        try:
+            resp = scraper.get(search_url, timeout=15)
+        except Exception as e:
+            logger.error("Trade search result fetch failed: %s", e)
+            return {"listings": [], "error": f"search result fetch failed: {e}"}
+
+        if resp.status_code == 401 and market == "cn":
+            return {
+                "listings": [],
+                "error": "国服交易 API 未授权：POESESSID 缺失或已过期。请在服务器 .env 中配置 TRADE_CN_POESESSID。",
+            }
+        if resp.status_code != 200:
+            return {"listings": [], "error": f"search result HTTP {resp.status_code}"}
+
+        item_ids = resp.json().get("result", [])[:count]
+
+    if not item_ids:
+        return {"listings": [], "error": "no listings", "search_id": search_id}
+
+    if not skip_rate_limit:
+        _rate_limit()
+    fetch_url = fetch_api_url(market, item_ids, search_id)
+    try:
+        resp2 = scraper.get(fetch_url, timeout=20)
+    except Exception as e:
+        logger.error("Trade item fetch failed: %s", e)
+        return {"listings": [], "error": f"item fetch failed: {e}", "search_id": search_id}
+
+    if resp2.status_code == 401 and market == "cn":
+        return {
+            "listings": [],
+            "error": "国服交易 API 未授权：POESESSID 缺失或已过期。",
+            "search_id": search_id,
+        }
+    if resp2.status_code != 200:
+        return {
+            "listings": [],
+            "error": f"item fetch HTTP {resp2.status_code}",
+            "search_id": search_id,
+        }
+
+    entries = resp2.json().get("result", [])
+    listings = [normalize_trade_listing_entry(e) for e in entries]
+    return {"listings": listings, "search_id": search_id, "fetched_count": len(listings)}
 
 
 def fetch_cheapest_listing(
@@ -1116,92 +1507,37 @@ def fetch_cheapest_listing(
     skip_rate_limit: bool = False,
 ) -> dict:
     """Fetch the cheapest listing price from a trade search page URL."""
-    from app.services.trade_realm import fetch_api_url, resolve_league, search_result_api_url
+    fetched = fetch_trade_listings(
+        trade_url,
+        market=market,
+        league=league,
+        item_ids=list(item_ids)[:5] if item_ids else None,
+        count=5,
+        skip_rate_limit=skip_rate_limit,
+    )
+    if fetched.get("error") and not fetched.get("listings"):
+        return {"error": fetched["error"]}
 
-    search_id = trade_url.rstrip("/").split("/")[-1] if trade_url else ""
-    if not search_id:
-        return {"error": "invalid trade URL"}
-
-    resolved_league = resolve_league(market, league)
-    if not skip_rate_limit:
-        _rate_limit()
-    scraper = _get_scraper(market)
-
-    if item_ids:
-        item_ids = list(item_ids)[:1]
-    else:
-        search_url = search_result_api_url(market, resolved_league, search_id)
-        try:
-            resp = scraper.get(search_url, timeout=15)
-        except Exception as e:
-            logger.error("Trade search result fetch failed: %s", e)
-            return {"error": f"search result fetch failed: {e}"}
-
-        if resp.status_code == 401 and market == "cn":
-            return {
-                "error": "国服交易 API 未授权：POESESSID 缺失或已过期。请在服务器 .env 中配置 TRADE_CN_POESESSID。"
-            }
-
-        if resp.status_code != 200:
-            return {"error": f"search result HTTP {resp.status_code}"}
-
-        item_ids = resp.json().get("result", [])[:5]
-
-    if not item_ids:
-        return {"error": "no listings"}
-
-    last_err = "no price on listing"
-    for item_id in item_ids:
-        if not skip_rate_limit:
-            _rate_limit()
-        fetch_url = fetch_api_url(market, item_id, search_id)
-        try:
-            resp2 = scraper.get(fetch_url, timeout=15)
-        except Exception as e:
-            logger.error("Trade item fetch failed: %s", e)
-            last_err = f"item fetch failed: {e}"
+    search_id = fetched.get("search_id") or (
+        trade_url.rstrip("/").split("/")[-1] if trade_url else ""
+    )
+    last_err = fetched.get("error") or "no price on listing"
+    for listing in fetched.get("listings") or []:
+        price = listing.get("price") or {}
+        amount = price.get("amount")
+        currency = price.get("currency")
+        if amount is None or not currency:
             continue
-
-        if resp2.status_code == 401 and market == "cn":
-            return {
-                "error": "国服交易 API 未授权：POESESSID 缺失或已过期。"
-            }
-
-        if resp2.status_code != 200:
-            last_err = f"item fetch HTTP {resp2.status_code}"
-            continue
-
-        entries = resp2.json().get("result", [])
-        if not entries:
-            last_err = "empty fetch result"
-            continue
-
-        for entry in entries:
-            listing = entry.get("listing") or {}
-            price = listing.get("price") or {}
-            amount = price.get("amount")
-            currency = price.get("currency")
-
-            item_obj = entry.get("item") or {}
-            name = (item_obj.get("name") or "").strip()
-            type_line = (item_obj.get("typeLine") or "").strip()
-            if name and type_line:
-                item_name = f"{name} {type_line}"
-            else:
-                item_name = name or type_line or ""
-
-            if amount is None or not currency:
-                last_err = "no price on listing"
-                continue
-
-            return {
-                "amount": amount,
-                "currency": currency,
-                "item_name": item_name,
-                "search_id": search_id,
-            }
-
-    return {"error": last_err}
+        return {
+            "amount": amount,
+            "currency": currency,
+            "item_name": listing.get("display_name") or "",
+            "search_id": search_id,
+            "explicit_mods": listing.get("explicit_mods") or [],
+            "implicit_mods": listing.get("implicit_mods") or [],
+            "variant_label": listing.get("variant_label"),
+        }
+    return {"error": last_err if last_err != "no listings" else "no price on listing"}
 
 #  Public API
 # ═══════════════════════════════════════════════════════════

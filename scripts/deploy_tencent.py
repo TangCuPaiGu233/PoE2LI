@@ -93,10 +93,10 @@ def ensure_docker(client: paramiko.SSHClient) -> None:
     if code == 0:
         run(client, "docker compose version", check=False)
         return
-    print("Docker not found; installing via get.docker.com ...")
+    print("Docker not found; installing via dnf (OpenCloudOS/CentOS) ...")
     run(
         client,
-        "curl -fsSL https://get.docker.com | sh; systemctl enable docker; systemctl start docker",
+        "dnf install -y docker docker-compose-plugin && systemctl enable docker && systemctl start docker",
         timeout=900,
     )
 

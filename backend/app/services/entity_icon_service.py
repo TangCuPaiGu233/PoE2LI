@@ -57,10 +57,42 @@ ICON_BLOCKLIST = frozenset(
     },
 )
 
-_DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
-_ICON_FILE: Path = _DATA_DIR / "entity_icons.json"
-_ICONS_DIR: Path = _DATA_DIR / "icons"
+_DATA_DIR: Path | None = None
+_ICON_FILE: Path | None = None
+_ICONS_DIR: Path | None = None
+_WIKI_INDEX_FILE: Path | None = None
 _file_cache: dict[str, str] | None = None
+_wiki_index: dict[str, dict] | None = None
+
+WIKI_ETYPE_SEARCH: dict[str, tuple[str, ...]] = {
+    "skill": ("skill", "support", "spirit", "meta_skill", "lineage_support"),
+    "item": ("item", "jewel", "flask", "charm", "omen", "waystone"),
+    "ascendancy": ("ascendancy",),
+}
+
+
+def _data_dir() -> Path:
+    global _DATA_DIR, _ICON_FILE, _ICONS_DIR, _WIKI_INDEX_FILE
+    if _DATA_DIR is not None:
+        return _DATA_DIR
+    candidates: list[Path] = []
+    env = os.environ.get("POE2LI_DATA_DIR")
+    if env:
+        candidates.append(Path(env))
+    candidates.append(Path("/app/data"))
+    backend_root = Path(__file__).resolve().parent.parent.parent
+    repo_root = backend_root.parent
+    candidates.extend((repo_root / "data", backend_root / "data"))
+    for path in candidates:
+        if path.is_dir():
+            _DATA_DIR = path
+            break
+    else:
+        _DATA_DIR = backend_root / "data"
+    _ICON_FILE = _DATA_DIR / "entity_icons.json"
+    _ICONS_DIR = _DATA_DIR / "icons"
+    _WIKI_INDEX_FILE = _DATA_DIR / "wiki_icons" / "index.json"
+    return _DATA_DIR
 
 REDIS_PREFIX = "entity_icon:"
 REDIS_TTL_SEC = 7 * 24 * 3600
@@ -75,14 +107,82 @@ def _load_file_cache() -> dict[str, str]:
     if _file_cache is not None:
         return _file_cache
     _file_cache = {}
-    if _ICON_FILE.is_file():
+    icon_file = _ICON_FILE or _data_dir() / "entity_icons.json"
+    if icon_file.is_file():
         try:
-            raw = json.loads(_ICON_FILE.read_text(encoding="utf-8"))
+            raw = json.loads(icon_file.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
                 _file_cache = {str(k).lower(): str(v) for k, v in raw.items() if v}
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("entity_icons.json load failed: %s", exc)
     return _file_cache
+
+
+def _load_wiki_index() -> dict[str, dict]:
+    global _wiki_index
+    if _wiki_index is not None:
+        return _wiki_index
+    _wiki_index = {}
+    index_file = _WIKI_INDEX_FILE or _data_dir() / "wiki_icons" / "index.json"
+    if index_file.is_file():
+        try:
+            raw = json.loads(index_file.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                _wiki_index = raw
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("wiki_icons/index.json load failed: %s", exc)
+    return _wiki_index
+
+
+def _wiki_lookup_keys(name_en: str, etype: str, name_cn: str | None = None) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+
+    def add(key: str) -> None:
+        k = key.strip().lower()
+        if k and k not in seen:
+            seen.add(k)
+            keys.append(k)
+
+    if name_en:
+        en = name_en.strip()
+        slug = _poe2db_slug(en).lower()
+        add(en.lower())
+        add(slug)
+        for wet in WIKI_ETYPE_SEARCH.get(etype, (etype,)):
+            add(f"{wet}:{en.lower()}")
+            add(f"{wet}:{slug}")
+    if name_cn:
+        cn = name_cn.strip()
+        add(cn.lower())
+        add(f"{etype}:{cn.lower()}")
+    return keys
+
+
+def _wiki_index_entry(
+    name_en: str,
+    etype: str,
+    *,
+    name_cn: str | None = None,
+) -> dict | None:
+    index = _load_wiki_index()
+    if not index:
+        return None
+    for key in _wiki_lookup_keys(name_en, etype, name_cn):
+        hit = index.get(key)
+        if isinstance(hit, dict) and (hit.get("local_path") or hit.get("image_url")):
+            return hit
+    return None
+
+
+def _wiki_local_path(entry: dict) -> Path | None:
+    local = entry.get("local_path")
+    if not local:
+        return None
+    path = Path(local)
+    if not path.is_absolute():
+        path = _data_dir() / local
+    return path if path.is_file() else None
 
 
 def _normalize_icon_url(url: str | None) -> str | None:
@@ -233,19 +333,48 @@ def _poe2db_slug(name_en: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", name_en).strip("_")
 
 
+def _poe2db_fetch_url(name_en: str, etype: str, *, name_cn: str | None = None) -> str | None:
+    if etype == "ascendancy":
+        slug = _ascendancy_poe2db_path(name_cn, name_en)
+        return f"https://poe2db.tw/cn/{slug}" if slug else None
+    if etype == "item":
+        path = _item_path_from_data(name_cn, name_en)
+        if path:
+            return f"https://poe2db.tw/cn/{path.lstrip('/')}"
+    page_map = {"skill": "Skill_Gems", "item": "Unique_item"}
+    page = page_map.get(etype)
+    slug = _poe2db_slug(name_en)
+    if page and slug:
+        return f"https://poe2db.tw/cn/{page}#{slug}"
+    return f"https://poe2db.tw/cn/{slug}" if slug else None
+
+
+def _probe_wiki_icon_paths(name_en: str, etype: str) -> Path | None:
+    icons_dir = _ICONS_DIR or _data_dir() / "icons"
+    slug = _poe2db_slug(name_en)
+    if not slug:
+        return None
+    subdirs = WIKI_ETYPE_SEARCH.get(etype, (etype,))
+    for sub in subdirs:
+        folder = icons_dir / "wiki" / sub
+        if not folder.is_dir():
+            continue
+        for ext in (".png", ".webp", ".jpg"):
+            candidate = folder / f"{slug}{ext}"
+            if candidate.is_file():
+                return candidate
+    return None
+
+
 def _fetch_icon_from_poe2db(
     name_en: str,
     etype: str,
     *,
     name_cn: str | None = None,
 ) -> str | None:
-    if etype == "ascendancy":
-        slug = _ascendancy_poe2db_path(name_cn, name_en)
-    else:
-        slug = _poe2db_slug(name_en)
-    if not slug:
+    url = _poe2db_fetch_url(name_en, etype, name_cn=name_cn)
+    if not url:
         return None
-    url = f"https://poe2db.tw/cn/{slug}"
     try:
         req = urllib.request.Request(
             url,
@@ -254,7 +383,7 @@ def _fetch_icon_from_poe2db(
         with urllib.request.urlopen(req, timeout=12) as resp:
             html = resp.read().decode("utf-8", errors="replace")
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        logger.debug("poe2db icon fetch %s: %s", slug, exc)
+        logger.debug("poe2db icon fetch %s: %s", url, exc)
         return None
     og = _og_image_from_html(html, etype)
     if og:
@@ -289,9 +418,16 @@ def resolve_icon_url(
     chunk_blob: str | None = None,
     allow_fetch: bool = True,
 ) -> str | None:
-    """Resolve icon for an entity. Prefer static file → redis → chunk → live poe2db."""
+    """Resolve icon URL. Prefer wiki index → static file → redis → chunk → live poe2db."""
     if not name_en and not name_cn:
         return None
+
+    wiki = _wiki_index_entry(name_en, etype, name_cn=name_cn)
+    if wiki:
+        wiki_url = _normalize_icon_url(wiki.get("image_url"))
+        if wiki_url:
+            return wiki_url
+
     keys: list[str] = []
     if name_en:
         keys.extend(
@@ -337,7 +473,7 @@ def resolve_icon_url(
 
 def _item_path_from_data(name_cn: str | None, name_en: str) -> str | None:
     """Look up poe2db path from unique_cn_en.json."""
-    path_file = _DATA_DIR / "unique_cn_en.json"
+    path_file = _data_dir() / "unique_cn_en.json"
     if not path_file.is_file():
         return None
     try:
@@ -359,14 +495,33 @@ def resolve_local_icon(
     *,
     name_cn: str | None = None,
 ) -> Path | None:
-    """Return cached PNG/WebP on disk if the icon crawler saved one."""
+    """Return cached PNG/WebP on disk (wiki scrape first, then poe2db crawler)."""
+    wiki = _wiki_index_entry(name_en, etype, name_cn=name_cn)
+    if wiki:
+        path = _wiki_local_path(wiki)
+        if path:
+            return path
+
+    probed = _probe_wiki_icon_paths(name_en, etype)
+    if probed:
+        return probed
+
     slug = _poe2db_slug(name_en)
     item_path = _item_path_from_data(name_cn, name_en)
     stems = [s for s in (item_path, slug) if s]
-    etype_dir = _ICONS_DIR / etype
+    icons_dir = _ICONS_DIR or _data_dir() / "icons"
+    etype_dir = icons_dir / etype
     for stem in stems:
         for ext in (".png", ".webp"):
             candidate = etype_dir / f"{stem}{ext}"
+            if candidate.is_file():
+                return candidate
+
+    # poecdn fallback dir (backfill_poe2db_icon_gaps.py)
+    fallback_dir = icons_dir / "fallback" / etype
+    for stem in stems:
+        for ext in (".png", ".webp"):
+            candidate = fallback_dir / f"{stem}{ext}"
             if candidate.is_file():
                 return candidate
     return None

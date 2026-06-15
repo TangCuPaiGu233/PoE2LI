@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any
+
+from app.services.chat_async_util import run_sync_with_timeout, TRADE_SEARCH_TIMEOUT_SEC
 
 from app.core.database import SessionLocal
 from app.models.schemas import DecodeResponse, ErrorResponse
@@ -27,6 +29,9 @@ from app.services.retrieval_pipeline import (
 
 logger = logging.getLogger(__name__)
 
+TRADE_SEARCH_MAX_PER_TURN = int(os.getenv("CHAT_TRADE_SEARCH_MAX", "8"))
+
+
 POB_INPUT_RE = re.compile(
     r"(https?://(?:pobb\.in|poe\.ninja|(?:www\.)?wegame\.com\.cn/helper/poe2)[^\s]*|[A-Za-z0-9_-]{40,}|eN[a-zA-Z0-9+/_-]{20,})",
     re.IGNORECASE,
@@ -43,7 +48,6 @@ class ChatToolContext:
     last_recommend: dict | None = None
     rag_search_calls: int = 0
     trade_search_calls: int = 0
-    trade_compare_mode: bool = False
     last_build_summary: str | None = None
 
 
@@ -125,10 +129,48 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "resolve_trade_stat",
+            "description": (
+                "Resolve a normalized Chinese affix label to official Trade API stat_id. "
+                "You MUST interpret user intent and pass standard Chinese mod text as canonical_label "
+                "(not raw slang). Call BEFORE trade_search when query mentions specific mods. "
+                "Returns best (exact only), need_disambiguation, and suggestions."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "canonical_label": {
+                        "type": "string",
+                        "description": "Standard Chinese mod label (normalized from user intent)",
+                    },
+                    "user_phrase": {
+                        "type": "string",
+                        "description": "Optional original user wording for context/suggestions",
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Deprecated alias for canonical_label",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max suggestion rows (default 8)",
+                        "minimum": 1,
+                        "maximum": 20,
+                    },
+                },
+                "required": ["canonical_label"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "trade_search",
             "description": (
                 "Search the official PoE2 trade market. Returns trade URLs, match counts, "
-                "listing_price (real cheapest listing when available), and price_note. "
+                "listings[] (full item+listing details for top N results), listing_price (cheapest sample), "
+                "and price_note. Set detail_count to control how many top results to fetch (1-10). "
+                "When describing items, quote fields from listings[] verbatim — do not guess stats/mods. "
                 "Do NOT put item level (物等/ilvl) in query unless the user explicitly requires it. "
                 "When comparing many affixes/variants, call once per affix with a single-mod query, then summarize."
             ),
@@ -138,6 +180,16 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "query": {
                         "type": "string",
                         "description": "Chinese trade search request",
+                    },
+                    "detail_count": {
+                        "type": "integer",
+                        "description": (
+                            "How many top search hits to fetch with full item details (1-10). "
+                            "Use 1 for quick price check; 3-5 to compare mods/stats on similar listings; "
+                            "up to 10 for market overview."
+                        ),
+                        "minimum": 1,
+                        "maximum": 10,
                     },
                 },
                 "required": ["query"],
@@ -169,6 +221,7 @@ TOOL_LABELS: dict[str, str] = {
     "entity_resolve": "解析游戏实体别名",
     "rag_search": "检索知识库",
     "decode_pob": "解析 PoB / 链接 BD",
+    "resolve_trade_stat": "解析交易词条",
     "trade_search": "搜索交易市场",
     "recommend": "对比推荐分析",
 }
@@ -377,14 +430,13 @@ def _run_decode_pob(args: dict[str, Any], _ctx: ChatToolContext) -> ToolRunResul
 def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
     from app.services.trade_agent import run_agent as trade_run_agent, sanitize_trade_query
 
-    max_calls = 8 if ctx.trade_compare_mode else 2
-    if ctx.trade_search_calls >= max_calls:
+    if ctx.trade_search_calls >= TRADE_SEARCH_MAX_PER_TURN:
         prev = ctx.last_trade or {}
         return ToolRunResult(
             content=json.dumps(
                 {
                     "error": "trade_search_limit",
-                    "message": f"本轮已搜索 {max_calls} 次，请基于已有结果汇总作答",
+                    "message": "本轮trade_search 已达上限，请基于已有结果汇总作答",
                     "previous": prev,
                 },
                 ensure_ascii=False,
@@ -396,7 +448,17 @@ def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResu
     if not query:
         query = (ctx.user_msg or "")[:200]
     query = sanitize_trade_query(query, ctx.user_msg or "")
-    trade_result = trade_run_agent(query, market="cn", user_msg=ctx.user_msg or "")
+    raw_detail = args.get("detail_count")
+    try:
+        detail_count = max(1, min(int(raw_detail if raw_detail is not None else 3), 10))
+    except (TypeError, ValueError):
+        detail_count = 3
+    trade_result = trade_run_agent(
+        query,
+        market="cn",
+        user_msg=ctx.user_msg or "",
+        detail_count=detail_count,
+    )
     best = trade_result.get("best_match")
     alts = trade_result.get("alternatives", [])
     trade_data = {
@@ -426,11 +488,20 @@ def _run_trade_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResu
         "explanation": trade_result.get("explanation", ""),
         "degraded": bool(best and best.get("degraded")),
         "listing_price": trade_result.get("listing_price"),
+        "listings": trade_result.get("listings") or [],
+        "listings_fetched": trade_result.get("listings_fetched", 0),
+        "detail_count": detail_count,
         "price_note": trade_result.get("price_note"),
+        "user_variant_hint": trade_result.get("user_variant_hint"),
     }
     ctx.last_trade = trade_data
+    payload = json.dumps(trade_data, ensure_ascii=False)
+    if len(payload) > 28000:
+        trade_data["listings"] = (trade_data.get("listings") or [])[: max(1, detail_count // 2)]
+        trade_data["truncated"] = True
+        payload = json.dumps(trade_data, ensure_ascii=False)
     return ToolRunResult(
-        content=json.dumps(trade_data, ensure_ascii=False),
+        content=payload[:28000],
         trade_result=trade_data,
     )
 
@@ -460,6 +531,24 @@ async def _run_recommend(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunR
     )
 
 
+
+
+def _run_resolve_trade_stat(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    from app.services.trade_service import resolve_trade_stat
+
+    canonical = str(args.get("canonical_label") or args.get("query") or "").strip()
+    user_phrase = str(args.get("user_phrase") or "").strip()
+    limit = int(args.get("limit") or 8)
+    if not canonical:
+        return ToolRunResult(content=json.dumps({"error": "empty_canonical_label"}, ensure_ascii=False))
+    payload = resolve_trade_stat(
+        canonical,
+        user_phrase=user_phrase,
+        suggest_limit=limit,
+    )
+    return ToolRunResult(content=json.dumps(payload, ensure_ascii=False)[:12000])
+
+
 async def execute_tool(
     name: str,
     args: dict[str, Any],
@@ -467,6 +556,7 @@ async def execute_tool(
 ) -> ToolRunResult:
     """Dispatch a tool call from the agent loop."""
     logger.info("[CHAT] tool_call name=%s args=%s", name, str(args)[:200])
+    timeout = float(os.getenv("CHAT_TOOL_TIMEOUT_SEC", "45"))
     if name == "entity_resolve":
         return _run_entity_resolve(args, ctx)
     if name == "rag_search":
@@ -478,11 +568,13 @@ async def execute_tool(
                 ),
             )
         ctx.rag_search_calls += 1
-        return await asyncio.to_thread(_run_rag_search, args, ctx)
+        return await run_sync_with_timeout(_run_rag_search, args, ctx, timeout=timeout)
     if name == "decode_pob":
-        return await asyncio.to_thread(_run_decode_pob, args, ctx)
+        return await run_sync_with_timeout(_run_decode_pob, args, ctx, timeout=timeout)
+    if name == "resolve_trade_stat":
+        return await run_sync_with_timeout(_run_resolve_trade_stat, args, ctx, timeout=timeout)
     if name == "trade_search":
-        return await asyncio.to_thread(_run_trade_search, args, ctx)
+        return await run_sync_with_timeout(_run_trade_search, args, ctx, timeout=TRADE_SEARCH_TIMEOUT_SEC)
     if name == "recommend":
         return await _run_recommend(args, ctx)
     return ToolRunResult(content=json.dumps({"error": f"unknown_tool:{name}"}))

@@ -63,6 +63,7 @@ def test_tool_definitions_names():
         "entity_resolve",
         "rag_search",
         "decode_pob",
+        "resolve_trade_stat",
         "trade_search",
         "recommend",
     }
