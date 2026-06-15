@@ -35,3 +35,13 @@ nul
 # Scratch (local issues)
 .scratch/
 *.db
+
+# Agent one-off script output
+scripts/out/*
+!scripts/out/.gitkeep
+scripts/*.log
+wiki_scrape_collect.log
+
+# Local scrape / probe artifacts
+backend/data/entity_icons_failures.jsonl
+backend/_pdf_sample_pages/

@@ -1,0 +1,4 @@
+# Script output (logs, audits) — do not commit
+
+*
+!.gitkeep
