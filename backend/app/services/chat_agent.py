@@ -32,12 +32,10 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_answer_entities(answer: str, ctx) -> list[dict]:
-    """Post-hoc entity validation: scan answer for suspicious entities."""
-    # Collect whitelist IDs from last sources (entities found in retrieval)
-    whitelist: set[int] = set()
+    """Post-hoc entity validation: scan answer against retrieval evidence."""
     try:
-        suspicious = validate_answer(answer, whitelist_ids=whitelist if whitelist else None)
-        return suspicious
+        evidence = getattr(ctx, "last_chunks", None) or []
+        return validate_answer(answer, evidence_texts=list(evidence))
     except Exception as e:
         logger.warning("[CHAT] entity validation failed: %s", e)
         return []

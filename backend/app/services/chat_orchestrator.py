@@ -223,7 +223,8 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
 
     # Post-hoc entity validation
     if answer_acc:
-        suspicious = validate_answer(answer_acc)
+        evidence = [r.summary for r in results if r.ok] if results else []
+        suspicious = validate_answer(answer_acc, evidence_texts=evidence)
         if suspicious:
             yield {"type": "entity_warnings", "content": suspicious}
 

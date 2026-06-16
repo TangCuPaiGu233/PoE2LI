@@ -52,6 +52,7 @@ class ChatToolContext:
     trade_search_calls: int = 0
     last_build_summary: str | None = None
     rag_queries: list[str] = field(default_factory=list)  # dedup: track all rag queries this turn
+    last_chunks: list[str] = field(default_factory=list)  # evidence for entity validation
 
 
 @dataclass
@@ -596,6 +597,7 @@ def _run_plan_and_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunR
         for c in top_chunks[:5]
     ]
     ctx.last_sources = sources
+    ctx.last_chunks = [c.get("content") or "" for c in top_chunks]
     elapsed = (_time.perf_counter() - t0) * 1000
     logger.info(
         "[CHAT] tool plan_and_search subqueries=%d entities=%d chunks=%d %.0fms",
@@ -673,6 +675,7 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
         for c in chunks[:5]
     ]
     ctx.last_sources = sources
+    ctx.last_chunks = [c.get("content") or "" for c in chunks[:10]]
     elapsed = (_time.perf_counter() - t0) * 1000
     logger.info(
         "[CHAT] tool rag_search chunks=%d fast=%s %.0fms",
