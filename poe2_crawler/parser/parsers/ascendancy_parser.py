@@ -51,7 +51,7 @@ def parse_ascendancy_index(html: str) -> dict:
             # Extract class info from the row's first child
             class_name_cn = None
             class_name_en = None
-            class_link = class_row.find("a", href=re.compile(r"/cn/"))
+            class_link = class_row.find("a", href=re.compile(r"/(cn|us)/"))
             if class_link:
                 class_name_cn = class_link.get_text(strip=True)
                 href = class_link.get("href", "")
@@ -71,7 +71,7 @@ def parse_ascendancy_index(html: str) -> dict:
                 continue
 
             # Extract all ascendancy links
-            for a in asc_div.find_all("a", href=re.compile(r"/cn/")):
+            for a in asc_div.find_all("a", href=re.compile(r"/(cn|us)/")):
                 text = a.get_text(" ", strip=True)
                 href = a.get("href", "")
                 en = href.rstrip("/").split("/")[-1]

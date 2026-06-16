@@ -38,16 +38,19 @@ def parse_entity_list(html: str, entity_type: str, poe2_tab_only: bool = True) -
     entities: dict[str, dict] = {}
     seen_hrefs: set[str] = set()
 
+    # Auto-detect URL prefix from the page (e.g. /cn/ or /us/)
+    prefix_re = re.compile(r"^/(cn|us)/")
+
     tabs = soup.find_all("div", class_="tab-pane")
     tabs_to_parse = tabs[:1] if (poe2_tab_only and tabs) else tabs
 
-    if not tabs_to_parse or all(len(tab.find_all("a", href=re.compile(r"^/cn/"))) == 0 for tab in tabs_to_parse):
+    if not tabs_to_parse or all(len(tab.find_all("a", href=prefix_re)) == 0 for tab in tabs_to_parse):
         tabs_to_parse = [soup]  # fallback: whole page (entity links outside tabs)
 
     for tab in tabs_to_parse:
-        for a_tag in tab.find_all("a", href=re.compile(r"^/cn/")):
+        for a_tag in tab.find_all("a", href=prefix_re):
             href = a_tag["href"].split("#")[0]
-            if href == "/cn/":
+            if href in ("/cn/", "/us/"):
                 continue
             if _is_nav_link(href):
                 continue

@@ -1,28 +1,28 @@
 {
-  "total_entities": 5429,
-  "total_edges": 23,
+  "total_entities": 5543,
+  "total_edges": 46,
   "by_type": {
-    "game_mechanic": 572,
-    "patch_note": 93,
+    "game_mechanic": 574,
+    "patch_note": 138,
     "area": 4,
     "class": 8,
     "ascendancy": 23,
-    "skill": 333,
-    "support": 535,
+    "skill": 397,
+    "support": 536,
     "spirit_gem": 53,
     "unique": 128,
-    "base_item": 465,
+    "base_item": 464,
     "mod": 61,
     "passive": 1250,
     "monster": 602,
     "map_area": 259,
     "quest": 152,
     "league_mechanic": 187,
-    "game_system": 84,
+    "game_system": 86,
     "flask": 90,
     "catalyst": 2,
     "npc": 449,
-    "other": 79
+    "other": 80
   },
   "entities": {
     "game_mechanic:Lineage_Supports": {
@@ -30,7 +30,7 @@
       "type": "game_mechanic"
     },
     "game_mechanic:Desecrated_Modifiers": {
-      "name": "渎灵词缀",
+      "name": "Desecrated Modifiers",
       "type": "game_mechanic"
     },
     "game_mechanic:Liquid_Emotions": {
@@ -42,7 +42,7 @@
       "type": "game_mechanic"
     },
     "game_mechanic:Waystones": {
-      "name": "引路石",
+      "name": "Waystones",
       "type": "game_mechanic"
     },
     "game_mechanic:EndGame": {
@@ -50,199 +50,199 @@
       "type": "game_mechanic"
     },
     "patch_note:Version_0.5.2": {
-      "name": "Version 0.5.2",
+      "name": "US English",
       "type": "patch_note"
     },
     "patch_note:Version_0.5.1": {
-      "name": "Version 0.5.1",
+      "name": "US English",
       "type": "patch_note"
     },
     "patch_note:Version_0.5.0": {
-      "name": "更新公告",
+      "name": "US English",
       "type": "patch_note"
     },
     "game_mechanic:Runes_of_Aldur_uniques": {
-      "name": "传奇",
+      "name": "Unique",
       "type": "game_mechanic"
     },
     "game_mechanic:Runes_of_Aldur_items": {
-      "name": "物品",
+      "name": "Item",
       "type": "game_mechanic"
     },
     "game_mechanic:Runes_of_Aldur_gems": {
-      "name": "宝石",
+      "name": "Gem",
       "type": "game_mechanic"
     },
     "game_mechanic:Farrow": {
-      "name": "法罗",
+      "name": "Farrow",
       "type": "game_mechanic"
     },
     "game_mechanic:The_Runeseeker": {
-      "name": "符文猎手",
+      "name": "The Runeseeker",
       "type": "game_mechanic"
     },
     "game_mechanic:Martial_Artist": {
-      "name": "武圣",
+      "name": "Martial Artist",
       "type": "game_mechanic"
     },
     "game_mechanic:Spirit_Walker": {
-      "name": "灵魂行者",
+      "name": "Spirit Walker",
       "type": "game_mechanic"
     },
     "game_mechanic:Atziris_Communion": {
-      "name": "阿兹里的圣礼",
+      "name": "Atziri's Communion",
       "type": "game_mechanic"
     },
     "game_mechanic:Animus_Exchange": {
-      "name": "命源交换",
+      "name": "Animus Exchange",
       "type": "game_mechanic"
     },
     "game_mechanic:Animus_Splinters": {
-      "name": "命源碎片",
+      "name": "Animus Splinters",
       "type": "game_mechanic"
     },
     "game_mechanic:Bitter_Dead": {
-      "name": "苦涩死亡",
+      "name": "Bitter Dead",
       "type": "game_mechanic"
     }
   },
   "edges": [
     {
       "src_id": "ascendancy:Deadeye",
-      "src_cn": "锐眼",
+      "src_cn": "Deadeye",
       "relation": "belongs_to",
       "dst_id": "class:Ranger",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Pathfinder",
-      "src_cn": "追猎者",
+      "src_cn": "Pathfinder",
       "relation": "belongs_to",
       "dst_id": "class:Ranger",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Amazon",
-      "src_cn": "亚马逊",
+      "src_cn": "Amazon",
       "relation": "belongs_to",
       "dst_id": "class:Huntress",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Spirit_Walker",
-      "src_cn": "灵魂行者",
+      "src_cn": "Spirit Walker",
       "relation": "belongs_to",
       "dst_id": "class:Huntress",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Ritualist",
-      "src_cn": "仪祭师",
+      "src_cn": "Ritualist",
       "relation": "belongs_to",
       "dst_id": "class:Huntress",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Martial_Artist",
-      "src_cn": "武圣",
+      "src_cn": "Martial Artist",
       "relation": "belongs_to",
       "dst_id": "class:Monk",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Invoker",
-      "src_cn": "祈求者",
+      "src_cn": "Invoker",
       "relation": "belongs_to",
       "dst_id": "class:Monk",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Acolyte_of_Chayula",
-      "src_cn": "夏乌拉追随者",
+      "src_cn": "Acolyte of Chayula",
       "relation": "belongs_to",
       "dst_id": "class:Monk",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Infernalist",
-      "src_cn": "驱炎使",
+      "src_cn": "Infernalist",
       "relation": "belongs_to",
       "dst_id": "class:Witch",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Blood_Mage",
-      "src_cn": "命源法师",
+      "src_cn": "Blood Mage",
       "relation": "belongs_to",
       "dst_id": "class:Witch",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Lich",
-      "src_cn": "巫妖",
+      "src_cn": "Lich",
       "relation": "belongs_to",
       "dst_id": "class:Witch",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Abyssal_Lich",
-      "src_cn": "深渊巫妖",
+      "src_cn": "Abyssal Lich",
       "relation": "belongs_to",
       "dst_id": "class:Witch",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Stormweaver",
-      "src_cn": "风暴编织者",
+      "src_cn": "Stormweaver",
       "relation": "belongs_to",
       "dst_id": "class:Sorceress",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Chronomancer",
-      "src_cn": "塑时术师",
+      "src_cn": "Chronomancer",
       "relation": "belongs_to",
       "dst_id": "class:Sorceress",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Disciple_of_Varashta",
-      "src_cn": "瓦拉煞的门徒",
+      "src_cn": "Disciple of Varashta",
       "relation": "belongs_to",
       "dst_id": "class:Sorceress",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Titan",
-      "src_cn": "泰坦",
+      "src_cn": "Titan",
       "relation": "belongs_to",
       "dst_id": "class:Warrior",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Warbringer",
-      "src_cn": "战争使者",
+      "src_cn": "Warbringer",
       "relation": "belongs_to",
       "dst_id": "class:Warrior",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Smith_of_Kitava",
-      "src_cn": "奇塔弗匠师",
+      "src_cn": "Smith of Kitava",
       "relation": "belongs_to",
       "dst_id": "class:Warrior",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Tactician",
-      "src_cn": "战术家",
+      "src_cn": "Tactician",
       "relation": "belongs_to",
       "dst_id": "class:Mercenary",
       "dst_cn": ""
     },
     {
       "src_id": "ascendancy:Witchhunter",
-      "src_cn": "猎巫人",
+      "src_cn": "Witchhunter",
       "relation": "belongs_to",
       "dst_id": "class:Mercenary",
       "dst_cn": ""

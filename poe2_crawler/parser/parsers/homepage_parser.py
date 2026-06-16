@@ -46,9 +46,9 @@ def parse_homepage(html: str) -> dict:
     entities: dict[str, dict] = {}
     seen: set[str] = set()
 
-    for a in soup.find_all("a", href=re.compile(r"^/cn/")):
+    for a in soup.find_all("a", href=re.compile(r"^/(cn|us)/")):
         href = a["href"].split("#")[0].split("?")[0].rstrip("/")
-        if href == "/cn":
+        if href in ("/cn", "/us"):
             continue
         if href in seen:
             continue

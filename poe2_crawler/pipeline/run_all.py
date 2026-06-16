@@ -21,7 +21,10 @@ async def main():
     all_edges: list[dict] = []
 
     for etype, spec in config["entity_types"].items():
-        for url in spec.get("index_urls", []):
+        # Prefer /us/ URLs (English = most complete data), fall back to /cn/
+        urls = spec.get("index_urls", [])
+        us_first = [u for u in urls if "/us/" in u] + [u for u in urls if "/us/" not in u]
+        for url in us_first:
             print(f"\n{etype}: {url} ...", end=" ", flush=True)
             html = await fetcher.fetch(url)
             if not html:
@@ -43,6 +46,14 @@ async def main():
             for eid, info in ents.items():
                 if eid not in all_entities:
                     all_entities[eid] = info
+                else:
+                    # Merge: keep existing, fill in missing name from new
+                    existing = all_entities[eid]
+                    if not existing.get("name") and info.get("name"):
+                        existing["name"] = info["name"]
+                    # Prefer English name from /us/ URLs
+                    if "/us/" in url and info.get("name"):
+                        existing["name"] = info["name"]
             all_edges.extend(edges)
 
     await fetcher.close()
