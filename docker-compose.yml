@@ -49,12 +49,17 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # LLM — MiMo V2.5 (active)
-      - LLM_BASE_URL=https://api.xiaomimimo.com/v1
-      - LLM_MODEL=mimo-v2.5
-      - LLM_API_KEY=${MIMO_API_KEY}
-      - LLM_THINKING=auto
-      # LLM — SiliconFlow DeepSeek V4 Flash (backup, uncomment to switch back):
+      # LLM — Qwen 3.7 Plus (active, multimodal)
+      - LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+      - LLM_MODEL=qwen3.7-plus
+      - LLM_API_KEY=${QWEN_API_KEY}
+      - LLM_THINKING=off
+      # LLM — MiMo V2.5 (backup, text+image):
+      # - LLM_BASE_URL=https://api.xiaomimimo.com/v1
+      # - LLM_MODEL=mimo-v2.5
+      # - LLM_API_KEY=${MIMO_API_KEY}
+      # - LLM_THINKING=auto
+      # LLM — SiliconFlow DeepSeek V4 Flash (backup):
       # - LLM_BASE_URL=https://api.siliconflow.cn/v1
       # - LLM_MODEL=deepseek-ai/DeepSeek-V4-Flash
       # - LLM_API_KEY=${SILICONFLOW_API_KEY}
@@ -101,12 +106,17 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # LLM — MiMo V2.5 (active)
-      - LLM_BASE_URL=https://api.xiaomimimo.com/v1
-      - LLM_MODEL=mimo-v2.5
-      - LLM_API_KEY=${MIMO_API_KEY}
-      - LLM_THINKING=auto
-      # LLM — SiliconFlow DeepSeek V4 Flash (backup, uncomment to switch back):
+      # LLM — Qwen 3.7 Plus (active, multimodal)
+      - LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+      - LLM_MODEL=qwen3.7-plus
+      - LLM_API_KEY=${QWEN_API_KEY}
+      - LLM_THINKING=off
+      # LLM — MiMo V2.5 (backup, text+image):
+      # - LLM_BASE_URL=https://api.xiaomimimo.com/v1
+      # - LLM_MODEL=mimo-v2.5
+      # - LLM_API_KEY=${MIMO_API_KEY}
+      # - LLM_THINKING=auto
+      # LLM — SiliconFlow DeepSeek V4 Flash (backup):
       # - LLM_BASE_URL=https://api.siliconflow.cn/v1
       # - LLM_MODEL=deepseek-ai/DeepSeek-V4-Flash
       # - LLM_API_KEY=${SILICONFLOW_API_KEY}
