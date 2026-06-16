@@ -25,9 +25,22 @@ from app.services.chat_tools import (
     detect_input_signals,
     execute_tool,
 )
+from app.services.entity_validator import validate_answer
 from app.services.observability import flush, trace_chat_turn
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_answer_entities(answer: str, ctx) -> list[dict]:
+    """Post-hoc entity validation: scan answer for suspicious entities."""
+    # Collect whitelist IDs from last sources (entities found in retrieval)
+    whitelist: set[int] = set()
+    try:
+        suspicious = validate_answer(answer, whitelist_ids=whitelist if whitelist else None)
+        return suspicious
+    except Exception as e:
+        logger.warning("[CHAT] entity validation failed: %s", e)
+        return []
 
 MAX_TOOL_ROUNDS = 8
 TRADE_SEARCH_MAX_PER_TURN = int(os.getenv("CHAT_TRADE_SEARCH_MAX", "8"))
@@ -290,8 +303,17 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         agent_messages.append(assistant_entry)
         used_tools = True
 
+        # Track rag calls within this batch to dedup/skip
+        rag_this_batch = 0
         for tc in tool_calls:
             fn = tc.function.name
+
+            # Skip rag_search if budget was consumed earlier in this same batch
+            if fn == "rag_search":
+                if rag_this_batch >= 1 and ctx.rag_search_calls >= RAG_SOFT_LIMIT:
+                    continue  # LLM spammed multiple rag_search in one turn — skip extras
+                rag_this_batch += 1
+
             args = _parse_tool_args(tc.function.arguments)
             label = TOOL_LABELS.get(fn, fn)
             yield {"type": "thinking", "content": f"调用工具: {label}..."}
@@ -365,6 +387,13 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     if ctx.last_sources:
         yield {"type": "sources", "content": ctx.last_sources}
+
+    # Post-hoc entity validation
+    if answer_acc:
+        suspicious = _validate_answer_entities(answer_acc, ctx)
+        if suspicious:
+            yield {"type": "entity_warnings", "content": suspicious}
+            logger.info("[CHAT] entity validation: %d suspicious entities found", len(suspicious))
 
     async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
         yield ev

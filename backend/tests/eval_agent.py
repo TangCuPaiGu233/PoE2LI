@@ -91,8 +91,12 @@ def send_chat(messages: list[dict], *, endpoint: str) -> dict[str, Any]:
                 tool_calls.append({"name": c.get("name", "?"), "args": c.get("arguments", {})})
             elif etype == "tool_result":
                 pass  # track separately if needed
-            elif etype == "error":
-                errors.append(str(ev.get("content", ""))[:200])
+            elif etype == "entity_warnings":
+                warnings = ev.get("content", [])
+                if isinstance(warnings, list):
+                    for w in warnings:
+                        if isinstance(w, dict):
+                            errors.append(f"entity_warn:{w.get('name','?')}/{w.get('risk','?')}")
     except Exception as e:
         errors.append(f"request_error: {e}")
 

@@ -15,6 +15,7 @@ from app.orchestrator.session_context import build_session_context
 from app.services.chat_agent import _emit_streamed_answer, _llm_client
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.chat_response_guard import strip_ungrounded_price_claims
+from app.services.entity_validator import validate_answer
 from app.services.follow_up_suggestions import generate_follow_up_questions
 from app.services.observability import flush
 from app.skills.router import get_skill
@@ -219,6 +220,12 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
                 seen.add(key)
                 unique_sources.append(s)
         yield {"type": "sources", "content": unique_sources[:8]}
+
+    # Post-hoc entity validation
+    if answer_acc:
+        suspicious = validate_answer(answer_acc)
+        if suspicious:
+            yield {"type": "entity_warnings", "content": suspicious}
 
     fu = await _follow_up_event(user_msg, answer_acc)
     if fu:
