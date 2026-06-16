@@ -1,0 +1,226 @@
+[
+  {
+    "id": "build_001",
+    "category": "build",
+    "messages": [{"role": "user", "content": "帮我配一套召唤女巫的开荒BD"}],
+    "expected_entities": ["Witch", "Skeletal Warrior", "Rattling Sceptre"],
+    "forbidden_entities": ["Unearth", "Minion Mastery", "Minion Pact", "Bone Construct"],
+    "max_tool_calls": 3,
+    "note": "基础召唤BD请求 — 测调用次数 + 防PoE1技能名幻觉"
+  },
+  {
+    "id": "build_002",
+    "category": "build",
+    "messages": [{"role": "user", "content": "死灵法师怎么配装备？"}],
+    "expected_entities": ["Lich"],
+    "forbidden_entities": ["Unearth", "Bone Offering", "Flesh Offering"],
+    "max_tool_calls": 3,
+    "note": "升华配装 — 测实体准确性"
+  },
+  {
+    "id": "build_003",
+    "category": "build",
+    "messages": [{"role": "user", "content": "泰坦战士用什么武器好"}],
+    "expected_entities": ["Titan", "Warrior"],
+    "forbidden_entities": ["Juggernaut", "Berserker", "Marauder"],
+    "max_tool_calls": 3,
+    "note": "泰坦BD — 测不混入PoE1升华名"
+  },
+  {
+    "id": "build_004",
+    "category": "build",
+    "messages": [{"role": "user", "content": "帮我看看地狱主义者怎么加点天赋"}],
+    "expected_entities": ["Infernalist", "Witch"],
+    "forbidden_entities": ["Necromancer", "Elementalist", "Occultist"],
+    "max_tool_calls": 3,
+    "note": "Infernalist = 地狱主义者，防PoE1 Witch升华名"
+  },
+  {
+    "id": "build_005",
+    "category": "build",
+    "messages": [{"role": "user", "content": "灵魂行者有什么好用的技能搭配"}],
+    "expected_entities": ["Spirit Walker", "Huntress"],
+    "forbidden_entities": ["Ranger", "Deadeye", "Pathfinder"],
+    "max_tool_calls": 3,
+    "note": "Spirit Walker = 灵魂行者，防PoE1 Ranger升华名"
+  },
+  {
+    "id": "encyclo_001",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "扭曲项链是什么"}],
+    "expected_entities": ["Distorted Amulet"],
+    "forbidden_entities": ["Twisted Amulet"],
+    "max_tool_calls": 2,
+    "note": "国服译名：扭曲项链=Distorted Amulet（普通底），不是Twisted Amulet（涂油底）"
+  },
+  {
+    "id": "encyclo_002",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "畸变项链有什么用"}],
+    "expected_entities": ["Twisted Amulet", "Instilled"],
+    "forbidden_entities": ["Distorted Amulet"],
+    "max_tool_calls": 2,
+    "note": "畸变项链=Twisted Amulet（涂油底），不应返回扭曲项链"
+  },
+  {
+    "id": "encyclo_003",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "什么是涂油？怎么涂油？"}],
+    "expected_entities": ["Instilling", "Distilled"],
+    "forbidden_entities": [],
+    "max_tool_calls": 2,
+    "note": "基础机制查询"
+  },
+  {
+    "id": "encyclo_004",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "火焰伤害是怎么计算的"}],
+    "expected_entities": ["Fire Damage"],
+    "forbidden_entities": [],
+    "max_tool_calls": 2,
+    "note": "机制查询 — 测不编造公式"
+  },
+  {
+    "id": "encyclo_005",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "深渊巫妖有什么技能"}],
+    "expected_entities": ["Abyssal Lich", "Lich"],
+    "forbidden_entities": ["Unearth"],
+    "max_tool_calls": 2,
+    "note": "昇华机制查询"
+  },
+  {
+    "id": "encyclo_006",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "Rattling Sceptre 给什么技能"}],
+    "expected_entities": ["Rattling Sceptre", "Skeletal Warrior"],
+    "forbidden_entities": ["Unearth", "Raise Zombie", "Summon Skeletons"],
+    "max_tool_calls": 2,
+    "note": "具体装备查询 — 测精确回答，防PoE1召唤技能"
+  },
+  {
+    "id": "encyclo_007",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "PoE2有哪些职业？"}],
+    "expected_entities": ["Witch", "Warrior", "Huntress", "Mercenary", "Sorceress", "Monk"],
+    "forbidden_entities": ["Marauder", "Ranger", "Duelist", "Templar", "Shadow", "Scion"],
+    "max_tool_calls": 2,
+    "note": "全局知识 — 不应混入PoE1职业名"
+  },
+  {
+    "id": "encyclo_008",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "夏乌拉的侍僧是什么"}],
+    "expected_entities": ["Acolyte of Chayula"],
+    "forbidden_entities": ["Trickster", "Assassin"],
+    "max_tool_calls": 2,
+    "note": "冷门昇华 — 测实体解析"
+  },
+  {
+    "id": "trade_001",
+    "category": "trade",
+    "messages": [{"role": "user", "content": "帮我搜一下人格分裂这个珠宝，多少钱"}],
+    "expected_entities": ["Split Personality"],
+    "forbidden_entities": [],
+    "max_tool_calls": 2,
+    "note": "暗金查价 — 测 trade_search 正确调用，不返回百科"
+  },
+  {
+    "id": "trade_002",
+    "category": "trade",
+    "messages": [{"role": "user", "content": "找一条加2召唤技能等级的项链"}],
+    "expected_entities": ["Amulet"],
+    "forbidden_entities": ["Unearth"],
+    "max_tool_calls": 2,
+    "note": "词缀搜市集 — 测 resolve_trade_stat + trade_search"
+  },
+  {
+    "id": "trade_003",
+    "category": "trade",
+    "messages": [{"role": "user", "content": "扭曲项链市集多少钱"}],
+    "expected_entities": ["Distorted Amulet"],
+    "forbidden_entities": ["Twisted Amulet"],
+    "max_tool_calls": 2,
+    "note": "查价带基底名 — 扭曲项链市集查价，不走百科"
+  },
+  {
+    "id": "multi_001",
+    "category": "multi",
+    "messages": [
+      {"role": "user", "content": "帮我配一套召唤女巫的开荒BD"},
+      {"role": "assistant", "content": "好的，我来帮你分析召唤女巫的开荒BD……（省略历史回答）"},
+      {"role": "user", "content": "那核心装备用哪些？"}
+    ],
+    "expected_entities": ["Rattling Sceptre"],
+    "forbidden_entities": ["Unearth", "Minion Mastery"],
+    "max_tool_calls": 2,
+    "note": "多轮对话追问 — 测历史上下文理解，不应重新泛搜"
+  },
+  {
+    "id": "multi_002",
+    "category": "multi",
+    "messages": [
+      {"role": "user", "content": "扭曲项链是什么"},
+      {"role": "assistant", "content": "扭曲项链（Distorted Amulet）是……（省略历史回答）"},
+      {"role": "user", "content": "那它市集多少钱"}
+    ],
+    "expected_entities": ["Distorted Amulet"],
+    "forbidden_entities": ["Twisted Amulet"],
+    "max_tool_calls": 2,
+    "note": "百科追问市集 — 测同一实体从百科到查价的过渡"
+  },
+  {
+    "id": "edge_001",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "召唤师"}],
+    "expected_entities": ["Witch"],
+    "forbidden_entities": ["Necromancer"],
+    "max_tool_calls": 1,
+    "note": "单关键词模糊查询 — 测 bare_item_name 信号，不trade_search"
+  },
+  {
+    "id": "edge_002",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "合金战弩"}],
+    "expected_entities": [],
+    "forbidden_entities": [],
+    "max_tool_calls": 1,
+    "note": "可能是幻觉实体 — 测Agent是否诚实说不确定，而非编造"
+  },
+  {
+    "id": "edge_003",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "魔侍武士的技能是什么"}],
+    "expected_entities": [],
+    "forbidden_entities": ["Unearth"],
+    "max_tool_calls": 2,
+    "note": "模糊实体 — 测是否走rag_search+entity_resolve而非编造"
+  },
+  {
+    "id": "speed_001",
+    "category": "build",
+    "messages": [{"role": "user", "content": "火焰法术BD推荐"}],
+    "expected_entities": ["Sorceress", "Fire"],
+    "forbidden_entities": [],
+    "max_tool_calls": 2,
+    "note": "简单BD推荐 — 测延迟上限，不应超多轮搜索"
+  },
+  {
+    "id": "speed_002",
+    "category": "encyclopedia",
+    "messages": [{"role": "user", "content": "护甲和闪避有什么区别"}],
+    "expected_entities": ["Armour", "Evasion"],
+    "forbidden_entities": [],
+    "max_tool_calls": 2,
+    "note": "基础机制对比 — 测快速回答"
+  },
+  {
+    "id": "complex_001",
+    "category": "build",
+    "messages": [{"role": "user", "content": "我想玩一个闪电伤害、高暴击、带召唤物的混合BD，有什么推荐"}],
+    "expected_entities": ["Lightning", "Critical", "Witch"],
+    "forbidden_entities": ["Unearth", "Minion Mastery", "Elementalist"],
+    "max_tool_calls": 4,
+    "note": "复杂多意图 — 允许更多工具调用，但仍应受控"
+  }
+]
