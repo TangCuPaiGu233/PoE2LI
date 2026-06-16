@@ -1,6 +1,8 @@
 """Full pipeline dry-run against all configured entity types."""
-import asyncio, json, sys, yaml
+import asyncio, json, logging, sys, yaml
 from pathlib import Path
+
+logger = logging.getLogger("run_all")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from crawler.fetcher import Fetcher
@@ -93,6 +95,20 @@ async def main():
         print(f"  Quest rewards: {len(qr_edges)} edges")
 
     print(f"\nPhase B done: {detail_edges_total} detail edges extracted")
+
+    # ═══ Save full data for loader ═══
+    import json
+    full_entities = {eid: info for eid, info in all_entities.items()}
+    Path("data/discovery_full.json").write_text(
+        json.dumps({"entities": full_entities, "by_type": {}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    logger.info("Saved %d entities to data/discovery_full.json", len(full_entities))
+
+    with open("data/raw_edges.jsonl", "w", encoding="utf-8") as f:
+        for e in all_edges:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    logger.info("Saved %d edges to data/raw_edges.jsonl", len(all_edges))
 
     # ═══ Summary ═══
     print(f"\n=== TOTAL ===")
