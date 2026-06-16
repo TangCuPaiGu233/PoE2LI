@@ -1,0 +1,25 @@
+# PoE2 Crawler global settings
+# Network
+base_url: "https://poe2db.tw"
+concurrency: 3
+rate_limit_rps: 1.0
+request_timeout_sec: 30
+retry_max: 3
+retry_backoff_sec: 5
+
+# Cache
+cache_enabled: true
+cache_dir: "data/cache"
+cache_ttl_hours: 24
+
+# User-Agent
+user_agent: "PoE2LI-Crawler/1.0 (research; contact@liufangli.xyz)"
+
+# Output
+entity_urls_file: "data/entity_urls.jsonl"
+entities_file: "data/entities.jsonl"
+raw_edges_file: "data/raw_edges.jsonl"
+unmapped_fields_log: "data/unmapped_fields.log"
+
+# Database (read from env or .env)
+database_url: "${DATABASE_URL:-postgresql://poe2li:poe2li_secret@localhost:5433/poe2li}"

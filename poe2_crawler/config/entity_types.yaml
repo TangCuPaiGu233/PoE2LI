@@ -1,0 +1,116 @@
+# PoE2DB entity types with verified index page URLs
+# Verified 2026-06-16 against real poe2db.tw responses (see docs/1/PoE2LI-爬取实跑验证报告.md)
+# URL convention: /cn/ is the Chinese+English bilingual version (preferred for CN name extraction)
+
+entity_types:
+  # ── Class & Ascendancy ──
+  class:
+    index_urls:
+      - "https://poe2db.tw/cn/Character_class"
+    url_prefix: "/cn/"
+    parser: class_parser
+    relations: [belongs_to]  # ascendancy → class
+
+  ascendancy:
+    index_urls:
+      - "https://poe2db.tw/cn/Ascendancy_class"
+    url_prefix: "/cn/"
+    parser: ascendancy_parser
+    relations: [belongs_to]
+
+  # ── Skills ──
+  skill:
+    index_urls:
+      - "https://poe2db.tw/cn/Skill_Gems"
+    url_prefix: "/cn/"
+    parser: skill_parser
+    relations: [supports, requires_weapon, has_tag, grants_buff]
+
+  support:
+    index_urls:
+      - "https://poe2db.tw/cn/Support_Gems"
+    url_prefix: "/cn/"
+    parser: skill_parser
+    relations: [supports]
+
+  spirit_gem:
+    index_urls:
+      - "https://poe2db.tw/cn/Spirit_Gems"
+    url_prefix: "/cn/"
+    parser: skill_parser
+    relations: [grants_buff]
+
+  # ── Items ──
+  unique:
+    index_urls:
+      - "https://poe2db.tw/cn/Unique_item"
+    url_prefix: "/cn/"
+    parser: unique_parser
+    relations: [based_on, drops_from, has_mod]
+
+  base_item:
+    index_urls:
+      - "https://poe2db.tw/cn/Item"
+    url_prefix: "/cn/"
+    parser: base_item_parser
+    relations: [has_implicit, has_mod_pool, has_tag]
+
+  # ── Mods & Passives ──
+  mod:
+    index_urls:
+      - "https://poe2db.tw/cn/Modifiers"
+    url_prefix: "/cn/"
+    parser: mod_parser
+    relations: [applies_to, is_prefix, is_suffix]
+
+  passive:
+    index_urls:
+      - "https://poe2db.tw/cn/Passive_skill"
+      - "https://poe2db.tw/cn/Keystone"
+      - "https://poe2db.tw/cn/Notable"
+    url_prefix: "/cn/"
+    parser: passive_parser
+    relations: [grants_stat, requires_allocation]
+
+  # ── Other ──
+  currency:
+    index_urls:
+      - "https://poe2db.tw/cn/Currency"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: [has_effect]
+
+  monster:
+    index_urls:
+      - "https://poe2db.tw/cn/Monster"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: [drops, found_in_map]
+
+  map_area:
+    index_urls:
+      - "https://poe2db.tw/cn/Area"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: [contains_boss, drops, connects_to]
+
+  tag:
+    index_urls:
+      - "https://poe2db.tw/cn/Gem_Tags"
+    url_prefix: "/cn/"
+    parser: tag_parser
+    relations: [applies_to]
+
+  quest:
+    index_urls:
+      - "https://poe2db.tw/cn/Quest"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: [rewards, requires_npc]
+
+  crafting:
+    index_urls:
+      - "https://poe2db.tw/cn/Crafting"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: [uses_currency, modifies_item]
