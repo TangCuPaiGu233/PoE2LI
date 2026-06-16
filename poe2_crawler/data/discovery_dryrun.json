@@ -1,32 +1,28 @@
 {
-  "total_entities": 5668,
+  "total_entities": 5429,
   "total_edges": 23,
   "by_type": {
-    "game_mechanic": 567,
-    "patch_note": 105,
+    "game_mechanic": 572,
+    "patch_note": 93,
     "area": 4,
     "class": 8,
     "ascendancy": 23,
-    "skill": 337,
-    "support": 552,
+    "skill": 333,
+    "support": 535,
     "spirit_gem": 53,
-    "unique": 131,
-    "base_item": 488,
-    "mod": 64,
-    "passive": 1279,
-    "currency": 9,
-    "monster": 612,
-    "map_area": 277,
-    "tag": 10,
-    "quest": 161,
-    "crafting": 9,
-    "league_mechanic": 197,
-    "keyword": 10,
-    "game_system": 100,
+    "unique": 128,
+    "base_item": 465,
+    "mod": 61,
+    "passive": 1250,
+    "monster": 602,
+    "map_area": 259,
+    "quest": 152,
+    "league_mechanic": 187,
+    "game_system": 84,
     "flask": 90,
-    "catalyst": 13,
-    "npc": 460,
-    "other": 109
+    "catalyst": 2,
+    "npc": 449,
+    "other": 79
   },
   "entities": {
     "game_mechanic:Lineage_Supports": {
@@ -47,6 +43,10 @@
     },
     "game_mechanic:Waystones": {
       "name": "引路石",
+      "type": "game_mechanic"
+    },
+    "game_mechanic:EndGame": {
+      "name": "",
       "type": "game_mechanic"
     },
     "patch_note:Version_0.5.2": {
@@ -103,10 +103,6 @@
     },
     "game_mechanic:Bitter_Dead": {
       "name": "苦涩死亡",
-      "type": "game_mechanic"
-    },
-    "game_mechanic:Conductive_Runes": {
-      "name": "导电符文",
       "type": "game_mechanic"
     }
   },
