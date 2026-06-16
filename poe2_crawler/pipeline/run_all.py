@@ -58,7 +58,31 @@ async def main():
 
     await fetcher.close()
 
-    # Summary
+    # ═══ Phase B: Detail page edge extraction ═══
+    print("\n=== Phase B: Detail edges ===")
+    detail_types = {"skill": 50, "unique": 50}  # sample: first N of each type
+    detail_edges_total = 0
+
+    for etype, sample_n in detail_types.items():
+        candidates = [(eid, info) for eid, info in all_entities.items()
+                      if info.get("type") == etype and "/" not in eid.split(":", 1)[1]][:sample_n]
+        print(f"\n{etype}: sampling {len(candidates)} detail pages...")
+        for eid, info in candidates:
+            slug = eid.split(":", 1)[1]
+            url = f"https://poe2db.tw/us/{slug}"
+            html = await fetcher.fetch(url)
+            if not html:
+                continue
+            from parser.detail_parser import parse_page_edges
+            edges = parse_page_edges(html, eid, etype)
+            if edges:
+                all_edges.extend(edges)
+                detail_edges_total += len(edges)
+        print(f"  -> {detail_edges_total} new edges so far")
+
+    print(f"\nPhase B done: {detail_edges_total} detail edges extracted")
+
+    # ═══ Summary ═══
     print(f"\n=== TOTAL ===")
     print(f"Entities: {len(all_entities)}")
     print(f"Edges: {len(all_edges)}")
