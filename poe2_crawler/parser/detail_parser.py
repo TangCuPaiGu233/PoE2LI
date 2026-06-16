@@ -70,10 +70,68 @@ def parse_unique_detail(html: str, unique_entity_id: str) -> list[dict]:
     return edges
 
 
+def parse_monster_detail(html: str, monster_entity_id: str) -> list[dict]:
+    """Extract monster→area relationship from the Area field."""
+    soup = BeautifulSoup(html, "lxml")
+    edges: list[dict] = []
+    for tr in soup.find_all("tr"):
+        th = tr.find("th")
+        td = tr.find("td")
+        if th and td and th.get_text(strip=True).lower() == "area":
+            for a in td.find_all("a", href=LINK_RE):
+                area_name = a.get_text(strip=True)
+                area_id = url_to_entity_id(a["href"], "map_area")
+                edges.append({
+                    "src_id": monster_entity_id,
+                    "relation": "found_in",
+                    "dst_id": area_id,
+                    "dst_name": area_name,
+                })
+    return edges
+
+
+def parse_quest_rewards_table(html: str) -> list[dict]:
+    """Parse QuestRewards table to extract quest→rewards relationships."""
+    soup = BeautifulSoup(html, "lxml")
+    edges: list[dict] = []
+    table = soup.find("table")
+    if not table:
+        return edges
+    for tr in table.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 3:
+            continue
+        quest_cell = tds[1]
+        reward_cell = tds[2]
+        quest_name = quest_cell.get_text(strip=True)
+        if not quest_name:
+            continue
+        quest_id = f"quest:{quest_name.replace(' ', '_').replace('(','').replace(')','')}"
+        for a in reward_cell.find_all("a", href=LINK_RE):
+            reward_name = a.get_text(strip=True)
+            href = a["href"]
+            if "Skill_Gems" in href or "Support_Gems" in href:
+                rtype = "skill"
+            elif "Unique_item" in href:
+                rtype = "unique"
+            else:
+                rtype = "base_item"
+            reward_id = url_to_entity_id(href, rtype)
+            edges.append({
+                "src_id": quest_id,
+                "relation": "rewards",
+                "dst_id": reward_id,
+                "dst_name": reward_name,
+            })
+    return edges
+
+
 def parse_page_edges(html: str, entity_id: str, entity_type: str) -> list[dict]:
     """Route to the appropriate detail parser based on entity type."""
-    if entity_type in ("skill",):
+    if entity_type in ("skill", "spirit_gem"):
         return parse_skill_detail(html, entity_id)
     if entity_type in ("unique",):
         return parse_unique_detail(html, entity_id)
+    if entity_type in ("monster",):
+        return parse_monster_detail(html, entity_id)
     return []

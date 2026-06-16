@@ -60,7 +60,7 @@ async def main():
 
     # ═══ Phase B: Detail page edge extraction ═══
     print("\n=== Phase B: Detail edges ===")
-    detail_types = {"skill": 0, "unique": 0}  # 0 = all
+    detail_types = {"skill": 0, "spirit_gem": 0, "unique": 0, "monster": 50}
     detail_edges_total = 0
 
     for etype, sample_n in detail_types.items():
@@ -81,6 +81,16 @@ async def main():
                 all_edges.extend(edges)
                 detail_edges_total += len(edges)
         print(f"  -> {detail_edges_total} new edges so far")
+
+    # ═══ Quest Rewards table (special: single page with many edges) ═══
+    print("\n=== Quest Rewards ===")
+    qr_html = await fetcher.fetch("https://poe2db.tw/us/QuestRewards")
+    if qr_html:
+        from parser.detail_parser import parse_quest_rewards_table
+        qr_edges = parse_quest_rewards_table(qr_html)
+        all_edges.extend(qr_edges)
+        detail_edges_total += len(qr_edges)
+        print(f"  Quest rewards: {len(qr_edges)} edges")
 
     print(f"\nPhase B done: {detail_edges_total} detail edges extracted")
 
