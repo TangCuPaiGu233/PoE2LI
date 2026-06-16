@@ -18,16 +18,14 @@ _ALREADY_COVERED = {
     "Passive_skill", "Keystone", "Notable", "Currency",
     "Monster", "Maps", "Quest", "Crafting",
     "Gem", "Items", "Keywords", "NPCs",
-    "Flasks", "Catalysts", "Achievements", "Strongbox",
+    "Flasks", "Catalysts", "Achievements",
 }
 
 # Navigation/utility pages to exclude
 _EXCLUDE = {
     "patreon", "passive-skill-tree", "atlas-skill-tree",
     "MicrotransactionCombineFormula", "MinimapIcons",
-    "Reforging_Bench", "GameConstants", "Commands", "HelpfulTips",
-    "QuestRewards", "EndGame", "Hideout", "Miscellaneous",
-    "Consumable", "Splinter", "FlavourText",
+    "Reforging_Bench", "Hideout", "FlavourText",
     # Supporters/cosmetics
     "Closed_Beta_Supporter_Packs", "Open_Beta_Supporter_Packs",
     "Release_Supporter_Packs", "Race_Rewards",
