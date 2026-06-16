@@ -6,9 +6,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from crawler.fetcher import Fetcher
 from parser.base_parser import parse_entity_list
 from parser.parsers.ascendancy_parser import parse_ascendancy_index
+from parser.parsers.homepage_parser import parse_homepage
 
 # Types that need custom parsing
-_CUSTOM = {"ascendancy", "class"}
+_CUSTOM = {"ascendancy", "class", "homepage"}
 
 
 async def main():
@@ -28,7 +29,9 @@ async def main():
                 continue
 
             # Parse
-            if etype in _CUSTOM:
+            if etype == "homepage":
+                parsed = parse_homepage(html)
+            elif etype in _CUSTOM:
                 parsed = parse_ascendancy_index(html)
             else:
                 parsed = parse_entity_list(html, etype, poe2_tab_only=True)

@@ -1,7 +1,10 @@
 {
-  "total_entities": 4003,
+  "total_entities": 5668,
   "total_edges": 23,
   "by_type": {
+    "game_mechanic": 567,
+    "patch_note": 105,
+    "area": 4,
     "class": 8,
     "ascendancy": 23,
     "skill": 337,
@@ -14,89 +17,97 @@
     "currency": 9,
     "monster": 612,
     "map_area": 277,
+    "tag": 10,
     "quest": 161,
-    "crafting": 9
+    "crafting": 9,
+    "league_mechanic": 197,
+    "keyword": 10,
+    "game_system": 100,
+    "flask": 90,
+    "catalyst": 13,
+    "npc": 460,
+    "other": 109
   },
   "entities": {
-    "class:Ranger": {
+    "game_mechanic:Lineage_Supports": {
+      "name": "Lineage Supports",
+      "type": "game_mechanic"
+    },
+    "game_mechanic:Desecrated_Modifiers": {
+      "name": "渎灵词缀",
+      "type": "game_mechanic"
+    },
+    "game_mechanic:Liquid_Emotions": {
       "name": "",
-      "type": "class"
+      "type": "game_mechanic"
     },
-    "ascendancy:Deadeye": {
-      "name": "锐眼",
-      "type": "ascendancy"
+    "game_mechanic:Act": {
+      "name": "Act",
+      "type": "game_mechanic"
     },
-    "ascendancy:Pathfinder": {
-      "name": "追猎者",
-      "type": "ascendancy"
+    "game_mechanic:Waystones": {
+      "name": "引路石",
+      "type": "game_mechanic"
     },
-    "class:Huntress": {
-      "name": "",
-      "type": "class"
+    "patch_note:Version_0.5.2": {
+      "name": "Version 0.5.2",
+      "type": "patch_note"
     },
-    "ascendancy:Amazon": {
-      "name": "亚马逊",
-      "type": "ascendancy"
+    "patch_note:Version_0.5.1": {
+      "name": "Version 0.5.1",
+      "type": "patch_note"
     },
-    "ascendancy:Spirit_Walker": {
-      "name": "灵魂行者",
-      "type": "ascendancy"
+    "patch_note:Version_0.5.0": {
+      "name": "更新公告",
+      "type": "patch_note"
     },
-    "ascendancy:Ritualist": {
-      "name": "仪祭师",
-      "type": "ascendancy"
+    "game_mechanic:Runes_of_Aldur_uniques": {
+      "name": "传奇",
+      "type": "game_mechanic"
     },
-    "class:Monk": {
-      "name": "",
-      "type": "class"
+    "game_mechanic:Runes_of_Aldur_items": {
+      "name": "物品",
+      "type": "game_mechanic"
     },
-    "ascendancy:Martial_Artist": {
+    "game_mechanic:Runes_of_Aldur_gems": {
+      "name": "宝石",
+      "type": "game_mechanic"
+    },
+    "game_mechanic:Farrow": {
+      "name": "法罗",
+      "type": "game_mechanic"
+    },
+    "game_mechanic:The_Runeseeker": {
+      "name": "符文猎手",
+      "type": "game_mechanic"
+    },
+    "game_mechanic:Martial_Artist": {
       "name": "武圣",
-      "type": "ascendancy"
+      "type": "game_mechanic"
     },
-    "ascendancy:Invoker": {
-      "name": "祈求者",
-      "type": "ascendancy"
+    "game_mechanic:Spirit_Walker": {
+      "name": "灵魂行者",
+      "type": "game_mechanic"
     },
-    "ascendancy:Acolyte_of_Chayula": {
-      "name": "夏乌拉追随者",
-      "type": "ascendancy"
+    "game_mechanic:Atziris_Communion": {
+      "name": "阿兹里的圣礼",
+      "type": "game_mechanic"
     },
-    "class:Witch": {
-      "name": "",
-      "type": "class"
+    "game_mechanic:Animus_Exchange": {
+      "name": "命源交换",
+      "type": "game_mechanic"
     },
-    "ascendancy:Infernalist": {
-      "name": "驱炎使",
-      "type": "ascendancy"
+    "game_mechanic:Animus_Splinters": {
+      "name": "命源碎片",
+      "type": "game_mechanic"
     },
-    "ascendancy:Blood_Mage": {
-      "name": "命源法师",
-      "type": "ascendancy"
+    "game_mechanic:Bitter_Dead": {
+      "name": "苦涩死亡",
+      "type": "game_mechanic"
     },
-    "ascendancy:Lich": {
-      "name": "巫妖",
-      "type": "ascendancy"
-    },
-    "ascendancy:Abyssal_Lich": {
-      "name": "深渊巫妖",
-      "type": "ascendancy"
-    },
-    "class:Sorceress": {
-      "name": "",
-      "type": "class"
-    },
-    "ascendancy:Stormweaver": {
-      "name": "风暴编织者",
-      "type": "ascendancy"
-    },
-    "ascendancy:Chronomancer": {
-      "name": "塑时术师",
-      "type": "ascendancy"
-    },
-    "ascendancy:Disciple_of_Varashta": {
-      "name": "瓦拉煞的门徒",
-      "type": "ascendancy"
+    "game_mechanic:Conductive_Runes": {
+      "name": "导电符文",
+      "type": "game_mechanic"
     }
   },
   "edges": [

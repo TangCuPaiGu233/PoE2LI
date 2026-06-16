@@ -3,6 +3,14 @@
 # URL convention: /cn/ is the Chinese+English bilingual version (preferred for CN name extraction)
 
 entity_types:
+  # Homepage-first discovery: crawls /cn/ navigation to find ALL content pages
+  homepage:
+    index_urls:
+      - "https://poe2db.tw/cn/"
+    url_prefix: "/cn/"
+    parser: homepage_parser
+    relations: []
+
   # ── Class & Ascendancy ──
   class:
     index_urls:
@@ -57,12 +65,6 @@ entity_types:
       - "https://poe2db.tw/cn/Boots"
       - "https://poe2db.tw/cn/Gloves"
       - "https://poe2db.tw/cn/Ring"
-      - "https://poe2db.tw/cn/Shield"
-      - "https://poe2db.tw/cn/Quiver"
-      - "https://poe2db.tw/cn/Amulet"
-      - "https://poe2db.tw/cn/Belt"
-      - "https://poe2db.tw/cn/Helmet"
-      - "https://poe2db.tw/cn/Body_Armour"
     url_prefix: "/cn/"
     parser: base_item_parser
     relations: [has_implicit, has_mod_pool, has_tag]
@@ -108,9 +110,9 @@ entity_types:
 
   tag:
     index_urls:
-      - "https://poe2db.tw/cn/Gem_Tags"
+      - "https://poe2db.tw/cn/Keywords"
     url_prefix: "/cn/"
-    parser: tag_parser
+    parser: generic_parser
     relations: [applies_to]
 
   quest:
@@ -126,3 +128,100 @@ entity_types:
     url_prefix: "/cn/"
     parser: generic_parser
     relations: [uses_currency, modifies_item]
+
+  # ── Game systems & mechanics ──
+  game_mechanic:
+    index_urls:
+      - "https://poe2db.tw/cn/Breach"
+      - "https://poe2db.tw/cn/Delirium"
+      - "https://poe2db.tw/cn/Ritual"
+      - "https://poe2db.tw/cn/Expedition"
+      - "https://poe2db.tw/cn/Essence"
+      - "https://poe2db.tw/cn/Harvest"
+      - "https://poe2db.tw/cn/Legion"
+      - "https://poe2db.tw/cn/Blight"
+      - "https://poe2db.tw/cn/Ultimatum"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  league_mechanic:
+    index_urls:
+      - "https://poe2db.tw/cn/Runes_of_Aldur_league"
+      - "https://poe2db.tw/cn/Fate_of_the_Vaal_league"
+      - "https://poe2db.tw/cn/Runes_of_Aldur_gems"
+      - "https://poe2db.tw/cn/Runes_of_Aldur_items"
+      - "https://poe2db.tw/cn/Runes_of_Aldur_uniques"
+      - "https://poe2db.tw/cn/Dawn_of_the_Hunt"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  patch_note:
+    index_urls:
+      - "https://poe2db.tw/cn/Version_0.5.0"
+      - "https://poe2db.tw/cn/Version_0.5.1"
+      - "https://poe2db.tw/cn/Version_0.5.2"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  keyword:
+    index_urls:
+      - "https://poe2db.tw/cn/Keywords"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: [applies_to]
+
+  game_system:
+    index_urls:
+      - "https://poe2db.tw/cn/GameConstants"
+      - "https://poe2db.tw/cn/Commands"
+      - "https://poe2db.tw/cn/HelpfulTips"
+      - "https://poe2db.tw/cn/QuestRewards"
+      - "https://poe2db.tw/cn/EndGame"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  flask:
+    index_urls:
+      - "https://poe2db.tw/cn/Flasks"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  catalyst:
+    index_urls:
+      - "https://poe2db.tw/cn/Catalysts"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  atlas_tree:
+    index_urls:
+      - "https://poe2db.tw/cn/atlas-skill-tree"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  npc:
+    index_urls:
+      - "https://poe2db.tw/cn/NPCs"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
+
+  other:
+    index_urls:
+      - "https://poe2db.tw/cn/MinimapIcons"
+      - "https://poe2db.tw/cn/MicrotransactionCombineFormula"
+      - "https://poe2db.tw/cn/passive-skill-tree"
+      - "https://poe2db.tw/cn/Achievements"
+      - "https://poe2db.tw/cn/Miscellaneous"
+      - "https://poe2db.tw/cn/Consumable"
+      - "https://poe2db.tw/cn/Strongbox"
+      - "https://poe2db.tw/cn/Splinter"
+    url_prefix: "/cn/"
+    parser: generic_parser
+    relations: []
