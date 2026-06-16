@@ -10,7 +10,6 @@ import os
 import json
 import re
 import logging
-from openai import OpenAI
 from app.models.schemas import DecodeResponse
 from app.core.database import SessionLocal
 from app.models.build import ModTranslation
@@ -18,16 +17,8 @@ from app.core.game_context import attach_poe2_rule
 
 logger = logging.getLogger(__name__)
 
-from app.core.llm_config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, llm_thinking_extra_body
-
-_client = None
-
-def _get_client():
-    """Lazy-initialize OpenAI client (prevents crash on import when API key is missing)."""
-    global _client
-    if _client is None:
-        _client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
-    return _client
+from app.core.llm_config import LLM_MODEL, llm_thinking_extra_body
+from app.core.llm_client import get_llm_client
 
 # ── Static system prompts (cached across all requests) ──
 HOMEWORK_SYSTEM_PROMPT = attach_poe2_rule("""你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
@@ -91,7 +82,7 @@ def _translate_unknown_mods(mods: list[str]) -> dict[str, str]:
     prompt += '{\n  "英文词缀1": "中文翻译1",\n  "英文词缀2": "中文翻译2"\n}'
     
     try:
-        response = _get_client().chat.completions.create(
+        response = get_llm_client().chat.completions.create(
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
@@ -527,7 +518,7 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     logger.info(f"Chat question: {question}")
 
     try:
-        response = _get_client().chat.completions.create(
+        response = get_llm_client().chat.completions.create(
             model=LLM_MODEL,
             max_tokens=1000,
             messages=[
@@ -592,7 +583,7 @@ def generate_homework(build_data: DecodeResponse) -> dict:
     build_data_str = _build_prompt(build_data)
 
     try:
-        response = _get_client().chat.completions.create(
+        response = get_llm_client().chat.completions.create(
             model=LLM_MODEL,
             max_tokens=4000,
             messages=[

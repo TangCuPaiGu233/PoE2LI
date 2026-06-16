@@ -18,8 +18,8 @@ def _fake_completion(content: str):
     return resp
 
 
-@patch("openai.OpenAI")
-def test_llm_planner_parses_tasks(mock_openai_cls):
+@patch("app.orchestrator.llm_planner.get_llm_client")
+def test_llm_planner_parses_tasks(mock_get_client):
     payload = {
         "tasks": [
             {"agent": "build_design", "query": "灵魂行者 偶像词缀 搭配"},
@@ -27,7 +27,7 @@ def test_llm_planner_parses_tasks(mock_openai_cls):
         "reasoning": "配装问题",
     }
     client = MagicMock()
-    mock_openai_cls.return_value = client
+    mock_get_client.return_value = client
     client.chat.completions.create.return_value = _fake_completion(json.dumps(payload))
 
     messages = [
@@ -39,10 +39,10 @@ def test_llm_planner_parses_tasks(mock_openai_cls):
     assert "llm:" in plan.planning_note
 
 
-@patch("openai.OpenAI")
-def test_llm_planner_fallback_on_bad_json(mock_openai_cls):
+@patch("app.orchestrator.llm_planner.get_llm_client")
+def test_llm_planner_fallback_on_bad_json(mock_get_client):
     client = MagicMock()
-    mock_openai_cls.return_value = client
+    mock_get_client.return_value = client
     client.chat.completions.create.return_value = _fake_completion("not json")
 
     plan = llm_plan_dispatch([{"role": "user", "content": "火焰伤害怎么算"}])

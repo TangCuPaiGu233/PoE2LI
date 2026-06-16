@@ -8,7 +8,8 @@ import re
 import uuid
 from typing import Any
 
-from app.core.llm_config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, llm_message_text
+from app.core.llm_config import LLM_MODEL, llm_message_text
+from app.core.llm_client import get_llm_client
 from app.orchestrator.schemas import AgentName, DispatchPlan, TaskSpec
 from app.orchestrator.session_context import SessionContext, build_session_context
 from app.services.chat_multimodal import extract_text, message_has_images
@@ -184,9 +185,7 @@ def llm_plan_dispatch(messages: list[dict[str, Any]]) -> DispatchPlan:
         user_block += "\n(本轮含截图，若需查价/识装请派 trade_search，query 写从对话推断的装备描述)"
 
     try:
-        from openai import OpenAI
-
-        client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+        client = get_llm_client()
         resp = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[

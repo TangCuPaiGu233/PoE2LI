@@ -16,7 +16,7 @@ def content_hash(text: str) -> str:
 
 
 def ingest(jsonl_path: str, source: str = "poe2db",
-           league: str | None = None, game_version: str | None = None):
+           league: str = "Standard", game_version: str = "0_1"):
     if not os.path.exists(jsonl_path):
         logger.error(f"File not found: {jsonl_path}")
         return
@@ -101,8 +101,8 @@ if __name__ == "__main__":
     parser.add_argument("jsonl_path", nargs="?", default="/app/data/poe2db_chunks_v2.jsonl")
     parser.add_argument("--source", default="poe2db",
                         help="source tag: poe2db / pob / poe2wiki / homework")
-    parser.add_argument("--league", default=None, help="league name (optional)")
-    parser.add_argument("--game-version", default=None, help="game version (optional)")
+    parser.add_argument("--league", default="Standard", help="league name")
+    parser.add_argument("--game-version", default="0_1", help="game version")
     args = parser.parse_args()
     ingest(args.jsonl_path, source=args.source,
            league=args.league, game_version=args.game_version)

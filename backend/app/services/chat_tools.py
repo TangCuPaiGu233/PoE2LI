@@ -12,6 +12,8 @@ from typing import Any
 from app.services.chat_async_util import run_sync_with_timeout, TRADE_SEARCH_TIMEOUT_SEC
 
 from app.core.database import SessionLocal
+from app.models.build import KnowledgeChunk
+from app.models.knowledge_graph import KbEntity
 from app.models.schemas import DecodeResponse, ErrorResponse
 from app.services.embedding_service import get_embedding
 from app.services.pob_service import decode_pob
@@ -49,6 +51,7 @@ class ChatToolContext:
     rag_search_calls: int = 0
     trade_search_calls: int = 0
     last_build_summary: str | None = None
+    rag_queries: list[str] = field(default_factory=list)  # dedup: track all rag queries this turn
 
 
 @dataclass
@@ -59,6 +62,36 @@ class ToolRunResult:
     sources: list[dict] | None = None
     recommend_result: dict | None = None
 
+
+# ── Dedup helpers ──────────────────────────────────────────────
+
+def _query_jaccard(a: str, b: str) -> float:
+    """Jaccard similarity on word sets — fast, no dependencies."""
+    if not a or not b:
+        return 0.0
+    sa, sb = set(a.lower().split()), set(b.lower().split())
+    union = len(sa | sb)
+    return len(sa & sb) / union if union > 0 else 0.0
+
+
+_RAG_DEDUP_THRESHOLD = 0.30
+_RAG_SOFT_LIMIT = 5
+
+
+def _check_rag_dedup(query: str, ctx: ChatToolContext) -> str | None:
+    """Return a warning message if this query is too similar to a previous one, else None."""
+    if not ctx.rag_queries:
+        return None
+    for prev in reversed(ctx.rag_queries[-3:]):  # only check last 3
+        if _query_jaccard(query, prev) > _RAG_DEDUP_THRESHOLD:
+            return (
+                f"检索去重：当前 query 「{query}」与已搜过的 「{prev}」高度相似（Jaccard={_query_jaccard(query, prev):.2f}）。"
+                "请基于已有检索结果回答，不要再搜相同内容。"
+            )
+    return None
+
+
+# ── Tool definitions ───────────────────────────────────────────
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -345,6 +378,114 @@ def _run_entity_resolve(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunRe
     return ToolRunResult(content=json.dumps(payload, ensure_ascii=False))
 
 
+# ── Entity grounding ──────────────────────────────────────────
+
+# Chunk types that contain definitive entity facts (not user-submitted builds)
+_FACT_CHUNK_TYPES = {"item", "skill", "gem", "mod", "mechanic", "wiki", "ascendancy", "quest"}
+
+
+def _collect_entity_facts(
+    chunks: list[dict],
+    league: str | None = None,
+    game_version: str | None = None,
+) -> str:
+    """Extract entity names from chunk metadata and cross-reference kb_entities for authoritative facts.
+
+    Returns a markdown block of verified entity info to inject before the RAG context,
+    or an empty string if no entities found.
+    """
+    # Collect (entity_type, en_name) pairs from chunk metadata
+    candidates: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for c in chunks:
+        ctype = (c.get("chunk_type") or "").strip()
+        if ctype not in _FACT_CHUNK_TYPES:
+            continue
+        content = c.get("content") or ""
+        try:
+            data = json.loads(content) if isinstance(content, str) and content.startswith("{") else {}
+        except (json.JSONDecodeError, TypeError):
+            data = {}
+        for field in ("name_en", "name", "title", "skill_name", "item_name"):
+            val = (data.get(field) or "").strip()
+            if val and val.lower() not in seen and len(val) > 2:
+                seen.add(val.lower())
+                candidates.append((ctype, val))
+
+    if not candidates:
+        return ""
+
+    # Query kb_entities for matches
+    db = SessionLocal()
+    try:
+        entity_map: dict[str, dict] = {}
+        for ctype, en_name in candidates[:10]:  # cap at 10 to keep prompt lean
+            row = (
+                db.query(KbEntity)
+                .filter(
+                    KbEntity.name_en.ilike(en_name),
+                    KbEntity.entity_type == ctype,
+                )
+                .first()
+            )
+            if row:
+                key = f"{ctype}:{en_name}"
+                entity_map[key] = {
+                    "type": row.entity_type,
+                    "name_en": row.name_en or en_name,
+                    "name_cn": row.name_cn or "",
+                    "aliases": json.loads(row.aliases) if row.aliases else [],
+                    "chunk_id": row.chunk_id,
+                }
+                # Fetch linked detailed chunk for rich description
+                if row.chunk_id:
+                    chunk_row = db.query(KnowledgeChunk).filter(
+                        KnowledgeChunk.id == row.chunk_id
+                    ).first()
+                    if chunk_row and chunk_row.content:
+                        entity_map[key]["detail"] = (chunk_row.content or "")[:800]
+    finally:
+        db.close()
+
+    if not entity_map:
+        return ""
+
+    lines = [
+        "## 权威实体信息（回答时只能引用下方列出的实体属性，禁止推测未提供的技能效果或装备词缀）",
+        "",
+    ]
+    for key, info in entity_map.items():
+        cn = info["name_cn"]
+        en = info["name_en"]
+        et = info["type"]
+        label = f"{cn}（{en}）" if cn else en
+        lines.append(f"### [{et}] {label}")
+        if info.get("detail"):
+            detail = info["detail"]
+            try:
+                d = json.loads(detail) if isinstance(detail, str) else detail
+                if isinstance(d, dict):
+                    # poe2db data: extract key fields
+                    desc = d.get("cn_description") or d.get("description") or ""
+                    if desc:
+                        lines.append(f"  - {desc[:300]}")
+                    stats = d.get("stats") or d.get("cn_stats") or ""
+                    if stats:
+                        lines.append(f"  - 属性: {str(stats)[:200]}")
+                    search = d.get("search_text") or ""
+                    if search and search != en:
+                        lines.append(f"  - {search[:200]}")
+                elif isinstance(detail, str):
+                    # wiki data: clean up and truncate
+                    clean = detail[:400].replace("\n", " ")
+                    lines.append(f"  - {clean}")
+            except (json.JSONDecodeError, TypeError):
+                lines.append(f"  - {detail[:300]}")
+        lines.append("")
+
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
 def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
     import time as _time
 
@@ -399,6 +540,12 @@ def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult
         chunks.extend(extra)
 
     context = build_context(chunks[:10])
+
+    # ── Entity grounding: inject verified facts for entities found in chunks ──
+    entity_facts = _collect_entity_facts(chunks, ctx.league, ctx.game_version)
+    if entity_facts:
+        context = entity_facts + "\n\n" + context
+
     sources = [
         {
             "type": c.get("chunk_type", "?"),
@@ -595,14 +742,35 @@ async def execute_tool(
     if name == "entity_resolve":
         return _run_entity_resolve(args, ctx)
     if name == "rag_search":
-        if ctx.rag_search_calls >= 3:
+        query = (args.get("query") or "").strip()
+
+        # Dedup: block near-duplicate queries
+        dup_msg = _check_rag_dedup(query, ctx)
+        if dup_msg:
+            logger.info("[CHAT] tool rag_search DUPLICATE query=%s", query[:100])
             return ToolRunResult(
                 content=json.dumps(
-                    {"error": "rag_search_limit", "message": "max 3 rag_search per turn"},
+                    {"status": "blocked", "reason": "duplicate", "hint": dup_msg},
                     ensure_ascii=False,
                 ),
             )
+
+        # Soft limit: allow up to 5, but warn when budget is exhausted
+        if ctx.rag_search_calls >= _RAG_SOFT_LIMIT:
+            logger.info("[CHAT] tool rag_search LIMIT reached (%d)", ctx.rag_search_calls)
+            return ToolRunResult(
+                content=json.dumps(
+                    {
+                        "status": "budget_exhausted",
+                        "reason": f"本轮已检索 {_RAG_SOFT_LIMIT} 次，预算耗尽。",
+                        "hint": "请基于已有的检索结果综合回答，不要再次检索。",
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+
         ctx.rag_search_calls += 1
+        ctx.rag_queries.append(query)
         return await run_sync_with_timeout(_run_rag_search, args, ctx, timeout=timeout)
     if name == "decode_pob":
         return await run_sync_with_timeout(_run_decode_pob, args, ctx, timeout=timeout)

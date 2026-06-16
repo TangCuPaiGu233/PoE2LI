@@ -16,14 +16,14 @@ import logging
 import time
 from typing import Any
 
-from app.core.llm_config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, llm_message_text
+from app.core.llm_config import LLM_MODEL, llm_message_text
+from app.core.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
 
 def _get_llm_client():
-    from openai import OpenAI
-    return OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    return get_llm_client()
 
 
 # ── Step 1: Parse intent into DSL ──

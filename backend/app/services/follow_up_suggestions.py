@@ -49,12 +49,9 @@ async def generate_follow_up_questions(
     if not answer or not question:
         return []
 
-    from openai import AsyncOpenAI
+    from app.core.llm_client import get_async_llm_client
 
-    client = AsyncOpenAI(
-        base_url=os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
-        api_key=os.getenv("LLM_API_KEY", ""),
-    )
+    client = get_async_llm_client()
     model = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
     trimmed_answer = answer[:3500] if len(answer) > 3500 else answer
 

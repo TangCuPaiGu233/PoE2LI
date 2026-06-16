@@ -365,9 +365,9 @@ weight_min 是总分阈值。
 
 
 def _get_llm_client():
-    """Get OpenAI-compatible client for SiliconFlow."""
-    from openai import OpenAI
-    return OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    """Get OpenAI-compatible client."""
+    from app.core.llm_client import get_llm_client
+    return get_llm_client()
 
 
 def _extract_min_max(d: dict | None) -> dict | None:

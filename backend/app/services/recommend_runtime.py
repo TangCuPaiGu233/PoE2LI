@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import os
 
-from openai import OpenAI
-
 from app.core.database import SessionLocal
 from app.models.build import KnowledgeChunk
 from app.services.embedding_service import get_embedding
@@ -18,17 +16,11 @@ except ImportError:
     decode_pob = None
 
 _agent: RecommendAgent | None = None
-_llm_client: OpenAI | None = None
 
 
-def _get_llm() -> OpenAI:
-    global _llm_client
-    if _llm_client is None:
-        _llm_client = OpenAI(
-            base_url=os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
-            api_key=os.getenv("LLM_API_KEY", ""),
-        )
-    return _llm_client
+def _get_llm():
+    from app.core.llm_client import get_llm_client
+    return get_llm_client()
 
 
 async def _embed_adapter(text: str) -> list[float]:

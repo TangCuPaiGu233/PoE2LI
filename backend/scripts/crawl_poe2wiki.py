@@ -145,6 +145,8 @@ def ingest_page(db, page_data):
         embedding=emb,
         source="poe2wiki",
         chunk_type="wiki",
+        league="Standard",
+        game_version="0_1",
     )
     db.add(kc)
     db.flush()

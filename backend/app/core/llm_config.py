@@ -6,6 +6,12 @@ import os
 
 from typing import Any
 
+# ── Langfuse observability ──
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "http://langfuse:3000")
+LANGFUSE_ENABLED = bool(LANGFUSE_SECRET_KEY and LANGFUSE_PUBLIC_KEY)
+
 # Active provider (override in docker-compose.yml)
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.xiaomimimo.com/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")

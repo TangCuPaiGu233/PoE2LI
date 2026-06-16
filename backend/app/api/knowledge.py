@@ -259,8 +259,8 @@ async def ask_question(req: AskRequest):
     llm_key = os.getenv("LLM_API_KEY", "")
     llm_model = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
 
-    from openai import OpenAI
-    client = OpenAI(base_url=llm_url, api_key=llm_key)
+    from app.core.llm_client import get_llm_client
+    client = get_llm_client()
 
     sys_prompt = f"""{POE2_SITE_RULE}
 

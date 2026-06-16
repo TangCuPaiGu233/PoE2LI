@@ -4,316 +4,352 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PoE2 智能工具站「流放漓」** — A Chinese-language intelligent tool site for Path of Exile 2 players. Backend uses "traditional code + background AI Agent" hybrid: code handles deterministic tasks (decoding, parsing, rate-limiting, caching), AI handles fuzzy tasks (understanding affixes, summarizing build logic, generating Chinese playbooks, Q&A).
+**PoE2 智能工具站「流放漓」** — A Chinese-language intelligent tool site for Path of Exile 2 players. The backend is built on a **three-layer Agent architecture**: a main Agent (ReAct or LLM Planner) routes user intent, dispatches to sub-Agents (encyclopedia, trade_search, build_design, etc.), which in turn call deterministic tools (Trade API, pgvector, PoB decode, entity lookup). AI handles routing, understanding, and synthesis; tools handle precise execution.
 
-**Primary spec**: `PoE2智能工具站-工程开发细节文档（2.0）.md` — the authoritative implementation spec. Read it before making any architectural decisions.
+**Primary spec**: `PoE2智能工具站-工程开发细节文档（2.0）.md` — authoritative for product scope. **Domain glossary**: `CONTEXT.md`. **Architecture decisions**: `docs/adr/`.
 
-## Architecture
+**Core design principle**: AI Agents handle routing, intent understanding, and result synthesis — they decide what to do. Tools (code) handle precise execution — they do it correctly. Don't push deterministic work into the Agent's reasoning; keep it in the tool layer. All AI outputs for programmatic use must be schema-validated + cross-checked + retried.
+
+## System Architecture
 
 ```
 Frontend (Next.js + TypeScript + TailwindCSS)
-    ↕ REST
+    ↕ REST / SSE
 API Gateway (FastAPI)
-    ├── Business Services (Build, Chat, Trade)
-    ├── AI Orchestrator (LangGraph or custom)
-    ├── Trade Service (server-side Trade API proxy)
-    └── Data Collectors
+    ├── Builds API        — PoB decode, homework, CRUD
+    ├── Chat API          — POST /api/chat (SSE, multi-turn)
+    ├── Trade API         — server-side Trade API proxy
+    ├── Knowledge API     — /api/knowledge/ask, /recommend
+    ├── Entities API      — mentions, tooltip, icon-image
+    └── Admin / collectors
          ↕
-Data Layer: PostgreSQL (+pgvector) + Redis + S3
-         ↕  Celery async tasks
-Background Agent Workers
-    (PoB Parser, Homework Generator, Knowledge Ingester, etc.)
+Data Layer: PostgreSQL (+pgvector) + Redis + S3-compatible storage
+         ↕  Celery (async homework, ingest jobs)
+Background Workers — PoB parser, homework generator, KB ingesters, scrapers
 ```
 
-**Core design principle**: Anything code can do precisely, never hand to AI. AI only handles fuzzy/inferential tasks. All AI outputs must be structured data with schema validation + cross-checking + retry.
+**Trade search**: Server calls PoE2 Trade API → search ID → URL to frontend. See [ADR-0002](docs/adr/0002-trade-search-architecture.md).
 
-**Trade search**: 服务端直接调 PoE2 Trade API 获取搜索 ID，拼接 URL 返回前端。初期用户量可控，后期视情况迁移到浏览器插件。详见 [ADR-0002](docs/adr/0002-trade-search-architecture.md)。
+**KB data flow**: Scrapers + ingest + embedding run **on NAS only**; Tencent Cloud is read-only consumer. See [docs/ops/deployment.md](docs/ops/deployment.md).
+
+## Agent & Chat Orchestration
+
+Chat is the most complex subsystem. There are **two runtimes** (env `CHAT_RUNTIME`, default `legacy`):
+
+| Runtime | Entry | When to use |
+|---------|-------|-------------|
+| **`legacy`** (default) | `chat_agent.stream_chat_agent` | Production default — single ReAct loop; LLM chooses tools turn-by-turn |
+| **`orchestrator`** | `chat_orchestrator.stream_chat_orchestrator` | Parallel sub-agents + synthesis LLM; set `CHAT_RUNTIME=orchestrator` |
+
+Both share the same **tool executors** in `chat_tools.py` — no duplicate business logic.
+
+### End-to-end flow (`POST /api/chat`)
+
+```
+messages[]  →  chat_orchestrator.stream_chat()     # runtime switch
+                    │
+    ┌───────────────┴────────────────┐
+    │ CHAT_RUNTIME=legacy            │ CHAT_RUNTIME=orchestrator
+    ▼                                ▼
+stream_chat_agent()              stream_chat_orchestrator()
+ReAct loop (≤8 rounds)           plan → parallel dispatch → synthesize
+    │                                │
+    └──────── chat_tools.execute_tool ┘
+                    │
+         entity_resolve / rag_search / trade_search /
+         decode_pob / recommend / resolve_trade_stat
+                    │
+         retrieval_pipeline, trade_agent, pob_service, …
+```
+
+**Design intent (2026-06)**:
+- **Fuzzy routing → AI** (planner or ReAct agent reads full conversation).
+- **Deterministic execution → code** (tools, Trade API filters, PoB decode, entity tables).
+- **No per-entity routing patches** in application code — official names from Trade API index.
+
+### Legacy runtime — ReAct agent
+
+| File | Role |
+|------|------|
+| `backend/app/services/chat_agent.py` | System prompt (`AGENT_SYSTEM` rules 0–31), ReAct loop, streaming |
+| `backend/app/services/chat_tools.py` | Tool definitions + `execute_tool()` + `detect_input_signals()` |
+| `backend/app/orchestrator/session_context.py` | `build_session_context()` — prior turns, trade anchors, PoB detection |
+
+The agent calls OpenAI-compatible tools (`entity_resolve`, `rag_search`, `trade_search`, `decode_pob`, `recommend`, `resolve_trade_stat`). Rules in `AGENT_SYSTEM` cover multi-turn price follow-ups, 百科 vs 市集, 扭曲项链/畸变项链 disambiguation, WeGame panels, etc.
+
+`detect_input_signals()` injects **hints** (not hard routes), e.g. `bare_item_name:use_rag`, `trade_base_type:扭曲项链=Distorted Amulet`.
+
+### Orchestrator runtime — plan → parallel → synthesize
+
+| File | Role |
+|------|------|
+| `backend/app/services/chat_orchestrator.py` | SSE events, synthesis prompt, `stream_chat()` entry |
+| `backend/app/orchestrator/llm_planner.py` | LLM reads conversation → JSON `{tasks: [{agent, query, …}]}` |
+| `backend/app/orchestrator/planner.py` | Thin wrapper → `llm_plan_dispatch(messages)` |
+| `backend/app/orchestrator/session_context.py` | `SessionContext` — anchors, `effective_user_msg()`, `trade_search_query()` |
+| `backend/app/orchestrator/dispatcher.py` | `dispatch_parallel()` — semaphore + per-task timeout |
+| `backend/app/orchestrator/runners.py` | Maps each `TaskSpec` → `execute_tool()` |
+| `backend/app/orchestrator/schemas.py` | `TaskSpec`, `SkillAgentResult`, `DispatchPlan` |
+
+**Sub-agents** (parallel, stateless — each gets `effective_user_msg` in payload):
+
+| Agent | Tool(s) | Purpose |
+|-------|---------|---------|
+| `decode_pob` | `decode_pob` | PoB code / pobb.in / poe.ninja / WeGame link |
+| `trade_search` | `trade_search` | Market search + listing inspection |
+| `encyclopedia` | `rag_search` | Mechanics, skills, items, mods |
+| `build_design` | `rag_search` | BD / 配装 / 如何搭配 |
+| `recommend` | `recommend` | Explicit multi-item comparison only |
+
+**Deterministic merge**: If `session_context` detects PoB input, `decode_pob` task is **always** injected even if LLM planner omits it (`_merge_pob_task`).
+
+**Synthesis**: Second LLM pass combines `SkillAgentResult.to_synthesis_block()` outputs; skill-specific system prompts from `backend/app/skills/*.py` via `get_skill()`.
+
+**SSE event types**: `thinking`, `reasoning`, `answer`, `trade_result`, `recommend_result`, `sources`, `sub_agent_done`, `follow_ups`, `done`.
+
+### Skills module (prompt templates, not primary router)
+
+`backend/app/skills/` — `TradeSearchSkill`, `EncyclopediaSkill`, `BuildDesignSkill`, `RecommendSkill`.
+
+- **Not** the main `/api/chat` dispatcher anymore (no keyword `route()` in chat path).
+- Used by orchestrator **synthesis** for per-agent system prompt fragments.
+- `POST /api/knowledge/ask` uses retrieval pipeline directly (not skill router).
+
+### Shared tool layer (`chat_tools.py`)
+
+| Tool | Owner logic |
+|------|-------------|
+| `entity_resolve` | `entity_resolver.py` |
+| `rag_search` | `retrieval_pipeline.py` — vector + structured lookup + concept expansion |
+| `trade_search` | `trade_agent.py` — intent → stat IDs → multi-plan → inspect |
+| `decode_pob` | `pob_service.py` + WeGame/ninja fetchers |
+| `recommend` | multi-hop item comparison |
+| `resolve_trade_stat` | `trade_stat_service.py` — vector match stat IDs |
+
+Env knobs: `CHAT_TRADE_SEARCH_MAX` (default 8), `ORCHESTRATOR_MAX_PARALLEL` (default 12).
+
+### Retrieval pipeline (RAG)
+
+`retrieval_pipeline.py` — unified path for chat tools and `/api/knowledge/ask`:
+
+1. Entity resolution + alias keyword injection
+2. Structured entity lookup (ascendancy/item/skill) **before** vector search
+3. pgvector search (BGE-M3, filter `league` + `game_version`)
+4. Concept expansion via `knowledge_chunks.links` (max 4 chunks)
+5. Knowledge graph (`kb_entities` + `kb_edges`) for multi-hop
+
+### Entity resolution & official CN names
+
+**Single source of truth for item base CN↔EN**: `backend/data/trade_items_en_cn.json` (~2876 entries), loaded in `entity_resolver._load_aliases()` at confidence 99, source `trade_api`.
+
+`entity_dict.ITEM_CN_ALIASES` — **colloquial only** (e.g. `沉默之雷`→Mjölner, `扭曲护身符`→Twisted Amulet). Do **not** add official base names one-by-one; refresh Trade index via `scripts/fetch_trade_items_bilingual.py`.
+
+**Critical国服译名** (Trade API):
+- **扭曲项链** = `Distorted Amulet` (normal amulet affix pool)
+- **畸变项链** = `Twisted Amulet` (Delirium / Instilled anointing base)
+- Community slang `扭曲护身符` → Twisted Amulet (colloquial alias)
+
+`trade_items_index.match_base_type_in_text()` — longest-match base detection for Trade `type` filter.
+
+### Entity chips (chat UI)
+
+Backend: `entity_tooltip.find_mentions()` → `POST /api/entities/mentions`.
+
+Frontend: `ChatMarkdown.tsx` inserts `⟦poe:label|en|type⟧` markers → `PoeEntityChip.tsx`.
+
+Rules (2026-06): skip metadata lines (`英文名：`, `基底类型：`), skip `NAME（alias）` disambiguation spans, cap 2 chips per label, CJK embedding allowed, trade bases show **基底** not 暗金 in tooltip.
 
 ## Tech Stack
 
 - **Frontend**: Next.js (React) + TypeScript + TailwindCSS
 - **Backend API**: Python FastAPI
 - **Async Tasks**: Celery + Redis
-- **Database**: PostgreSQL (JSONB for flexible build data) + pgvector extension
-- **Cache**: Redis (official data cache + rate-limit token bucket + Celery broker)
+- **Database**: PostgreSQL (JSONB) + pgvector
+- **Cache**: Redis (API cache, rate-limit, Celery broker)
 - **Object Storage**: S3-compatible (MinIO / cloud OSS)
-- **AI Models**: mimo-v2.5（LLM，默认）· DeepSeek V4 Flash（备用）· BGE-M3（Embedding，SiliconFlow）
-- **Deployment**: Docker + docker-compose. Ops runbook: [docs/ops/deployment.md](docs/ops/deployment.md).
+- **AI**: mimo-v2.5 (LLM default) · DeepSeek V4 Flash (fallback) · BGE-M3 embeddings (SiliconFlow)
+- **Deployment**: Docker Compose — [docs/ops/deployment.md](docs/ops/deployment.md)
 
-## P0 Core Loop (v1.0 — the only target for initial release)
+## P0 Core Loop
 
 ```
 User pastes PoB Code
-  → Backend decodes (base64 + zlib → XML)
-  → Parses into structured BuildData (items/talents/skills/stats)
-  → AI Agent generates Chinese playbook (why this setup / core items / budget alternatives / talent highlights / strength review)
-  → Store in DB + display on frontend
+  → decode (base64 + zlib → XML)
+  → parse → BuildData JSON
+  → AI generates Chinese homework (playbook)
+  → store in DB + display
 ```
 
 ## PoB Code Decoding — Verified Facts
 
-These are empirically validated (2026-06-05) — code MUST follow these:
+Empirically validated (2026-06-05):
 
-1. **PoB Code starts with `eN`** (eNp, eNr, eJx all valid). Use `code[:2] == "eN"` for quick validation, not a stricter prefix.
-2. **Standard PoB exports use zlib-wrapped format** — `zlib.decompress(raw)` succeeds directly. Raw deflate fallback (`-zlib.MAX_WBITS`) is for rare variants only.
-3. **URL-safe base64 requires padding** — `code += "=" * (-len(code) % 4)` is mandatory, PoB share codes often lack trailing `=`.
-4. **`xml.etree.ElementTree` is sufficient** — no need for lxml in MVP. Standard library can parse Build/Skills/Items/Tree nodes.
-5. **Skill gems use `nameSpec` (human-readable) with `skillId` fallback** — parse as `nameSpec or skillId` or you'll miss entries.
-6. **Item text is raw multi-line text** (first line: `Rarity: RARE/UNIQUE/MAGIC`) — affixes are unstructured; AI handles summarization, code only chunks.
-7. **Multiple tree Specs per build** (leveling/endgame) — present ALL, not just the first.
-8. **55KB XML encodes to ~16KB** — storage is not a concern.
+1. PoB code starts with `eN` (`eNp`, `eNr`, `eJx` valid). Quick check: `code[:2] == "eN"`.
+2. Standard exports: `zlib.decompress(raw)` first; raw deflate (`-zlib.MAX_WBITS`) fallback only.
+3. URL-safe base64 needs padding: `code += "=" * (-len(code) % 4)`.
+4. `xml.etree.ElementTree` is sufficient for MVP.
+5. Gems: `nameSpec or skillId`.
+6. Item text is raw multi-line; affixes unstructured — AI summarizes.
+7. Multiple tree Specs per build — present all.
+8. ~55KB XML → ~16KB encoded — storage not a concern.
 
 ## Database Schema (Key Tables)
 
-- **`builds`**: Main table. `pob_code`, `build_data` (JSONB), `homework` (JSONB), `league`, `game_version`, `status` (pending/parsed/done/failed). All data MUST carry `league` + `game_version` — stale data from old seasons must not leak into AI retrieval.
-- **`mod_translations`**: English→Chinese affix mapping. Lookup-first, AI-fallback with writeback (self-learning dictionary).
-- **`knowledge_chunks`**: RAG vector store (pgvector). Filter by `league` + `game_version` on all queries.
-- **`jobs`**: Async task tracking with retries.
+- **`builds`**: `pob_code`, `build_data` (JSONB), `homework` (JSONB), `league`, `game_version`, `status`
+- **`mod_translations`**: EN→CN affix lookup-first, AI fallback + writeback
+- **`knowledge_chunks`**: RAG vectors; always filter `league` + `game_version`
+- **`kb_entities` / `kb_edges`**: Knowledge graph
+- **`jobs`**: Async task tracking
 
-## Compliance Rules (Non-negotiable)
+## Compliance (Non-negotiable)
 
-**Tier A (NEVER violate)**:
-- Never reverse-engineer game client resources
-- Read `X-Rate-Limit-*` headers from every official API response; exponential backoff on 429
-- All official API data goes through a centralized cache layer (Redis/PG) — no user request may directly hit official APIs
-- OAuth applications must be written by a human (LLM-generated = instant rejection)
+**Tier A**: No client reverse-engineering · Read `X-Rate-Limit-*` on every official API response · All official API via centralized cache — no user-request → live API · OAuth apps human-written only.
 
-**Tier B (Grey area, early OK with isolation)**:
-- poe.ninja scraping isolated in `collectors/grey/`, low-frequency, humanized UA, respect robots.txt
-- Must have a one-click switch to compliant alternative sources
-- pobb.in (AGPL-3.0) — reference its data structures only, never copy source into commercial service. Its public API `GET /:id/raw` is safe to call (API usage ≠ code license传染).
+**Tier B**: poe.ninja in `collectors/grey/` · pobb.in AGPL — reference data structures only, never copy source.
 
-## Code vs AI Responsibility Split
+## Agent vs Tool Responsibility
 
-| Task | Owner | Why |
-|------|-------|-----|
-| base64/zlib decode | Code | Deterministic |
-| XML parsing | Code | Structured, precise |
-| Official API + caching | Code | Rate-limit/compliance must be controlled |
-| Affix translation | Code (lookup table) → AI fallback | Priority: table first |
-| "What's the core idea of this build" | AI | Fuzzy reasoning |
-| "Budget alternative suggestions" | AI | Requires experience + reasoning |
-| Strength review | AI + code-provided DPS/EHP | AI interprets, code provides numbers |
-| Player Q&A | AI (RAG) | Language understanding |
+The system has three layers, each with a distinct role:
 
-## AI Output Requirements
+| Layer | Runs on | Responsibility |
+|-------|---------|----------------|
+| **Main Agent** | AI (LLM Planner / ReAct) | Understand user intent, decide which sub-agents to dispatch, synthesize results |
+| **Sub-Agent** | AI (per-domain prompt) | Execute domain reasoning with tool results, produce structured answer blocks |
+| **Tool** | Code | Deterministic execution — Trade API queries, pgvector search, PoB decode, entity lookup, stat ID resolution |
 
-- All AI outputs use **fixed JSON schema** — no free-form text for programmatic consumption
-- Inject full structured BuildData + relevant poe2db entries + version info into prompts
-- Strong constraint: "only summarize given data, never fabricate items/stats"
-- Post-output: schema validation → retry on failure → cross-check with source data → flag anomalies for human review
-- Maintain versioned prompt templates, support A/B testing
-- Tone: "matter-of-fact, clear and accurate" — no persona switching between newbie/veteran
+### Per-task ownership
+
+| Task | Owner |
+|------|-------|
+| Chat routing (which sub-agent to call) | Main Agent (AI) |
+| Build reasoning, playbooks, Q&A language | Sub-Agent (AI) |
+| Affix translation | Table lookup → AI fallback |
+| base64/zlib/XML parse, Trade API, caching, entity tables | Tool (Code) |
+| Tool execution, stat ID resolve, PoB decode | Tool (Code) |
 
 ## Milestones
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| M0 Tech PoC | PoB decoder works on real builds across major classes | ✅ |
-| M1 Core Loop | PoB → async playbook generation → frontend display | ✅ |
-| M2 Quality + Cold Start | Human review scores pass; operator imports N popular builds | ⚠️ CRUD exists, no import/score |
-| M3 Info DB / Affixes | poe2db base integrated, affix Chinese coverage target met | ✅ v2 ingested (1249 chunks), v3 scraping |
-| M4 Q&A RAG | Version-filtered RAG answers, hallucination rate controlled | ✅ POST /api/knowledge/ask, Redis cached |
-| M5 Trade Search | Server-side Trade API: intent → stat ID → search URL | ✅ Agent + TradeConcept dict + multi-plan |
-| M6 AI Chat Trade | AI-driven trade intent detection in chat | ✅ |
-| M7 Pricing / OAuth | Official API integration, currency exchange | ❌ |
-| M8 Browser Extension | Trade overlay, pobb.in import, hotkey launch | ❌ |
+| M0 PoB decoder | Real builds across classes | ✅ |
+| M1 Core loop | PoB → homework → frontend | ✅ |
+| M2 Quality + cold start | Review scores, popular build import | ⚠️ CRUD only |
+| M3 Knowledge base | poe2db + PoB + wiki ingested | ✅ ~22K chunks |
+| M4 RAG Q&A | Version-filtered answers | ✅ |
+| M5 Trade search | Intent → stat ID → URL | ✅ |
+| M6 Chat + trade | Trade intent in chat | ✅ |
+| M7 Pricing / OAuth | Official pricing API | ❌ |
+| M8 Browser extension | Trade overlay | ❌ |
 
-### M3 Details (Knowledge Base)
-- **poe2db scraper**: v2 (index pages) complete, v3 (detail pages) running background
-- **Data**: 1249 tri-language chunks (EN/CN/TW), 1238 with BGE-M3 embeddings
-- **QA Endpoint**: `POST /api/knowledge/ask` — vector search + LLM RAG
-- **Caching**: Redis cache for repeated questions (1h TTL)
-- **Pre-filter**: Keyword classifier narrows search by content type
-
-### M5 Details (Trade Search)
-- **Agent**: `trade_agent.py` — parse_intent → resolve_concepts → build_plans → execute → inspect
-- **Concepts**: 60 curated TradeConcept entries with CN aliases, item slot allowlists, known IDs
-- **Plans**: Core/Full/Relaxed search tiers with AND+COUNT stat groups
-- **Budget/Sort**: Supports price filter and pdps/edps sorting
-- **Inspection**: Fetches actual items to verify mods match intent
-- **Frontend**: `/trade` page shows best match + alternatives + explanation
-
-### Ongoing Work
-- **v3 Scraper**: ~978 detail pages being scraped (est. 4 hours), will add full skill/item descriptions
-- **Multi-hop QA**: Not yet supported — v1 is single-hop encyclopedia lookup
-- **M2 Content**: No build import system or pre-seeded popular builds
-
-## Key Gotchas (from spec Appendix A)
-
-1. Never re-calculate PoB's DPS/EHP — take pre-computed values from XML
-2. PoB decompression must try zlib wrapper first, raw deflate as fallback
-3. base64 is URL-safe variant: `-_` must be restored to `+/`
-4. All data MUST carry version fields (league + game_version)
-5. AI outputs MUST be schema-validated + cross-validated with source data
-6. Official API always through cache layer — never user-request → official API
-7. Read rate-limit response headers dynamically — never hardcode timing
-8. Affix translation: table lookup first, AI only for unknowns, writeback to dictionary
-9. PoE2 is rapidly iterating — parsers/KB must handle format changes with graceful degradation
-10. Don't copy AGPL source (pobb.in) — reference data structures, rewrite in Python
+**Chat architecture evolution**: Keyword skill router → **ReAct agent (default)** + optional **orchestrator** parallel mode. Do not reintroduce keyword-only routing for `/api/chat`.
 
 ## Deployment (概要)
 
-**NAS 开发测试 → 大版本推腾讯云**。运维细节见 **[docs/ops/deployment.md](docs/ops/deployment.md)**。
+| 环境 | 角色 | 访问 |
+|------|------|------|
+| **NAS** | 开发/测试/KB写入 | `ssh -p 2212 skc@192.168.110.26` · `python deploy_nas.py` |
+| **腾讯云** | 公网生产 | `python scripts/deploy_tencent.py` |
 
-| 环境 | 角色 | 访问 | 部署 |
-|------|------|------|------|
-| **NAS** | 开发 / 测试 / **知识库写入与爬虫** | `192.168.110.26:2212` | `python deploy_nas.py` |
-| **腾讯云** | 公网生产（大版本 + KB 同步） | http://liufangli.xyz/chat | `python scripts/deploy_tencent.py` |
+**Docker caveat**: Only `/app/data` volume-mounted. Code changes need `docker compose build` or `docker cp` / `scripts/nas/hotfix_*.py`.
 
-相关：[nas-deploy-guide.md](nas-deploy-guide.md) · [NAS-Docker-服务清单.md](docs/NAS-Docker-服务清单.md)
+Chat test URLs: NAS `http://192.168.110.26:3000/chat` · API `http://192.168.110.26:8000/health`.
 
-## Trade Search & AI Chat — Implementation Notes
+## Knowledge Base (2026-06)
 
-- **Trade Search (M5)**: Fully implemented. See [docs/HANDOVER.md](docs/HANDOVER.md) for architecture.
-- **AI Chat Trade (M6)**: AI now automatically detects trade/item search intent in build chat and provides search links.
+**~22K chunks** across PoB (~18K EN), poe2db (~3.4K tri-lang), poe2wiki, homework, craftofexile aliases.
 
-**Critical PoE2 API differences from PoE1**:
-- `weapon_filters` / `armour_filters` do NOT exist — use `equipment_filters` instead
-- `ilvl` and `quality` belong in `type_filters` (not `misc_filters`)
-- Level requirement `lvl` belongs in `req_filters`
-- Trade API only accepts `explicit.*` stat IDs — vector search results must be normalized
-- LLM may return `"stat_groups": null` — always use `parsed.get("key") or []` pattern
-- Weighted sum type is `"weight2"` (not `"weighted_sum"`) and requires authentication
+**Entity catalog**: `backend/data/entity_catalog.json` (~1.4K entities) — O(1) chip icon + tooltip when present.
 
-**Docker deployment caveat**: Only `/app/data` is volume-mounted. Code changes require `docker cp` into the running container or a full `docker compose up -d --build`.
+**Alias layers**:
 
-## Knowledge Base (as of 2026-06-11)
+| Source | Count | Use |
+|--------|-------|-----|
+| `trade_items_en_cn.json` | ~2876 | Official item CN↔EN (confidence 99) |
+| `caimogu_skills.json` | 846 | CN skill names |
+| `game_aliases.json` | 515 | Uniques/mods from poe2db |
+| `coe_cn_aliases.json` | 258 | Mod CN fallback |
+| `entity_dict` colloquial | few | Slang not in Trade API |
 
-**数据流**：爬虫/灌库/embedding **只在 NAS**；大版本用 `SYNC_NAS_DATA=1` 推到腾讯云。详见 [docs/ops/deployment.md](docs/ops/deployment.md)。
-
-**21,977 chunks** across 5 sources:
-
-| Source | Types | Count | CN? | Content |
-|--------|-------|-------|-----|---------|
-| **PoB** (jsDelivr CDN) | passive/item/mod/gem/asc_nodes | ~18K | N | 纯英文：天赋节点+物品+词缀+宝石+22升华 |
-| **poe2db** (cloudscraper) | skill/item/mod/quest | ~3.4K | Y | 三语(EN/CN/TW)：技能+528暗金+273词缀+93任务 |
-| **poe2wiki** (crawler) | wiki/item | 552 | N | 全站爬取：Delirium/Breach/Ritual/Omen/Spirit/Aura等 |
-| **homework** (PoB解码) | BD攻略 | 72 | Y | AI生成中文BD分析 |
-| **craftofexile** | mod aliases | 258 | Y | 词缀中英对照(回退层) |
-
-### Alias Tables (entity_resolver)
-| 数据源 | 条目 | 类型 |
-|--------|------|------|
-| caimogu_skills.json | 846 | 技能(国服译名) |
-| game_aliases.json | 515 | 暗金/词缀(poe2db) |
-| coe_cn_aliases.json | 258 | 词缀(craftofexile) |
-| ASCENDANCY_CN_TO_EN | 22 | 升华 |
-| CLASS_CN_TO_EN | 10 | 职业 |
-| caimogu_items.json | 14 | 物品(几乎全挂) |
-| **合计** | **~1,665** | |
-
-### Key Data Files
-- `backend/data/poe2db_chunks_v3.jsonl` — 890 skill detail pages (3-language)
-- `backend/data/pob_data.jsonl` — 10253 PoB structured data chunks
-- `backend/data/caimogu_skills.json` — 846 CN skill names (Tencent-aligned)
-- `backend/data/coe_cn_aliases.json` — 258 CN mod translations (craftofexile)
-- NAS: `/volume1/docker/PoE2LI/data/` — volume-mounted into container `/app/data/`
-
-### CN Coverage Reality
-- PoB 18K chunks are pure English — **BGE-M3 cross-lingual matching handles this** (tested: "火焰伤害"→"Fire Damage" sim=0.64)
-- CN data exists for: poe2db items/skills (CN), homework (CN), asc_nodes (CN injected)
-- Missing: special base types (Delirium Twisted Amulet etc.), user slang→official name mappings
-
-### Ingestion Gotchas
-- **Asc_nodes embedding**: MUST be short or similarity diluted. CN prefix injected: "灵魂行者 (Spirit Walker)"
-- **Cross-lingual**: always include original CN query + LLM EN keywords
-- **Encoding**: SSH garbles CJK display but DB storage is UTF-8. Scripts using `chr()` for CJK are fragile
-- **FK constraints**: `kb_entities` references `knowledge_chunks` via FK — can't delete chunks without deleting entities first
-- **docker cp**: Copying files to `/app/scripts/` often fails silently (use `docker compose build --no-cache` instead)
-
-## Chat System
-
-### Skill-based Architecture
-```
-User query → Skill Router (router.py)
-  ├── TradeSearchSkill  [tools: trade_api, entity_resolve]
-  ├── BuildDesignSkill  [tools: rag_search, entity_resolve, structured_lookup]
-  ├── RecommendSkill    [tools: rag_search, entity_resolve]
-  └── EncyclopediaSkill [tools: rag_search, entity_resolve]
-```
-Each Skill has its own `system_prompt()`, `keywords[]`, and `tools[]`. New skills added by creating a module in `backend/app/skills/` and registering in `router.py`.
-
-### Retrieval Pipeline
-- **Unified**: `retrieval_pipeline.py` (595 lines) consolidates vector search, intent routing, entity resolution, concept expansion
-- **Structured Lookup**: resolved entities (ascendancy/item/skill) trigger direct DB fetch BEFORE vector search
-- **Concept Expansion**: reads chunk `links` field, does secondary vector searches (max 4 chunks, 3 links)
-- **Knowledge Graph**: `kb_entities` + `kb_edges` tables (3,395 entities, 15,401 edges) for multi-hop traversal
-
-### Entity Resolution
-- `entity_resolver.py`: 3-tier — exact substring → CJK bigram fuzzy → keyword correction
-- CJK bigram: "扭曲项链" shares "扭曲" with "扭曲苍穹" → matches
-- Fuzzy keyword correction: fixes LLM misspellings ("Moriigan"→"Morrigan")
-
-### Endpoints
-- `POST /api/chat` — SSE streaming, multi-turn, DeepSeek thinking mode
-- `POST /api/knowledge/ask` — single-turn RAG QA (Redis cached, 1h TTL)
-- `POST /api/knowledge/recommend` — multi-hop item comparison
-
-### Flow
-1. Skill Router dispatches → Entity resolution + alias injection
-2. LLM generates search keywords → fuzzy-corrected against known entities
-3. Vector search + structured lookup → concept expansion via links/knowledge graph
-4. LLM streams reasoning + answer in markdown format
-
-### Frontend Pages
-- `/` — PoB decoder (paste code → stats + homework + link to /chat)
-- `/trade` — natural language trade search (Agent + multi-plan)
-- `/chat` — Taste-skill redesigned: zinc palette, amber accent, markdown rendering, collapsible thinking
+NAS data path: `/volume1/docker/PoE2LI/data/` → container `/app/data/`.
 
 ## Trade Search
 
-### Key Files
-- `backend/app/services/trade_agent.py` — main pipeline
-- `backend/app/services/trade_concepts.py` — 60 curated CN→stat_id mappings with item_slot allowlists
-- `backend/app/services/trade_stat_service.py` — vector search for stat IDs (pgvector)
-- `backend/app/services/trade_service.py` — Trade API query builder + rate-limited HTTP client
+Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_plans` → execute → inspect.
 
-### COUNT Group Semantics
-- AND: all stats must match (core requirement)
-- COUNT(min=N): at least N of the listed stats must match (flexible pool)
-- AND + COUNT combined: core stat required, broad stats flexible
+**PoE2 API differences from PoE1**:
+- Use `equipment_filters` (no `weapon_filters`/`armour_filters`)
+- `ilvl`, `quality` in `type_filters`; `lvl` in `req_filters`
+- Trade API accepts `explicit.*` stat IDs only
+- `parsed.get("stat_groups") or []` — LLM may return `null`
+- Weighted sum type is `"weight2"` (auth required)
 
-## Concept Links System
+`trade_concepts.py` — curated CN→stat_id mappings. `trade_items_index` — base `type` filter from CN name in query.
 
-`concept_links.py`: 3-tier link computation at chunk ingest time:
-1. **Entity names**: scan text with entity_resolver → `entity:灵魂行者:ascendancy:Spirit Walker`
-2. **Concept hooks** (~60 keywords): "涂油"→wiki, "词缀"→mod, "delirium"→wiki, "minion"→minion
-3. **Chunk_type self-link**: `type:item`
+## Concept Links
 
-Links stored in `knowledge_chunks.links` (JSON array), computed by `backfill_links.py`.
-Concept expansion during retrieval: reads links → secondary vector search → merges results.
+`concept_links.py` at ingest: entity names, ~60 concept hooks, chunk_type self-links. Stored in `knowledge_chunks.links`. Expansion during retrieval via `expand_concepts()`.
 
 ## Known Issues & Gotchas
 
-1. **Encoding**: Chinese text in container scripts must be proper UTF-8. Using `chr()` escapes works but is fragile
-2. **Inline Python via SSH**: Multi-layer quoting (Python→bash→Python) breaks on `"` and `'` and `{}`. Always write scripts to files and deploy
-3. **Twisted Amulet (id=24446)**: manually injected chunk. Had encoding issues with merged Instilled Notables text
-4. **docker exec -d**: background processes die when SSH disconnects. Use synchronous `docker exec` with long timeout
-5. **Docker cache**: `docker compose up -d --build` may use cached layers. Use `--no-cache` or `docker cp` for single-file changes
-6. **Concept expansion noise**: when links are irrelevant (random items matching same concept), expansion adds noise not signal
-7. **Frontend Next.js**: Turbopack version has breaking changes (see `frontend/AGENTS.md`). Use `docker compose build --no-cache frontend` for reliable rebuilds
+1. **Encoding**: Container scripts must be UTF-8; avoid fragile `chr()` CJK escapes.
+2. **SSH inline Python**: Multi-layer quoting breaks — write scripts to files.
+3. **docker exec -d**: Dies on SSH disconnect — use sync exec with long timeout.
+4. **Docker cache**: `docker compose up --build` may cache — `--no-cache` or hotfix scripts.
+5. **Concept expansion noise**: Irrelevant links add retrieval noise.
+6. **Frontend Turbopack**: See `frontend/AGENTS.md`; rebuild with `--no-cache` when needed.
+7. **CHAT_RUNTIME**: Default is `legacy` ReAct; orchestrator is opt-in via env.
+8. **Bare item name**: `扭曲项链` alone = encyclopedia (RAG), not trade search — agent must not return 10K generic amulet hits.
+9. **Entity chips**: Never chip inside `英文名：` value columns or `NAME（alias）` parentheses.
 
 ## Key Files Reference
 
+### Chat & orchestration
 | File | Purpose |
 |------|---------|
-| `backend/app/api/knowledge.py` | Chat endpoint, streaming, skill dispatch |
-| `backend/app/services/retrieval_pipeline.py` | Unified retrieval: vector search + intent + entity + expand |
-| `backend/app/services/entity_resolver.py` | CN→EN entity resolution with bigram fuzzy match |
-| `backend/app/services/concept_links.py` | Concept hooks + link computation |
-| `backend/app/services/knowledge_graph_service.py` | KG edge creation and traversal |
-| `backend/app/models/knowledge_graph.py` | KbEntity + KbEdge DB models |
-| `backend/app/skills/router.py` | Skill dispatch by keyword matching |
-| `backend/app/skills/encyclopedia.py` | Encyclopedia Q&A skill |
-| `backend/app/skills/build_design.py` | BD design skill |
-| `backend/app/skills/trade_search.py` | Trade search skill |
-| `backend/app/skills/recommend.py` | Item recommend skill |
-| `backend/scripts/backfill_links.py` | Compute links for existing chunks |
-| `backend/scripts/backfill_knowledge_graph.py` | Populate KG entities/edges |
-| `backend/scripts/crawl_poe2wiki.py` | Full wiki crawler (resumable, 1s/page) |
-| `backend/scripts/scrape_caimogu_aliases.py` | Caimogu skill CN name scraper |
-| `frontend/src/app/chat/page.tsx` | Chat UI (taste-skill redesign, markdown renderer) |
-| `deploy_nas.py` | NAS deployment via paramiko SSH |
-| `scripts/deploy_tencent.py` | Tencent Cloud VPS deployment via paramiko SSH |
-| `docker-compose.tencent.yml` | Cloud compose override (no proxy, no public DB ports, celery profile) |
+| `backend/app/api/knowledge.py` | `/api/chat` SSE, `/api/knowledge/ask` |
+| `backend/app/services/chat_orchestrator.py` | Runtime switch + orchestrator stream |
+| `backend/app/services/chat_agent.py` | Legacy ReAct agent + `AGENT_SYSTEM` |
+| `backend/app/services/chat_tools.py` | Tool registry + `execute_tool` |
+| `backend/app/orchestrator/llm_planner.py` | LLM task planner |
+| `backend/app/orchestrator/session_context.py` | Multi-turn context contract |
+| `backend/app/orchestrator/dispatcher.py` | Parallel sub-agent dispatch |
+| `backend/app/orchestrator/runners.py` | Agent → tool mapping |
+
+### Knowledge & entities
+| File | Purpose |
+|------|---------|
+| `backend/app/services/retrieval_pipeline.py` | Unified RAG retrieval |
+| `backend/app/services/entity_resolver.py` | CN→EN + Trade API aliases |
+| `backend/app/services/entity_tooltip.py` | Mention detection + tooltips |
+| `backend/app/services/entity_catalog_service.py` | Runtime entity catalog |
+| `backend/app/services/concept_links.py` | Chunk link computation |
+| `backend/app/data/trade_items_en_cn.json` | Official bilingual item index |
+
+### Trade & builds
+| File | Purpose |
+|------|---------|
+| `backend/app/services/trade_agent.py` | Chat + /trade search pipeline |
+| `backend/app/services/trade_service.py` | Trade API client + query builder |
+| `backend/app/services/trade_items_index.py` | Base type match + `type` filter |
+| `backend/app/services/pob_service.py` | PoB decode + parse |
+
+### Skills (prompts)
+| File | Purpose |
+|------|---------|
+| `backend/app/skills/router.py` | `get_skill()` for orchestrator synthesis |
+| `backend/app/skills/*.py` | Per-domain system prompt fragments |
+
+### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/app/chat/page.tsx` | Chat UI |
+| `frontend/src/components/chat/ChatMarkdown.tsx` | Markdown + entity chips |
+| `frontend/src/components/chat/PoeEntityChip.tsx` | Chip + tooltip hover |
+
+### Ops
+| File | Purpose |
+|------|---------|
+| `deploy_nas.py` | NAS deploy via SSH |
+| `scripts/deploy_tencent.py` | Tencent production deploy |
+| `scripts/nas/hotfix_*.py` | Quick single-file NAS backend patches |
+| `docs/ops/deployment.md` | Full ops runbook |

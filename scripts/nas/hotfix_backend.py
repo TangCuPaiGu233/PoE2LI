@@ -15,17 +15,18 @@ import base64
 from remote_ssh import DOCKER, REPO_ROOT, configure_utf8_stdio, connect_nas, run
 
 HOTFIX_FILES = (
-    "backend/app/services/trade_agent.py",
-    "backend/app/services/trade_concepts.py",
-    "backend/app/services/chat_tools.py",
-    "backend/app/services/chat_agent.py",
-    "backend/app/services/multi_affix_compare.py",
-    "backend/app/services/chat_async_util.py",
-    "backend/app/services/chat_stream_lifecycle.py",
-    "backend/app/services/chat_item_profile.py",
-    "backend/app/services/trade_service.py",
-    "backend/app/services/chat_response_guard.py",
-    "backend/app/services/trade_stats_index.py",
+    ("backend/app/core/llm_config.py", "/app/app/core/llm_config.py"),
+    ("backend/app/services/trade_agent.py", "/app/app/services/trade_agent.py"),
+    ("backend/app/services/trade_concepts.py", "/app/app/services/trade_concepts.py"),
+    ("backend/app/services/chat_tools.py", "/app/app/services/chat_tools.py"),
+    ("backend/app/services/chat_agent.py", "/app/app/services/chat_agent.py"),
+    ("backend/app/services/multi_affix_compare.py", "/app/app/services/multi_affix_compare.py"),
+    ("backend/app/services/chat_async_util.py", "/app/app/services/chat_async_util.py"),
+    ("backend/app/services/chat_stream_lifecycle.py", "/app/app/services/chat_stream_lifecycle.py"),
+    ("backend/app/services/chat_item_profile.py", "/app/app/services/chat_item_profile.py"),
+    ("backend/app/services/trade_service.py", "/app/app/services/trade_service.py"),
+    ("backend/app/services/chat_response_guard.py", "/app/app/services/chat_response_guard.py"),
+    ("backend/app/services/trade_stats_index.py", "/app/app/services/trade_stats_index.py"),
 )
 
 
@@ -33,10 +34,9 @@ def main() -> int:
     configure_utf8_stdio()
     client = connect_nas()
     try:
-        for rel in HOTFIX_FILES:
+        for rel, container_path in HOTFIX_FILES:
             local = REPO_ROOT / rel
             remote_tmp = f"/tmp/{local.name}"
-            container_path = f"/app/app/services/{local.name}"
             payload = base64.b64encode(local.read_bytes()).decode("ascii")
             upload = (
                 "python3 - <<'PY'\n"

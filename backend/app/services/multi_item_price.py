@@ -72,12 +72,9 @@ def _fallback_split_items(text: str) -> list[str]:
 
 
 def _extract_items_sync(text: str) -> list[str]:
-    from openai import OpenAI
+    from app.core.llm_client import get_llm_client
 
-    client = OpenAI(
-        base_url=os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
-        api_key=os.getenv("LLM_API_KEY", ""),
-    )
+    client = get_llm_client()
     model = os.getenv("LLM_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
     try:
         resp = client.chat.completions.create(

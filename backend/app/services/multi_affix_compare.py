@@ -117,9 +117,8 @@ def _select_from_candidates_sync(
     """Constrained LLM selection from known variant list."""
     if len(candidates) < 2:
         return []
-    from openai import OpenAI
 
-    from app.core.llm_config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, llm_message_text
+    from app.core.llm_config import LLM_MODEL, llm_message_text
 
     if not LLM_API_KEY:
         return []
@@ -132,7 +131,8 @@ def _select_from_candidates_sync(
     else:
         user_block += f"\n\n## 当前问题\n{user_msg.strip()}"
 
-    client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    from app.core.llm_client import get_llm_client
+    client = get_llm_client()
     try:
         resp = client.chat.completions.create(
             model=LLM_MODEL,
@@ -162,16 +162,15 @@ def _select_from_candidates_sync(
 
 
 def _extract_searches_llm_sync(user_msg: str, messages: list[dict] | None) -> list[dict[str, str]]:
-    from openai import OpenAI
-
-    from app.core.llm_config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, llm_message_text
+    from app.core.llm_config import LLM_MODEL, llm_message_text
 
     ctx = _conversation_context(messages)
     user_block = user_msg.strip()
     if ctx:
         user_block = f"## 最近对话\n{ctx}\n\n## 当前问题\n{user_msg.strip()}"
 
-    client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    from app.core.llm_client import get_llm_client
+    client = get_llm_client()
     try:
         resp = client.chat.completions.create(
             model=LLM_MODEL,

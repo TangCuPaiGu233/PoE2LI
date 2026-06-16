@@ -16,6 +16,7 @@ from app.services.chat_agent import _emit_streamed_answer, _llm_client
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.chat_response_guard import strip_ungrounded_price_claims
 from app.services.follow_up_suggestions import generate_follow_up_questions
+from app.services.observability import flush
 from app.skills.router import get_skill
 
 logger = logging.getLogger(__name__)
@@ -162,6 +163,7 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
         fu = await _follow_up_event(user_msg, err)
         if fu:
             yield fu
+        flush()
         yield {"type": "done"}
         return
 
@@ -221,6 +223,7 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
     fu = await _follow_up_event(user_msg, answer_acc)
     if fu:
         yield fu
+    flush()
     yield {"type": "done"}
 
 

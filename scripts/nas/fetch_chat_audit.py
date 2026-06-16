@@ -83,7 +83,7 @@ def main() -> int:
     ]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(sections) + "\n", encoding="utf-8")
-    print(f"Wrote {len(filtered)} context lines from {len(raw_lines)} total â†?{args.out}")
+    print(f"Wrote {len(filtered)} context lines from {len(raw_lines)} total -> {args.out}")
     return 0
 
 

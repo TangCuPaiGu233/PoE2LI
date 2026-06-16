@@ -10,9 +10,8 @@ from typing import Any
 
 import asyncio
 
-from openai import AsyncOpenAI
-
-from app.core.llm_config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, llm_thinking_extra_body
+from app.core.llm_config import LLM_MODEL, llm_thinking_extra_body
+from app.core.llm_client import get_async_llm_client
 from app.core.game_context import POE2_SITE_RULE
 from app.orchestrator.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
@@ -25,6 +24,7 @@ from app.services.chat_tools import (
     detect_input_signals,
     execute_tool,
 )
+from app.services.observability import flush, trace_chat_turn
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +81,8 @@ def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
     return TOOL_DEFINITIONS
 
 
-def _llm_client() -> AsyncOpenAI:
-    return AsyncOpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+def _llm_client():
+    return get_async_llm_client()
 
 
 def _model() -> str:
@@ -250,6 +250,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             yield {"type": "answer", "content": err}
             async for ev in _yield_done_with_follow_ups(user_msg, err):
                 yield ev
+            flush()
             return
 
         choice = _first_choice(response)
@@ -259,6 +260,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             yield {"type": "answer", "content": err}
             async for ev in _yield_done_with_follow_ups(user_msg, err):
                 yield ev
+            flush()
             return
         msg = choice.message
         tool_calls = getattr(msg, "tool_calls", None) or []
@@ -335,6 +337,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             yield {"type": "sources", "content": ctx.last_sources}
         async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
             yield ev
+        flush()
         return
 
 
@@ -359,3 +362,5 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
         yield ev
+
+    flush()

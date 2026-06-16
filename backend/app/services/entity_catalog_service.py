@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 TYPE_LABEL_CN = {
     "item": "\u6697\u91d1",
+    "item_base": "\u57fa\u5e95",
     "skill": "\u6280\u80fd",
     "ascendancy": "\u5347\u534e",
 }
@@ -120,11 +121,24 @@ def profile_to_tooltip(profile: EntityProfile, *, lang: str = "cn") -> dict[str,
     else:
         description = profile.description_en or profile.description_cn or ""
     rarity = profile.rarity
+    is_base = (
+        profile.type == "item"
+        and (rarity or "").upper() == "NORMAL"
+    )
+    if lang == "cn":
+        type_label = (
+            TYPE_LABEL_CN["item_base"]
+            if is_base
+            else TYPE_LABEL_CN.get(profile.type, profile.type)
+        )
+    else:
+        type_label = profile.type
     return {
         "label": label,
         "name_en": profile.name_en,
         "type": profile.type,
-        "type_label": TYPE_LABEL_CN.get(profile.type, profile.type) if lang == "cn" else profile.type,
+        "item_kind": "base" if is_base else "unique",
+        "type_label": type_label,
         "rarity": rarity,
         "rarity_label": (
             RARITY_LABEL_CN.get(rarity.upper(), rarity) if rarity and lang == "cn" else rarity

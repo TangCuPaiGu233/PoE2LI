@@ -17,10 +17,11 @@ def mock_build():
     return build
 
 @patch('app.services.trade_service.trade_search')
-@patch('app.services.ai_service.client.chat.completions.create')
+@patch('app.services.ai_service.get_llm_client')
 @patch('app.services.ai_service.SessionLocal')
 @patch('app.services.knowledge_service.retrieve_similar')
-def test_chat_about_build_with_trade_intent(mock_retrieve, mock_session, mock_chat_create, mock_trade_search, mock_build):
+def test_chat_about_build_with_trade_intent(mock_retrieve, mock_session, mock_get_client, mock_trade_search, mock_build):
+    mock_chat_create = mock_get_client.return_value.chat.completions.create
     # Setup RAG mocks
     mock_retrieve.return_value = []
     
@@ -46,10 +47,11 @@ def test_chat_about_build_with_trade_intent(mock_retrieve, mock_session, mock_ch
     assert "没问题，我来帮你找" in answer
 
 @patch('app.services.trade_service.trade_search')
-@patch('app.services.ai_service.client.chat.completions.create')
+@patch('app.services.ai_service.get_llm_client')
 @patch('app.services.ai_service.SessionLocal')
 @patch('app.services.knowledge_service.retrieve_similar')
-def test_chat_about_build_without_trade_intent(mock_retrieve, mock_session, mock_chat_create, mock_trade_search, mock_build):
+def test_chat_about_build_without_trade_intent(mock_retrieve, mock_session, mock_get_client, mock_trade_search, mock_build):
+    mock_chat_create = mock_get_client.return_value.chat.completions.create
     # Setup RAG mocks
     mock_retrieve.return_value = []
     
