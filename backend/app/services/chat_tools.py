@@ -75,7 +75,7 @@ def _query_jaccard(a: str, b: str) -> float:
 
 
 _RAG_DEDUP_THRESHOLD = 0.30
-_RAG_SOFT_LIMIT = 5
+RAG_SOFT_LIMIT = 2  # batch counts as all of them — one call should be enough
 
 
 def _check_rag_dedup(query: str, ctx: ChatToolContext) -> str | None:
@@ -120,7 +120,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "name": "rag_search",
             "description": (
                 "Search the PoE2 knowledge base (poe2db, wiki, PoB data, homework). "
-                "Use for mechanics, skills, items, mods, ascendancy questions."
+                "Call once per topic — the system will automatically expand into multi-angle "
+                "parallel retrieval internally. Do not call multiple times for the same question."
             ),
             "parameters": {
                 "type": "object",
@@ -486,6 +487,123 @@ def _collect_entity_facts(
     return "\n".join(lines) if len(lines) > 2 else ""
 
 
+def _run_plan_and_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    """One-shot multi-query retrieval: plan first, search all subqueries in parallel, merge."""
+    import time as _time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    t0 = _time.perf_counter()
+    subqueries: list[str] = args.get("subqueries") or []
+    entities: list[str] = args.get("entities") or []
+    intent_hint: str = args.get("intent_hint", "general")
+
+    if not subqueries:
+        subqueries = [ctx.user_msg[:200]]
+
+    # Cap at 3
+    subqueries = subqueries[:3]
+    entities = entities[:5]
+
+    # 1. Resolve entities
+    entity_results: list[dict] = []
+    if entities:
+        resolved = _run_entity_resolve({"text": " ".join(entities)}, ctx)
+        entity_results.append(resolved)
+        aliases, resolved_entities = extract_alias_keywords(ctx.user_msg)
+    else:
+        aliases, resolved_entities = extract_alias_keywords(ctx.user_msg)
+
+    # 2. Parallel subquery retrieval
+    all_chunks: list[dict] = []
+    seen_keys: set[str] = set()
+
+    def _search_one(query: str) -> list[dict]:
+        """Run one subquery retrieval, returning chunks."""
+        search_aliases, search_entities = extract_alias_keywords(query)
+        # Merge with top-level aliases/entities
+        all_aliases = list(set(aliases + search_aliases))[:10]
+        all_entities = list({(e[0], e[1], e[2]) for e in resolved_entities + search_entities})[:8]
+
+        embedding = get_embedding(build_search_query(query, all_aliases, [query]))
+        if not embedding:
+            return []
+        rag_opts, _ = build_rag_options(
+            user_msg=query,
+            query=query,
+            entities=all_entities,
+            fast=False,
+            q_embedding=embedding,
+            league=ctx.league,
+            game_version=ctx.game_version,
+            alias_keywords=all_aliases,
+        )
+        retrieval = retrieve_dual_path(query, query, rag_opts)
+        return list(retrieval.chunks)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(_search_one, q): q for q in subqueries}
+        for future in as_completed(futures):
+            try:
+                chunks = future.result()
+                for c in chunks:
+                    key = c.get("content", "")[:120]
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        all_chunks.append(c)
+            except Exception as e:
+                logger.warning("[CHAT] plan_and_search subquery failed: %s", e)
+
+    # 3. Structured entity lookup for resolved entities
+    if resolved_entities:
+        db = SessionLocal()
+        try:
+            direct = structured_entity_lookup(
+                db, resolved_entities,
+                league=ctx.league, game_version=ctx.game_version,
+                intent=classify_retrieval_intent(ctx.user_msg),
+            )
+            for dc in direct:
+                key = dc["content"][:120]
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_chunks.insert(0, dc)
+        finally:
+            db.close()
+
+    # 4. Dedup & sort (prefer poe2db/wiki over pob)
+    def _chunk_priority(c: dict) -> int:
+        src = c.get("source", "")
+        if src in ("poe2db", "poe2wiki"):
+            return 0
+        if src == "homework":
+            return 1
+        return 2  # pob
+
+    all_chunks.sort(key=_chunk_priority)
+    top_chunks = all_chunks[:12]
+
+    # 5. Entity grounding
+    entity_facts = _collect_entity_facts(top_chunks, ctx.league, ctx.game_version)
+
+    # 6. Build context
+    context = build_context(top_chunks[:10])
+    if entity_facts:
+        context = entity_facts + "\n\n" + context
+
+    sources = [
+        {"type": c.get("chunk_type", "?"), "source": c.get("source", "?"),
+         "preview": (c.get("content") or "")[:100]}
+        for c in top_chunks[:5]
+    ]
+    ctx.last_sources = sources
+    elapsed = (_time.perf_counter() - t0) * 1000
+    logger.info(
+        "[CHAT] tool plan_and_search subqueries=%d entities=%d chunks=%d %.0fms",
+        len(subqueries), len(entities), len(top_chunks), elapsed,
+    )
+    return ToolRunResult(content=context, sources=sources)
+
+
 def _run_rag_search(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
     import time as _time
 
@@ -755,14 +873,32 @@ async def execute_tool(
                 ),
             )
 
-        # Soft limit: allow up to 5, but warn when budget is exhausted
-        if ctx.rag_search_calls >= _RAG_SOFT_LIMIT:
+        # Rich single-call batch: on first call, internally run batch retrieval for broader coverage.
+        # Subsequent calls fall through to normal single-query path.
+        if ctx.rag_search_calls == 0:
+            ctx.rag_search_calls = RAG_SOFT_LIMIT  # consume full budget — one-shot
+            ctx.rag_queries.append(query)
+            # Convert to batch: use the LLM's query as primary, add auto expansions
+            batch_args = {
+                "subqueries": [query],
+                "intent_hint": classify_retrieval_intent(ctx.user_msg),
+            }
+            if args.get("expand_concepts", True):
+                # Generate a couple of variant queries from aliases
+                aliases, _ = extract_alias_keywords(ctx.user_msg)
+                if aliases:
+                    batch_args["subqueries"].append(" ".join(aliases[:4]))
+            batch_args["subqueries"] = batch_args["subqueries"][:3]
+            return await run_sync_with_timeout(_run_plan_and_search, batch_args, ctx, timeout=timeout)
+
+        # Soft limit: allow up to 5 single calls, but batch consumed them all
+        if ctx.rag_search_calls >= RAG_SOFT_LIMIT:
             logger.info("[CHAT] tool rag_search LIMIT reached (%d)", ctx.rag_search_calls)
             return ToolRunResult(
                 content=json.dumps(
                     {
                         "status": "budget_exhausted",
-                        "reason": f"本轮已检索 {_RAG_SOFT_LIMIT} 次，预算耗尽。",
+                        "reason": f"本轮已检索 {RAG_SOFT_LIMIT} 次，预算耗尽。",
                         "hint": "请基于已有的检索结果综合回答，不要再次检索。",
                     },
                     ensure_ascii=False,

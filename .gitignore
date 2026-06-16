@@ -46,3 +46,4 @@ wiki_scrape_collect.log
 backend/data/entity_icons_failures.jsonl
 backend/_pdf_sample_pages/
 =?3.0.0
+backend/data/eval_results/

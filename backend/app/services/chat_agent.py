@@ -18,6 +18,7 @@ from app.services.chat_multimodal import build_agent_messages, message_has_image
 from app.services.follow_up_suggestions import generate_follow_up_questions
 
 from app.services.chat_tools import (
+    RAG_SOFT_LIMIT,
     TOOL_DEFINITIONS,
     TOOL_LABELS,
     ChatToolContext,
@@ -38,13 +39,13 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 1. 你是编排者：先判断用户意图，再调用工具获取事实，最后基于工具结果用中文回答。
 2. 不要在没有调用工具的情况下编造物品、技能数值、BD 数据或交易链接。
 3. 用户消息若含 PoB 分享码(eN开头)、pobb.in 或 poe.ninja 或 wegame.com.cn/helper/poe2 分享链接 → 必须先调用 decode_pob。
-4. 百科/机制/技能/物品问题 → 先 entity_resolve（如有中文专名），再 rag_search。
+4. 百科/机制/技能/物品问题 → 先 entity_resolve（如有中文专名），再 rag_search。rag_search 传入英文检索词，服务端会自动进行多角度并行检索，一次调用即可，不要重复调用。
 5. 找装备/市价/交易 → trade_search（detail_count 1-10 控制返回前 N 条完整 listing；问价通常 1-3，对比可 2-5）。
 6. 「哪个更好/推荐/对比」→ recommend。
 7. **多物品市价列表**（用户一次问多个装备/暗金分别多少钱）：逐个调用 trade_search，每查完一个物品先输出该物品报价，全部完成后再给汇总；不要在一次 trade_search 里混查多个物品。
 8. 可连续调用多个工具；当前问题与历史无关时（例如仅贴链接），不要沿用上一轮话题。
 9. 工具失败时如实告知用户（例如 poe.ninja 角色不存在、链接失效）。
-10. rag_search 必须传入非空 query（英文检索词）；若未提供则服务端会用用户原话前 200 字兜底。同一轮对话最多调用 3 次 rag_search。
+10. plan_and_search 的 subqueries 最多 3 个英文短语，从不同角度覆盖用户问题。如需先解析中文实体名，写入 entities 字段。大多数问题调用一次 plan_and_search 即可，不要重复调用。
 11. **poe.ninja BD 造价（无链接）**：用户提到忍者网/poe.ninja 并询问 BD 造价，但消息里没有 poe.ninja 角色链接、PoB 码等可解析构建输入时，直接说明如何复制并粘贴链接，不要调用 decode_pob 或 BD 造价流水线。
 12. **WeGame 分享链接**：`stats:` 行含 Life/FireRes/LightningRes 等时，即 WeGame 面板数据，**必须原样引用**（火/冰/闪抗即元素抗性，闪电抗勿改称「魔抗」）。仅当含 `data_limitation` 时才禁止编造面板数值。WeGame 无升华字段。
 14. **用户附图**：消息可能含 PoE2 游戏截图（装备、天赋、技能、市集等）。先描述图中可见内容，再结合工具/知识库回答；看不清的数值如实说明，不要编造。
@@ -76,9 +77,14 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 
 
 def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
+    """Return available tools for this turn, removing exhausted ones."""
+    active = list(TOOL_DEFINITIONS)
     if ctx.trade_search_calls >= TRADE_SEARCH_MAX_PER_TURN:
-        return [t for t in TOOL_DEFINITIONS if t["function"]["name"] != "trade_search"]
-    return TOOL_DEFINITIONS
+        active = [t for t in active if t["function"]["name"] != "trade_search"]
+    if ctx.rag_search_calls >= RAG_SOFT_LIMIT:
+        active = [t for t in active if t["function"]["name"] != "rag_search"]
+        # If no rag_search, entity_resolve by itself is less useful — keep it but hint
+    return active
 
 
 def _llm_client():
