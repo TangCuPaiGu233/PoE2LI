@@ -60,12 +60,14 @@ async def main():
 
     # ═══ Phase B: Detail page edge extraction ═══
     print("\n=== Phase B: Detail edges ===")
-    detail_types = {"skill": 50, "unique": 50}  # sample: first N of each type
+    detail_types = {"skill": 0, "unique": 0}  # 0 = all
     detail_edges_total = 0
 
     for etype, sample_n in detail_types.items():
         candidates = [(eid, info) for eid, info in all_entities.items()
-                      if info.get("type") == etype and "/" not in eid.split(":", 1)[1]][:sample_n]
+                      if info.get("type") == etype and "/" not in eid.split(":", 1)[1]]
+        if sample_n > 0:
+            candidates = candidates[:sample_n]
         print(f"\n{etype}: sampling {len(candidates)} detail pages...")
         for eid, info in candidates:
             slug = eid.split(":", 1)[1]
