@@ -31,6 +31,28 @@ from app.services.observability import flush, trace_chat_turn
 logger = logging.getLogger(__name__)
 
 
+def _save_chat_history(user_msg: str, answer: str, ctx) -> None:
+    """Persist chat turn to chat_history table."""
+    try:
+        import uuid, os
+        from app.core.database import SessionLocal
+        db = SessionLocal()
+        thread_id = os.getenv("CHAT_THREAD_ID", str(uuid.uuid4())[:12])
+        db.execute(
+            db.bind.execute if hasattr(db, "bind") else lambda sql, params: None,
+        )
+        # Use raw SQL via bind
+        from sqlalchemy import text
+        db.execute(text(
+            "INSERT INTO chat_history (thread_id, role, content, tool_calls) "
+            "VALUES (:tid, 'user', :umsg, NULL), (:tid, 'assistant', :answer, NULL)"
+        ), {"tid": thread_id, "umsg": user_msg[:5000], "answer": answer[:10000]})
+        db.commit()
+        db.close()
+    except Exception as e:
+        logger.warning("[CHAT] save chat_history failed: %s", e)
+
+
 def _validate_answer_entities(answer: str, ctx) -> list[dict]:
     """Post-hoc entity validation: scan answer against retrieval evidence."""
     try:
@@ -361,6 +383,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if not used_tools:
         if ctx.last_sources:
             yield {"type": "sources", "content": ctx.last_sources}
+        _save_chat_history(user_msg, answer_acc, ctx)
         async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
             yield ev
         flush()
@@ -392,6 +415,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         if suspicious:
             yield {"type": "entity_warnings", "content": suspicious}
             logger.info("[CHAT] entity validation: %d suspicious entities found", len(suspicious))
+        _save_chat_history(user_msg, answer_acc, ctx)
 
     async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
         yield ev
