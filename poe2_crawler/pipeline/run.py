@@ -28,17 +28,29 @@ from discovery.discover import discover_all
 from normalize.edge_normalizer import normalize_edges
 from normalize.url_to_id import url_to_entity_id
 
-# Parser registry — add new parsers here
-PARSER_REGISTRY = {
-    "ascendancy": "parser.parsers.ascendancy_parser",
-    "class": "parser.parsers.ascendancy_parser",  # reuses same page
+# Parser registry — custom parsers for types needing DOM-specific logic
+_CUSTOM_PARSERS = {
+    "ascendancy": "ascendancy_parser",
+    "class": "ascendancy_parser",  # same page as ascendancy
+}
+
+# Generic list parsers — use base_parser.parse_entity_list for all others
+_GENERIC_PARSER_TYPES = {
+    "skill", "support", "spirit_gem", "unique", "mod", "passive",
+    "currency", "monster", "map_area", "tag", "quest", "crafting",
+    "flask", "base_item",
 }
 
 
-def _import_parser(parser_name: str):
-    mod = __import__(PARSER_REGISTRY.get(parser_name, f"parser.parsers.{parser_name}_parser"),
-                     fromlist=["parse_index"])
-    return mod
+def _parse_page(html: str, entity_type: str) -> dict:
+    """Route to the appropriate parser for this entity type."""
+    if entity_type in _CUSTOM_PARSERS:
+        mod_name = _CUSTOM_PARSERS[entity_type]
+        mod = __import__(f"parser.parsers.{mod_name}", fromlist=["parse_ascendancy_index"])
+        return mod.parse_ascendancy_index(html)
+    # Generic tab-pane list parser
+    from parser.base_parser import parse_entity_list
+    return parse_entity_list(html, entity_type, poe2_tab_only=True)
 
 
 async def run_pipeline(entity_type: str | None = None, dry_run: bool = False):
@@ -51,29 +63,36 @@ async def run_pipeline(entity_type: str | None = None, dry_run: bool = False):
 
     fetcher = Fetcher()
 
-    # Stage A: Discovery
-    logger.info("=== Stage A: Discovery ===")
+    # Stage A: Discovery + Parse
+    logger.info("=== Stage A: Discovery + Parse ===")
     all_entities: list[dict] = []
+    seen_entity_ids: set[str] = set()
+
+    # Clear previous raw_edges
+    Path("data/raw_edges.jsonl").write_text("", encoding="utf-8")
+
     for etype, spec in etypes.items():
         for index_url in spec.get("index_urls", []):
+            logger.info("Processing %s from %s", etype, index_url)
             html = await fetcher.fetch(index_url)
             if not html:
+                logger.warning("  Failed to fetch %s", index_url)
                 continue
-            # Run the registered parser
-            parser_mod = _import_parser(spec.get("parser", "generic_parser"))
-            parsed = parser_mod.parse_ascendancy_index(html) if "ascendancy" in etype else {}
+            parsed = _parse_page(html, etype)
             for ent_id, info in parsed.get("entities", {}).items():
-                all_entities.append({
-                    "entity_id": ent_id,
-                    "entity_type": info.get("type", etype),
-                    "name_en": ent_id.split(":", 1)[1],
-                    "name_cn": info.get("name", ""),
-                })
+                if ent_id not in seen_entity_ids:
+                    seen_entity_ids.add(ent_id)
+                    all_entities.append({
+                        "entity_id": ent_id,
+                        "entity_type": info.get("type", etype),
+                        "name_en": ent_id.split(":", 1)[1],
+                        "name_cn": info.get("name", ""),
+                    })
             for edge in parsed.get("edges", []):
-                # Write to raw_edges
                 edge["entity_type"] = etype
                 with open("data/raw_edges.jsonl", "a", encoding="utf-8") as f:
                     f.write(json.dumps(edge, ensure_ascii=False) + "\n")
+            logger.info("  Got %d entities, %d edges", len(parsed.get("entities", {})), len(parsed.get("edges", [])))
 
     logger.info("Discovered %d entities, %d raw edges",
                 len(all_entities),

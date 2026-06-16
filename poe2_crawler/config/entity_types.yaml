@@ -50,7 +50,19 @@ entity_types:
 
   base_item:
     index_urls:
-      - "https://poe2db.tw/cn/Item"
+      - "https://poe2db.tw/cn/Items"
+      - "https://poe2db.tw/cn/Equipment"
+      - "https://poe2db.tw/cn/Armour"
+      - "https://poe2db.tw/cn/Weapon"
+      - "https://poe2db.tw/cn/Boots"
+      - "https://poe2db.tw/cn/Gloves"
+      - "https://poe2db.tw/cn/Ring"
+      - "https://poe2db.tw/cn/Shield"
+      - "https://poe2db.tw/cn/Quiver"
+      - "https://poe2db.tw/cn/Amulet"
+      - "https://poe2db.tw/cn/Belt"
+      - "https://poe2db.tw/cn/Helmet"
+      - "https://poe2db.tw/cn/Body_Armour"
     url_prefix: "/cn/"
     parser: base_item_parser
     relations: [has_implicit, has_mod_pool, has_tag]
@@ -89,7 +101,7 @@ entity_types:
 
   map_area:
     index_urls:
-      - "https://poe2db.tw/cn/Area"
+      - "https://poe2db.tw/cn/Maps"
     url_prefix: "/cn/"
     parser: generic_parser
     relations: [contains_boss, drops, connects_to]

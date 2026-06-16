@@ -1,0 +1,244 @@
+{
+  "total_entities": 4003,
+  "total_edges": 23,
+  "by_type": {
+    "class": 8,
+    "ascendancy": 23,
+    "skill": 337,
+    "support": 552,
+    "spirit_gem": 53,
+    "unique": 131,
+    "base_item": 488,
+    "mod": 64,
+    "passive": 1279,
+    "currency": 9,
+    "monster": 612,
+    "map_area": 277,
+    "quest": 161,
+    "crafting": 9
+  },
+  "entities": {
+    "class:Ranger": {
+      "name": "",
+      "type": "class"
+    },
+    "ascendancy:Deadeye": {
+      "name": "锐眼",
+      "type": "ascendancy"
+    },
+    "ascendancy:Pathfinder": {
+      "name": "追猎者",
+      "type": "ascendancy"
+    },
+    "class:Huntress": {
+      "name": "",
+      "type": "class"
+    },
+    "ascendancy:Amazon": {
+      "name": "亚马逊",
+      "type": "ascendancy"
+    },
+    "ascendancy:Spirit_Walker": {
+      "name": "灵魂行者",
+      "type": "ascendancy"
+    },
+    "ascendancy:Ritualist": {
+      "name": "仪祭师",
+      "type": "ascendancy"
+    },
+    "class:Monk": {
+      "name": "",
+      "type": "class"
+    },
+    "ascendancy:Martial_Artist": {
+      "name": "武圣",
+      "type": "ascendancy"
+    },
+    "ascendancy:Invoker": {
+      "name": "祈求者",
+      "type": "ascendancy"
+    },
+    "ascendancy:Acolyte_of_Chayula": {
+      "name": "夏乌拉追随者",
+      "type": "ascendancy"
+    },
+    "class:Witch": {
+      "name": "",
+      "type": "class"
+    },
+    "ascendancy:Infernalist": {
+      "name": "驱炎使",
+      "type": "ascendancy"
+    },
+    "ascendancy:Blood_Mage": {
+      "name": "命源法师",
+      "type": "ascendancy"
+    },
+    "ascendancy:Lich": {
+      "name": "巫妖",
+      "type": "ascendancy"
+    },
+    "ascendancy:Abyssal_Lich": {
+      "name": "深渊巫妖",
+      "type": "ascendancy"
+    },
+    "class:Sorceress": {
+      "name": "",
+      "type": "class"
+    },
+    "ascendancy:Stormweaver": {
+      "name": "风暴编织者",
+      "type": "ascendancy"
+    },
+    "ascendancy:Chronomancer": {
+      "name": "塑时术师",
+      "type": "ascendancy"
+    },
+    "ascendancy:Disciple_of_Varashta": {
+      "name": "瓦拉煞的门徒",
+      "type": "ascendancy"
+    }
+  },
+  "edges": [
+    {
+      "src_id": "ascendancy:Deadeye",
+      "src_cn": "锐眼",
+      "relation": "belongs_to",
+      "dst_id": "class:Ranger",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Pathfinder",
+      "src_cn": "追猎者",
+      "relation": "belongs_to",
+      "dst_id": "class:Ranger",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Amazon",
+      "src_cn": "亚马逊",
+      "relation": "belongs_to",
+      "dst_id": "class:Huntress",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Spirit_Walker",
+      "src_cn": "灵魂行者",
+      "relation": "belongs_to",
+      "dst_id": "class:Huntress",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Ritualist",
+      "src_cn": "仪祭师",
+      "relation": "belongs_to",
+      "dst_id": "class:Huntress",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Martial_Artist",
+      "src_cn": "武圣",
+      "relation": "belongs_to",
+      "dst_id": "class:Monk",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Invoker",
+      "src_cn": "祈求者",
+      "relation": "belongs_to",
+      "dst_id": "class:Monk",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Acolyte_of_Chayula",
+      "src_cn": "夏乌拉追随者",
+      "relation": "belongs_to",
+      "dst_id": "class:Monk",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Infernalist",
+      "src_cn": "驱炎使",
+      "relation": "belongs_to",
+      "dst_id": "class:Witch",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Blood_Mage",
+      "src_cn": "命源法师",
+      "relation": "belongs_to",
+      "dst_id": "class:Witch",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Lich",
+      "src_cn": "巫妖",
+      "relation": "belongs_to",
+      "dst_id": "class:Witch",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Abyssal_Lich",
+      "src_cn": "深渊巫妖",
+      "relation": "belongs_to",
+      "dst_id": "class:Witch",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Stormweaver",
+      "src_cn": "风暴编织者",
+      "relation": "belongs_to",
+      "dst_id": "class:Sorceress",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Chronomancer",
+      "src_cn": "塑时术师",
+      "relation": "belongs_to",
+      "dst_id": "class:Sorceress",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Disciple_of_Varashta",
+      "src_cn": "瓦拉煞的门徒",
+      "relation": "belongs_to",
+      "dst_id": "class:Sorceress",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Titan",
+      "src_cn": "泰坦",
+      "relation": "belongs_to",
+      "dst_id": "class:Warrior",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Warbringer",
+      "src_cn": "战争使者",
+      "relation": "belongs_to",
+      "dst_id": "class:Warrior",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Smith_of_Kitava",
+      "src_cn": "奇塔弗匠师",
+      "relation": "belongs_to",
+      "dst_id": "class:Warrior",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Tactician",
+      "src_cn": "战术家",
+      "relation": "belongs_to",
+      "dst_id": "class:Mercenary",
+      "dst_cn": ""
+    },
+    {
+      "src_id": "ascendancy:Witchhunter",
+      "src_cn": "猎巫人",
+      "relation": "belongs_to",
+      "dst_id": "class:Mercenary",
+      "dst_cn": ""
+    }
+  ]
+}
