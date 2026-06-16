@@ -45,3 +45,4 @@ wiki_scrape_collect.log
 # Local scrape / probe artifacts
 backend/data/entity_icons_failures.jsonl
 backend/_pdf_sample_pages/
+=?3.0.0
