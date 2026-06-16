@@ -25,7 +25,7 @@ _ALREADY_COVERED = {
 _EXCLUDE = {
     "patreon", "passive-skill-tree", "atlas-skill-tree",
     "MicrotransactionCombineFormula", "MinimapIcons",
-    "Reforging_Bench", "Hideout", "FlavourText",
+    "Reforging_Bench", "FlavourText",
     # Supporters/cosmetics
     "Closed_Beta_Supporter_Packs", "Open_Beta_Supporter_Packs",
     "Release_Supporter_Packs", "Race_Rewards",
