@@ -13,6 +13,12 @@ _NAV_PATTERNS = [
     "Currency", "Unique_item", "Keystone", "Notable", "Monster", "Area",
     "Quest", "Ascendancy", "Character_class", "Skill_Gems", "Support_Gems",
     "Spirit_Gems", "Modifiers", "Gem_Tags", "Crafting", "Flask",
+    "Lineage_Supports", "Keywords", "Act", "patreon", "atlas-skill-tree",
+    "passive-skill-tree", "EndGame", "Hideout", "Liquid_Emotions",
+    "Maps", "Waystones", "NPCs", "Flasks", "Catalysts", "Achievements",
+    "MicrotransactionCombineFormula", "MinimapIcons", "Miscellaneous",
+    "Consumable", "Splinter", "Strongbox", "GameConstants", "Commands",
+    "HelpfulTips", "QuestRewards",
 ]
 
 

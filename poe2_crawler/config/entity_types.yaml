@@ -1,227 +1,284 @@
-# PoE2DB entity types with verified index page URLs
-# Verified 2026-06-16 against real poe2db.tw responses (see docs/1/PoE2LI-爬取实跑验证报告.md)
-# URL convention: /cn/ is the Chinese+English bilingual version (preferred for CN name extraction)
-
 entity_types:
-  # Homepage-first discovery: crawls /cn/ navigation to find ALL content pages
   homepage:
     index_urls:
-      - "https://poe2db.tw/cn/"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/
+    - https://poe2db.tw/us/
+    url_prefix: /cn/
     parser: homepage_parser
     relations: []
-
-  # ── Class & Ascendancy ──
   class:
     index_urls:
-      - "https://poe2db.tw/cn/Character_class"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Character_class
+    - https://poe2db.tw/us/Character_class
+    url_prefix: /cn/
     parser: class_parser
-    relations: [belongs_to]  # ascendancy → class
-
+    relations:
+    - belongs_to
   ascendancy:
     index_urls:
-      - "https://poe2db.tw/cn/Ascendancy_class"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Ascendancy_class
+    - https://poe2db.tw/us/Ascendancy_class
+    url_prefix: /cn/
     parser: ascendancy_parser
-    relations: [belongs_to]
-
-  # ── Skills ──
+    relations:
+    - belongs_to
   skill:
     index_urls:
-      - "https://poe2db.tw/cn/Skill_Gems"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Skill_Gems
+    - https://poe2db.tw/us/Skill_Gems
+    url_prefix: /cn/
     parser: skill_parser
-    relations: [supports, requires_weapon, has_tag, grants_buff]
-
+    relations:
+    - supports
+    - requires_weapon
+    - has_tag
+    - grants_buff
   support:
     index_urls:
-      - "https://poe2db.tw/cn/Support_Gems"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Support_Gems
+    - https://poe2db.tw/us/Support_Gems
+    url_prefix: /cn/
     parser: skill_parser
-    relations: [supports]
-
+    relations:
+    - supports
   spirit_gem:
     index_urls:
-      - "https://poe2db.tw/cn/Spirit_Gems"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Spirit_Gems
+    - https://poe2db.tw/us/Spirit_Gems
+    url_prefix: /cn/
     parser: skill_parser
-    relations: [grants_buff]
-
-  # ── Items ──
+    relations:
+    - grants_buff
   unique:
     index_urls:
-      - "https://poe2db.tw/cn/Unique_item"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Unique_item
+    - https://poe2db.tw/us/Unique_item
+    url_prefix: /cn/
     parser: unique_parser
-    relations: [based_on, drops_from, has_mod]
-
+    relations:
+    - based_on
+    - drops_from
+    - has_mod
   base_item:
     index_urls:
-      - "https://poe2db.tw/cn/Items"
-      - "https://poe2db.tw/cn/Equipment"
-      - "https://poe2db.tw/cn/Armour"
-      - "https://poe2db.tw/cn/Weapon"
-      - "https://poe2db.tw/cn/Boots"
-      - "https://poe2db.tw/cn/Gloves"
-      - "https://poe2db.tw/cn/Ring"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Items
+    - https://poe2db.tw/us/Items
+    - https://poe2db.tw/cn/Equipment
+    - https://poe2db.tw/us/Equipment
+    - https://poe2db.tw/cn/Armour
+    - https://poe2db.tw/us/Armour
+    - https://poe2db.tw/cn/Weapon
+    - https://poe2db.tw/us/Weapon
+    - https://poe2db.tw/cn/Boots
+    - https://poe2db.tw/us/Boots
+    - https://poe2db.tw/cn/Gloves
+    - https://poe2db.tw/us/Gloves
+    - https://poe2db.tw/cn/Ring
+    - https://poe2db.tw/us/Ring
+    url_prefix: /cn/
     parser: base_item_parser
-    relations: [has_implicit, has_mod_pool, has_tag]
-
-  # ── Mods & Passives ──
+    relations:
+    - has_implicit
+    - has_mod_pool
+    - has_tag
   mod:
     index_urls:
-      - "https://poe2db.tw/cn/Modifiers"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Modifiers
+    - https://poe2db.tw/us/Modifiers
+    url_prefix: /cn/
     parser: mod_parser
-    relations: [applies_to, is_prefix, is_suffix]
-
+    relations:
+    - applies_to
+    - is_prefix
+    - is_suffix
   passive:
     index_urls:
-      - "https://poe2db.tw/cn/Passive_skill"
-      - "https://poe2db.tw/cn/Keystone"
-      - "https://poe2db.tw/cn/Notable"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Passive_skill
+    - https://poe2db.tw/us/Passive_skill
+    - https://poe2db.tw/cn/Keystone
+    - https://poe2db.tw/us/Keystone
+    - https://poe2db.tw/cn/Notable
+    - https://poe2db.tw/us/Notable
+    url_prefix: /cn/
     parser: passive_parser
-    relations: [grants_stat, requires_allocation]
-
-  # ── Other ──
+    relations:
+    - grants_stat
+    - requires_allocation
   currency:
     index_urls:
-      - "https://poe2db.tw/cn/Currency"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Currency
+    - https://poe2db.tw/us/Currency
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [has_effect]
-
+    relations:
+    - has_effect
   monster:
     index_urls:
-      - "https://poe2db.tw/cn/Monster"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Monster
+    - https://poe2db.tw/us/Monster
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [drops, found_in_map]
-
+    relations:
+    - drops
+    - found_in_map
   map_area:
     index_urls:
-      - "https://poe2db.tw/cn/Maps"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Maps
+    - https://poe2db.tw/us/Maps
+    - https://poe2db.tw/cn/Waystones
+    - https://poe2db.tw/us/Waystones
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [contains_boss, drops, connects_to]
-
+    relations:
+    - contains_boss
+    - drops
+    - connects_to
   tag:
     index_urls:
-      - "https://poe2db.tw/cn/Keywords"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Keywords
+    - https://poe2db.tw/us/Keywords
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [applies_to]
-
+    relations:
+    - applies_to
   quest:
     index_urls:
-      - "https://poe2db.tw/cn/Quest"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Quest
+    - https://poe2db.tw/us/Quest
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [rewards, requires_npc]
-
+    relations:
+    - rewards
+    - requires_npc
   crafting:
     index_urls:
-      - "https://poe2db.tw/cn/Crafting"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Crafting
+    - https://poe2db.tw/us/Crafting
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [uses_currency, modifies_item]
-
-  # ── Game systems & mechanics ──
+    relations:
+    - uses_currency
+    - modifies_item
   game_mechanic:
     index_urls:
-      - "https://poe2db.tw/cn/Breach"
-      - "https://poe2db.tw/cn/Delirium"
-      - "https://poe2db.tw/cn/Ritual"
-      - "https://poe2db.tw/cn/Expedition"
-      - "https://poe2db.tw/cn/Essence"
-      - "https://poe2db.tw/cn/Harvest"
-      - "https://poe2db.tw/cn/Legion"
-      - "https://poe2db.tw/cn/Blight"
-      - "https://poe2db.tw/cn/Ultimatum"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Breach
+    - https://poe2db.tw/us/Breach
+    - https://poe2db.tw/cn/Delirium
+    - https://poe2db.tw/us/Delirium
+    - https://poe2db.tw/cn/Ritual
+    - https://poe2db.tw/us/Ritual
+    - https://poe2db.tw/cn/Expedition
+    - https://poe2db.tw/us/Expedition
+    - https://poe2db.tw/cn/Essence
+    - https://poe2db.tw/us/Essence
+    - https://poe2db.tw/cn/Harvest
+    - https://poe2db.tw/us/Harvest
+    - https://poe2db.tw/cn/Legion
+    - https://poe2db.tw/us/Legion
+    - https://poe2db.tw/cn/Blight
+    - https://poe2db.tw/us/Blight
+    - https://poe2db.tw/cn/Ultimatum
+    - https://poe2db.tw/us/Ultimatum
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   league_mechanic:
     index_urls:
-      - "https://poe2db.tw/cn/Runes_of_Aldur_league"
-      - "https://poe2db.tw/cn/Fate_of_the_Vaal_league"
-      - "https://poe2db.tw/cn/Runes_of_Aldur_gems"
-      - "https://poe2db.tw/cn/Runes_of_Aldur_items"
-      - "https://poe2db.tw/cn/Runes_of_Aldur_uniques"
-      - "https://poe2db.tw/cn/Dawn_of_the_Hunt"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Runes_of_Aldur_league
+    - https://poe2db.tw/us/Runes_of_Aldur_league
+    - https://poe2db.tw/cn/Fate_of_the_Vaal_league
+    - https://poe2db.tw/us/Fate_of_the_Vaal_league
+    - https://poe2db.tw/cn/Runes_of_Aldur_gems
+    - https://poe2db.tw/us/Runes_of_Aldur_gems
+    - https://poe2db.tw/cn/Runes_of_Aldur_items
+    - https://poe2db.tw/us/Runes_of_Aldur_items
+    - https://poe2db.tw/cn/Runes_of_Aldur_uniques
+    - https://poe2db.tw/us/Runes_of_Aldur_uniques
+    - https://poe2db.tw/cn/Dawn_of_the_Hunt
+    - https://poe2db.tw/us/Dawn_of_the_Hunt
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   patch_note:
     index_urls:
-      - "https://poe2db.tw/cn/Version_0.5.0"
-      - "https://poe2db.tw/cn/Version_0.5.1"
-      - "https://poe2db.tw/cn/Version_0.5.2"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Version_0.5.0
+    - https://poe2db.tw/us/Version_0.5.0
+    - https://poe2db.tw/cn/Version_0.5.1
+    - https://poe2db.tw/us/Version_0.5.1
+    - https://poe2db.tw/cn/Version_0.5.2
+    - https://poe2db.tw/us/Version_0.5.2
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   keyword:
     index_urls:
-      - "https://poe2db.tw/cn/Keywords"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Keywords
+    - https://poe2db.tw/us/Keywords
+    url_prefix: /cn/
     parser: generic_parser
-    relations: [applies_to]
-
+    relations:
+    - applies_to
   game_system:
     index_urls:
-      - "https://poe2db.tw/cn/GameConstants"
-      - "https://poe2db.tw/cn/Commands"
-      - "https://poe2db.tw/cn/HelpfulTips"
-      - "https://poe2db.tw/cn/QuestRewards"
-      - "https://poe2db.tw/cn/EndGame"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/GameConstants
+    - https://poe2db.tw/us/GameConstants
+    - https://poe2db.tw/cn/Commands
+    - https://poe2db.tw/us/Commands
+    - https://poe2db.tw/cn/HelpfulTips
+    - https://poe2db.tw/us/HelpfulTips
+    - https://poe2db.tw/cn/QuestRewards
+    - https://poe2db.tw/us/QuestRewards
+    - https://poe2db.tw/cn/EndGame
+    - https://poe2db.tw/us/EndGame
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   flask:
     index_urls:
-      - "https://poe2db.tw/cn/Flasks"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Flasks
+    - https://poe2db.tw/us/Flasks
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   catalyst:
     index_urls:
-      - "https://poe2db.tw/cn/Catalysts"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/Catalysts
+    - https://poe2db.tw/us/Catalysts
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   atlas_tree:
     index_urls:
-      - "https://poe2db.tw/cn/atlas-skill-tree"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/atlas-skill-tree
+    - https://poe2db.tw/us/atlas-skill-tree
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   npc:
     index_urls:
-      - "https://poe2db.tw/cn/NPCs"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/NPCs
+    - https://poe2db.tw/us/NPCs
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
-
   other:
     index_urls:
-      - "https://poe2db.tw/cn/MinimapIcons"
-      - "https://poe2db.tw/cn/MicrotransactionCombineFormula"
-      - "https://poe2db.tw/cn/passive-skill-tree"
-      - "https://poe2db.tw/cn/Achievements"
-      - "https://poe2db.tw/cn/Miscellaneous"
-      - "https://poe2db.tw/cn/Consumable"
-      - "https://poe2db.tw/cn/Strongbox"
-      - "https://poe2db.tw/cn/Splinter"
-    url_prefix: "/cn/"
+    - https://poe2db.tw/cn/MinimapIcons
+    - https://poe2db.tw/us/MinimapIcons
+    - https://poe2db.tw/cn/MicrotransactionCombineFormula
+    - https://poe2db.tw/us/MicrotransactionCombineFormula
+    - https://poe2db.tw/cn/passive-skill-tree
+    - https://poe2db.tw/us/passive-skill-tree
+    - https://poe2db.tw/cn/Achievements
+    - https://poe2db.tw/us/Achievements
+    - https://poe2db.tw/cn/Miscellaneous
+    - https://poe2db.tw/us/Miscellaneous
+    - https://poe2db.tw/cn/Consumable
+    - https://poe2db.tw/us/Consumable
+    - https://poe2db.tw/cn/Strongbox
+    - https://poe2db.tw/us/Strongbox
+    - https://poe2db.tw/cn/Splinter
+    - https://poe2db.tw/us/Splinter
+    url_prefix: /cn/
     parser: generic_parser
     relations: []
