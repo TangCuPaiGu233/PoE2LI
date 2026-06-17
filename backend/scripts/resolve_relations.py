@@ -22,7 +22,7 @@ OUR_TABLES = [
     "BaseItemTypes", "ItemClasses", "Tags",
     "Mods", "PassiveSkills", "Ascendancy",
     "AlternatePassiveSkills", "AlternatePassiveAdditions",
-    "Stats", "MonsterVarieties", "MonsterResistances", "MonsterArmours",
+    "Stats", "StatDescriptions", "MonsterVarieties", "MonsterResistances", "MonsterArmours",
     "ItemExperiencePerLevel", "CharacterStartStates",
     "WorldAreas", "MapPins", "Words", "QuestFlags",
 ]
@@ -85,7 +85,8 @@ def get_row_key(row, index, table_name):
         "BaseItemTypes": "Id", "ItemClasses": "Id", "Tags": "Id",
         "Mods": "Id", "PassiveSkills": "Id", "Ascendancy": "Id",
         "AlternatePassiveSkills": "Id", "AlternatePassiveAdditions": "Id",
-        "Stats": "Id", "MonsterVarieties": "Id", "MonsterResistances": "Id",
+        "Stats": "Id", "StatDescriptions": "Id",
+        "MonsterVarieties": "Id", "MonsterResistances": "Id",
         "MonsterArmours": "Id", "ItemExperiencePerLevel": None,
         "CharacterStartStates": "Id", "WorldAreas": "Id", "MapPins": "Id",
         "Words": "Id", "QuestFlags": "Id",

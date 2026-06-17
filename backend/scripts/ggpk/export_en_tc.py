@@ -30,7 +30,7 @@ ALL_TABLES = [
     "BaseItemTypes.dat", "ItemClasses.dat", "Tags.dat", "Mods.dat",
     "PassiveSkills.dat", "Ascendancy.dat",
     "AlternatePassiveSkills.dat", "AlternatePassiveAdditions.dat",
-    "Stats.dat",
+    "Stats.dat", "StatDescriptions.dat",
     "MonsterVarieties.dat", "MonsterResistances.dat", "MonsterArmours.dat",
     "ItemExperiencePerLevel.dat", "CharacterStartStates.dat",
     "WorldAreas.dat", "MapPins.dat",

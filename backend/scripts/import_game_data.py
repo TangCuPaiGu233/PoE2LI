@@ -32,6 +32,7 @@ TABLE_CONFIG = {
     "AlternatePassiveSkills":   {"key": "Id",            "name": "Name"},
     "AlternatePassiveAdditions":{"key": "Id",            "name": None},
     "Stats":                    {"key": "Id",            "name": None},
+    "StatDescriptions":         {"key": "Id",            "name": "Description"},
     "MonsterVarieties":         {"key": "Id",            "name": "Name"},
     "MonsterResistances":       {"key": "Id",            "name": None},
     "MonsterArmours":           {"key": "Id",            "name": None},
