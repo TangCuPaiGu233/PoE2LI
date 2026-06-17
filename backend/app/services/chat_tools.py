@@ -53,6 +53,7 @@ class ChatToolContext:
     last_build_summary: str | None = None
     rag_queries: list[str] = field(default_factory=list)  # dedup: track all rag queries this turn
     last_chunks: list[str] = field(default_factory=list)  # evidence for entity validation
+    last_game_searches: list[dict] = field(default_factory=list)  # game graph searches for validation
 
 
 @dataclass
@@ -250,6 +251,33 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_game",
+            "description": (
+                "Search PoE2 official game data (GGPK): classes, ascendancies, passive skills, "
+                "items, mods, skills, gems, monsters, stats. Returns Chinese + English names and "
+                "related entities from the authoritative game database. "
+                "MUST be called for ANY question about game mechanics, entities, or data — "
+                "your training data about PoE2 is unreliable (PoE1 vs PoE2 confusion)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Entity name to search (Chinese, English, or ID). Examples: '灵魂行者', 'Spirit Walker', 'Distorted Amulet', '扭曲项链'",
+                    },
+                    "table_filter": {
+                        "type": "string",
+                        "description": "Optional table filter: Ascendancy, PassiveSkills, ActiveSkills, BaseItemTypes, Mods, SkillGems, Stats, etc.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 TOOL_LABELS: dict[str, str] = {
@@ -259,6 +287,7 @@ TOOL_LABELS: dict[str, str] = {
     "resolve_trade_stat": "解析交易词条",
     "trade_search": "搜索交易市场",
     "recommend": "对比推荐分析",
+    "search_game": "搜索游戏数据",
 }
 
 
@@ -378,6 +407,20 @@ def _run_entity_resolve(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunRe
         ],
     }
     return ToolRunResult(content=json.dumps(payload, ensure_ascii=False))
+
+
+def _run_search_game(args: dict[str, Any], ctx: ChatToolContext) -> ToolRunResult:
+    """Execute search_game tool — queries GameGraph for authoritative game data."""
+    from app.services.game_graph_service import search_game
+
+    query = (args.get("query") or "").strip()
+    table_filter = args.get("table_filter")
+    result = search_game(query, table_filter=table_filter)
+
+    # Track for post-validation
+    ctx.last_game_searches.append({"query": query, "result": result[:500]})
+
+    return ToolRunResult(content=result)
 
 
 # ── Entity grounding ──────────────────────────────────────────
@@ -919,4 +962,6 @@ async def execute_tool(
         return await run_sync_with_timeout(_run_trade_search, args, ctx, timeout=TRADE_SEARCH_TIMEOUT_SEC)
     if name == "recommend":
         return await _run_recommend(args, ctx)
+    if name == "search_game":
+        return _run_search_game(args, ctx)
     return ToolRunResult(content=json.dumps({"error": f"unknown_tool:{name}"}))

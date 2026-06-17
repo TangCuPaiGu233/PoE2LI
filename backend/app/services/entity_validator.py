@@ -67,6 +67,7 @@ _CONFUSABLE_EN: dict[str, str] = {
 # ── Risk levels ──
 RISK_POE1 = "POE1_RESIDUE"
 RISK_NOT_GROUNDED = "NOT_GROUNDED"
+RISK_NOT_IN_GAME_DATA = "NOT_IN_GAME_DATA"
 RISK_CONFUSABLE = "CONFUSABLE"
 
 
@@ -113,6 +114,30 @@ def _extract_cn_entities(text: str) -> set[str]:
     import jieba
     tokens = jieba.lcut(text)
     return {t.strip() for t in tokens if len(t.strip()) >= 2 and re.search(r'[一-鿿]', t)}
+
+
+# ── GameGraph cross-check ──
+
+def _check_game_graph(name: str) -> str | None:
+    """Check if an entity name exists in GameGraph.
+
+    Returns:
+        Chinese name if found, "not_found" if not in GameGraph, None if GameGraph unavailable.
+    """
+    try:
+        from app.services.game_graph_service import get_game_graph
+        gg = get_game_graph()
+        if gg is None:
+            return None
+        results = gg.find_entity(name)
+        if not results:
+            return "not_found"
+        # Return the Chinese name of the first match
+        table, key, _, _ = results[0]
+        info = gg.entity_index.get((table, key), {})
+        return info.get("name_sc") or info.get("name_en") or "found"
+    except Exception:
+        return None
 
 
 # ── Main validation ──
@@ -165,10 +190,24 @@ def validate_answer(
 
         # Check evidence grounding
         if not _entity_in_evidence(nl, evidence_lower):
-            suspicious.append({
-                "name": name, "risk": RISK_NOT_GROUNDED, "lang": "en",
-                "reason": f"not found in retrieval evidence",
-            })
+            # Cross-check against GameGraph (119k entities)
+            gg_result = _check_game_graph(nl)
+            if gg_result == "not_found":
+                suspicious.append({
+                    "name": name, "risk": RISK_NOT_IN_GAME_DATA, "lang": "en",
+                    "reason": f"not in retrieval evidence AND not in GameGraph (119k entities)",
+                })
+            elif gg_result and gg_result != "found":
+                suspicious.append({
+                    "name": name, "risk": RISK_NOT_GROUNDED, "lang": "en",
+                    "reason": f"not found in retrieval evidence",
+                    "game_graph_cn": gg_result,
+                })
+            else:
+                suspicious.append({
+                    "name": name, "risk": RISK_NOT_GROUNDED, "lang": "en",
+                    "reason": f"not found in retrieval evidence",
+                })
 
     # ── Chinese entities ──
     cn_entities = _extract_cn_entities(text)

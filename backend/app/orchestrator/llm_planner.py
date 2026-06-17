@@ -33,7 +33,7 @@ PLANNER_SYSTEM = """你是「流放漓」聊天编排器的规划模块。根据
 |-------|--------|--------------|
 | decode_pob | 本轮有可解析的 PoB 码/链接 | input |
 | trade_search | 查价、搜装备、市集 | query, detail_count(1-5) |
-| encyclopedia | 机制、技能、词缀、有哪些、百科 | query |
+| encyclopedia | 机制、技能、词缀、有哪些、百科（子 Agent 自动搜索游戏数据图谱）| query |
 | build_design | BD、配装、**如何搭配**、装备选择思路 | query |
 | recommend | **仅**用户明确对比 2+ 个具名装备「哪个更好」 | question |
 

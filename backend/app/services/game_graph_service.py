@@ -290,6 +290,141 @@ def query_related(entity_name: str, max_hops: int = 1, max_nodes: int = 50) -> s
         return ""
 
 
+def search_game(
+    query: str,
+    table_filter: str | None = None,
+    expand_hops: int = 1,
+    max_results: int = 5,
+) -> str:
+    """LLM-callable game data search.
+
+    Searches GameGraph (119k entities, 212k edges) for matching entities,
+    auto-expands the best match to show related data, and returns formatted
+    Chinese+English text for the LLM to use.
+
+    Returns an explicit "not found" message if nothing matches — the LLM
+    should treat this as authoritative proof that the entity doesn't exist
+    in PoE2's current game data.
+    """
+    gg = get_game_graph()
+    if gg is None:
+        return "【游戏数据暂不可用，请勿凭训练数据回答】"
+
+    if not query or not query.strip():
+        return "【游戏数据搜索结果】\n查询为空，请提供具体名称。"
+
+    query = query.strip()
+
+    try:
+        results = gg.find_entity(query, table_filter=table_filter)
+        if not results:
+            return (
+                f"【游戏数据搜索结果】\n"
+                f"未找到与 \"{query}\" 匹配的游戏实体。\n"
+                f"⚠️ 这意味着该内容在 PoE2 当前版本中可能不存在，请勿凭训练数据编造。"
+            )
+
+        # Split exact vs partial
+        exact = [r for r in results if r[3] == "exact"]
+        partial = [r for r in results if r[3] == "partial"]
+        total = len(exact) + len(partial)
+
+        lines = [
+            f"【游戏数据搜索结果】",
+            f"匹配: {total} 个（{len(exact)} 精确）",
+            "",
+        ]
+
+        # List search results
+        shown = 0
+        for table, key, display, match_type in results[:max_results]:
+            tag = "精确" if match_type == "exact" else "部分"
+            lines.append(f"{shown + 1}. [{tag}] {table}:{key} — {display}")
+            shown += 1
+
+        if len(results) > max_results:
+            lines.append(f"  ... 还有 {len(results) - max_results} 个结果")
+
+        # Auto-expand the best match (first exact, or first partial)
+        best = exact[0] if exact else partial[0]
+        best_table, best_key, best_display, _ = best
+        expanded = gg.expand(best_table, best_key, max_hops=expand_hops, max_nodes=40)
+
+        lines.append(f"\n--- {best_display} 关联数据 ---")
+
+        # Group edges by relation
+        by_relation: dict[str, list[str]] = defaultdict(list)
+        for src_t, src_k, rel, dst_t, dst_k, hop in expanded["edges"]:
+            if hop != 1:
+                continue
+            if (src_t, src_k) == (best_table, best_key):
+                dst_info = gg.entity_index.get((dst_t, dst_k), {})
+                name = dst_info.get("name_sc") or gg._get_display_name((dst_t, dst_k))
+                by_relation[rel].append(name)
+            elif (dst_t, dst_k) == (best_table, best_key):
+                src_info = gg.entity_index.get((src_t, src_k), {})
+                name = src_info.get("name_sc") or gg._get_display_name((src_t, src_k))
+                by_relation[f"← {rel}"].append(name)
+
+        if by_relation:
+            for rel, targets in by_relation.items():
+                lines.append(f"  {rel}: {', '.join(targets[:12])}")
+        else:
+            lines.append("  （无关联数据）")
+
+        # For Ascendancy entities, also list passive skill nodes
+        if best_table == "Ascendancy":
+            asc_nodes = _collect_ascendancy_nodes(gg, expanded)
+            if asc_nodes:
+                lines.append("")
+                for section in asc_nodes:
+                    lines.append(section)
+
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.warning(f"GameGraph search_game failed: {e}")
+        return f"【游戏数据搜索异常】{e}"
+
+
+def _collect_ascendancy_nodes(gg, expanded: dict) -> list[str]:
+    """Collect PassiveSkills nodes from an ascendancy expansion."""
+    notables: list[str] = []
+    smalls: list[str] = []
+
+    for (t, k), info in expanded["nodes"].items():
+        if t != "PassiveSkills":
+            continue
+        if "Start" in k:
+            continue
+
+        node_info = gg.entity_index.get((t, k), {})
+        cn = node_info.get("name_sc") or ""
+        en = node_info.get("name_en") or ""
+        if not cn:
+            continue
+
+        suffix = f"({en})" if en and en != cn else ""
+        entry = f"{cn}{suffix}"
+
+        if "Notable" in k:
+            notables.append(entry)
+        else:
+            smalls.append(entry)
+
+    sections = []
+    if notables:
+        sections.append("  核心天赋: " + ", ".join(notables))
+    if smalls:
+        # Deduplicate smalls
+        small_counts: dict[str, int] = {}
+        for s in smalls:
+            small_counts[s] = small_counts.get(s, 0) + 1
+        parts = [f"{s} x{c}" if c > 1 else s for s, c in small_counts.items()]
+        sections.append("  小天赋: " + ", ".join(parts))
+    return sections
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------

@@ -113,16 +113,35 @@ async def _run_encyclopedia(
         ctx,
     )
     payload = json.loads(result.content) if result.content else {}
-    context = payload.get("context") or ""
+    rag_context = payload.get("context") or ""
+
+    # Also query GameGraph for authoritative game data (Chinese names, relations)
+    game_result = await execute_tool(
+        "search_game",
+        {"query": rag_query},
+        ctx,
+    )
+    game_context = (game_result.content or "") if game_result else ""
+
+    # Merge RAG + GameGraph contexts
+    context = rag_context
+    if game_context and not game_context.startswith("【游戏数据搜索结果】\n未找到"):
+        context = f"{rag_context}\n\n{game_context}" if rag_context else game_context
+
+    has_data = bool(context and context.strip())
     return SkillAgentResult(
         task_id=spec.task_id,
         agent="encyclopedia",
-        ok=bool(context),
-        match_quality="exact" if context else "failed",
+        ok=has_data,
+        match_quality="exact" if has_data else "failed",
         summary=context[:2000] if context else "未检索到相关资料",
-        facts={"chunk_count": payload.get("chunk_count", 0), "context": context[:12000]},
+        facts={
+            "chunk_count": payload.get("chunk_count", 0),
+            "context": context[:12000],
+            "game_graph": game_context[:3000] if game_context else "",
+        },
         sources=result.sources or ctx.last_sources,
-        warnings=[] if context else ["知识库未命中"],
+        warnings=[] if has_data else ["知识库与游戏数据均未命中"],
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
 
@@ -139,14 +158,32 @@ async def _run_build_design(
         ctx,
     )
     payload = json.loads(result.content) if result.content else {}
-    context = payload.get("context") or ""
+    rag_context = payload.get("context") or ""
+
+    # Also query GameGraph for authoritative game data (classes, skills, passives)
+    game_result = await execute_tool(
+        "search_game",
+        {"query": rag_query},
+        ctx,
+    )
+    game_context = (game_result.content or "") if game_result else ""
+
+    # Merge RAG + GameGraph contexts
+    context = rag_context
+    if game_context and not game_context.startswith("【游戏数据搜索结果】\n未找到"):
+        context = f"{rag_context}\n\n{game_context}" if rag_context else game_context
+
+    has_data = bool(context and context.strip())
     return SkillAgentResult(
         task_id=spec.task_id,
         agent="build_design",
-        ok=bool(context),
-        match_quality="exact" if context else "failed",
+        ok=has_data,
+        match_quality="exact" if has_data else "failed",
         summary=context[:2000] if context else "未检索到 BD 相关资料",
-        facts={"context": context[:12000]},
+        facts={
+            "context": context[:12000],
+            "game_graph": game_context[:3000] if game_context else "",
+        },
         sources=result.sources or ctx.last_sources,
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
