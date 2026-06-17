@@ -39,7 +39,7 @@ TABLE_CONFIG = {
     "CharacterStartStates":     {"key": "Id",            "name": "Name"},
     "WorldAreas":               {"key": "Id",            "name": "Name"},
     "MapPins":                  {"key": "Id",            "name": "Name"},
-    "Words":                    {"key": "Id",            "name": "Text"},
+    "Words":                    {"key": "Id",            "name": "Text", "name_sc": "Text2", "name_tc": "Text2"},
     "QuestFlags":               {"key": "Id",            "name": None},
 }
 
@@ -61,10 +61,15 @@ def get_row_key(row, index, config):
     return str(index)
 
 
-def get_display_name(row, config):
+def get_display_name(row, config, locale=None):
     if not row:
         return None
-    name_field = config.get("name")
+    # Locale-specific field override (e.g. name_sc, name_tc)
+    name_field = None
+    if locale and config.get(f"name_{locale}"):
+        name_field = config[f"name_{locale}"]
+    else:
+        name_field = config.get("name")
     if name_field and name_field in row:
         val = row[name_field]
         if isinstance(val, str) and val.strip():
@@ -116,9 +121,9 @@ def import_table(session, table_name, en_records, tc_records, sc_records, config
         rows.append({
             "table_name": table_name,
             "row_key": row_key,
-            "name_en": get_display_name(en_row, config),
-            "name_tc": get_display_name(tc_row, config),
-            "name_sc": get_display_name(sc_row, config),
+            "name_en": get_display_name(en_row, config, "en"),
+            "name_tc": get_display_name(tc_row, config, "tc"),
+            "name_sc": get_display_name(sc_row, config, "sc"),
             "data": merged,
             "source": "ggpk",
             "game_version": game_version,

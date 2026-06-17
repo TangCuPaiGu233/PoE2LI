@@ -97,7 +97,7 @@ class GameGraph:
                         key = str(i)
                     
                     node_key = (tname, key)
-                    name = self._extract_name(row, tname)
+                    name = self._extract_name(row, tname, locale=loc)
                     
                     if node_key not in self.entity_index:
                         self.entity_index[node_key] = {
@@ -133,12 +133,19 @@ class GameGraph:
             "Stats": "Id", "MonsterVarieties": "Id", "MonsterResistances": "Id",
             "MonsterArmours": "Id", "ItemExperiencePerLevel": None,
             "CharacterStartStates": "Id", "WorldAreas": "Id", "MapPins": "Id",
-            "Words": "Id", "QuestFlags": "Id",
+            "Words": None, "QuestFlags": "Id",
         }
         return key_fields.get(table_name)
     
-    def _extract_name(self, row, table_name):
-        """Extract display name from a row."""
+    def _extract_name(self, row, table_name, locale=None):
+        """Extract display name from a row.
+        
+        For Words table: SC/TC locales use Text2 (localized) instead of Text (always English).
+        """
+        # Words: SC/TC store Chinese in Text2, Text is always English
+        if table_name == "Words" and locale in ("sc", "tc"):
+            if "Text2" in row and isinstance(row["Text2"], str) and row["Text2"].strip():
+                return row["Text2"].strip()
         for field in ["Name", "DisplayedName", "Id", "Text"]:
             if field in row and isinstance(row[field], str) and row[field].strip():
                 return row[field].strip()
