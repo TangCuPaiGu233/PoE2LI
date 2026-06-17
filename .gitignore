@@ -47,3 +47,6 @@ backend/data/entity_icons_failures.jsonl
 backend/_pdf_sample_pages/
 =?3.0.0
 backend/data/eval_results/
+
+# GGPK-extracted game data (EN/TC/SC, ~290MB, deployed via SCP)
+backend/data/poe2_data/
