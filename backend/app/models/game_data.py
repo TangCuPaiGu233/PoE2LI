@@ -24,10 +24,10 @@ class GameDatum(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     table_name = Column(String(64), nullable=False, index=True)   # e.g. ActiveSkills, BaseItemTypes
-    row_key = Column(String(256), nullable=False)                  # e.g. ground_slam, row index
-    name_en = Column(String(256), nullable=True, index=True)       # English display name
-    name_tc = Column(String(256), nullable=True, index=True)       # Traditional Chinese name
-    name_sc = Column(String(256), nullable=True, index=True)       # Simplified Chinese name
+    row_key = Column(Text, nullable=False)                       # e.g. ground_slam, row index
+    name_en = Column(Text, nullable=True)                         # English display name
+    name_tc = Column(Text, nullable=True)                         # Traditional Chinese name
+    name_sc = Column(Text, nullable=True)                         # Simplified Chinese name
     data = Column(JSON, nullable=False)                            # Merged row data {en:{}, tc:{}, sc:{}}
     source = Column(String(16), nullable=False, default="ggpk")   # Data source
     game_version = Column(String(32), nullable=True)               # Game version

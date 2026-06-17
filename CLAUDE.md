@@ -199,6 +199,7 @@ Empirically validated (2026-06-05):
 - **`mod_translations`**: EN→CN affix lookup-first, AI fallback + writeback
 - **`knowledge_chunks`**: RAG vectors; always filter `league` + `game_version`
 - **`kb_entities` / `kb_edges`**: Knowledge graph
+- **`game_data`**: Raw GGPK game data, 24 tables × 3 languages (EN/TC/SC), 119K+ rows
 - **`jobs`**: Async task tracking
 
 ## Compliance (Non-negotiable)
@@ -272,6 +273,114 @@ Chat test URLs: NAS `http://192.168.110.26:3000/chat` · API `http://192.168.110
 
 NAS data path: `/volume1/docker/PoE2LI/data/` → container `/app/data/`.
 
+## GGPK Game Data Pipeline (2026-06)
+
+Raw game data extracted from PoE2 Content.ggpk (international client) and CN WeGame client. Provides 119K+ structured records across 24 core game tables, with 212K+ resolved relationship edges forming a traversable knowledge graph.
+
+### Pipeline overview
+
+```
+Content.ggpk (international)  ──→  en/ + tc/ JSON     ─┐
+CN WeGame Bundles2             ──→  sc/ JSON            ├─→ import_game_data.py ──→ PostgreSQL game_data
+                                                         │
+                                        resolve_relations.py ──→ game_relations.json (212K edges)
+                                                         │
+                                              game_graph.py ──→ BFS traversal query
+```
+
+### Step 1: Export from GGPK (re-run when game updates)
+
+```bash
+# EN + TC from international client (requires PoE2 installed)
+cd backend/scripts/ggpk
+python export_en_tc.py --ggpk "C:\...\Content.ggpk" --output ../../data/poe2_data
+
+# SC from CN WeGame client (requires CN client installed)
+python extract_sc.py --bundles "D:\WeGameApps\...\Bundles2" --output ../../data/poe2_data
+```
+
+**Data source structure inside GGPK**:
+- `data/balance/*.datc64` — English base data
+- `data/balance/traditional chinese/*.datc64` — TC override (only tables with translated text)
+- `data/balance/french/`, `german/`, etc. — other languages (excluded)
+- CN WeGame client root bundles = Simplified Chinese (no language subdirectories)
+
+**Technical details**: PyPoE loads `_.index.bin` → walks BundleRecords/FileRecords/DirectoryRecords → extracts `.datc64` blobs → parses via `DatFile(name, specification=spec).read(BytesIO(data), x64=True)` → serializes to JSON.
+
+### Step 2: Import to PostgreSQL
+
+```bash
+# Inside Docker container (NAS):
+python scripts/import_game_data.py --data-dir /app/data/poe2_data --game-version 0.2.0
+
+# Dry run first:
+python scripts/import_game_data.py --data-dir /app/data/poe2_data --dry-run
+```
+
+Merges EN/TC/SC by `row_key` (Id field), upserts into `game_data` table. Each row stores `name_en`, `name_tc`, `name_sc` + full JSON `data` column with `{"en":{...}, "tc":{...}, "sc":{...}}`.
+
+**24 tables**: ActiveSkills, SkillGems, GemTags, ActiveSkillType, GrantedEffects, GrantedEffectsPerLevel, BaseItemTypes, ItemClasses, Tags, Mods, PassiveSkills, Ascendancy, AlternatePassiveSkills, AlternatePassiveAdditions, Stats, MonsterVarieties, MonsterResistances, MonsterArmours, ItemExperiencePerLevel, CharacterStartStates, WorldAreas, MapPins, Words, QuestFlags.
+
+### Step 3: Resolve FK relationships (requires PyPoE locally)
+
+```bash
+# Extract FK definitions from PyPoE spec, resolve row indices to row_keys
+python scripts/resolve_relations.py --data-dir backend/data/poe2_data/en --output backend/data/poe2_data/game_relations.json
+
+# Supplement string-based FK references
+python scripts/resolve_string_fks.py
+```
+
+Produces `game_relations.json` (~32 MB): 93 FK field definitions across 19 tables, 212K+ resolved edges. Each edge: `{src_table, src_key, dst_table, dst_key, relation}`.
+
+**Key relationship hubs**: Stats (38K incoming edges — most referenced table), Tags (80K), GrantedEffects (50K), ActiveSkillType (12K).
+
+### Step 4: Graph traversal query
+
+```bash
+# CLI query (local or inside container)
+python scripts/query_graph.py "ground_slam" --table ActiveSkills --hops 2
+python scripts/query_graph.py "Strength1" --table Mods --hops 1 --json
+python scripts/query_graph.py "Blacksmith" --search   # search only, no expansion
+```
+
+**Python API** (for LLM Agent integration):
+```python
+from scripts.game_graph import GameGraph
+g = GameGraph("data/poe2_data/game_relations.json", "data/poe2_data/en")
+results = g.find_entity("ground_slam", table_filter="ActiveSkills")
+tree = g.expand("ActiveSkills", "ground_slam", max_hops=2, max_nodes=200)
+g.print_tree(tree)
+```
+
+BFS expansion from `ground_slam` (1 hop): 6 skill type tags (Attack, Area, Melee, Slam, Totemable, AttackInPlace) + 3 input stats + 3 output stats + 3 reverse references. 2 hops → 739 connected nodes.
+
+### game_data database schema
+
+```sql
+game_data(
+  id          SERIAL PRIMARY KEY,
+  table_name  VARCHAR(64) NOT NULL,    -- e.g. "ActiveSkills", "Mods"
+  row_key     TEXT NOT NULL,           -- Id field value (TEXT for long Mod IDs)
+  name_en     TEXT,                    -- English display name
+  name_tc     TEXT,                    -- Traditional Chinese name
+  name_sc     TEXT,                    -- Simplified Chinese name
+  data        JSON NOT NULL,           -- {"en":{full_row}, "tc":{...}, "sc":{...}}
+  source      VARCHAR(16) DEFAULT 'ggpk',
+  game_version VARCHAR(32),
+  created_at  TIMESTAMP,
+  UNIQUE(table_name, row_key)
+)
+```
+
+Indexes: `ix_game_data_table_name` on `table_name`, `ix_game_data_table_key` unique on `(table_name, row_key)`.
+
+### When to re-run the pipeline
+
+1. **Game version update**: Re-export EN+TC+SC → re-import → re-resolve relations
+2. **New table needed**: Add table name to `ALL_TABLES` in export scripts + `TABLE_CONFIG` in import script
+3. **FK resolution update**: PyPoE spec must match the game version being exported
+
 ## Trade Search
 
 Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_plans` → execute → inspect.
@@ -314,6 +423,21 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 | `backend/app/orchestrator/session_context.py` | Multi-turn context contract |
 | `backend/app/orchestrator/dispatcher.py` | Parallel sub-agent dispatch |
 | `backend/app/orchestrator/runners.py` | Agent → tool mapping |
+
+### GGPK data pipeline
+| File | Purpose |
+|------|---------|
+| `backend/scripts/ggpk/export_en_tc.py` | Export EN + TC data from international Content.ggpk |
+| `backend/scripts/ggpk/extract_sc.py` | Export SC data from CN WeGame client Bundles2 |
+| `backend/scripts/import_game_data.py` | Import EN/TC/SC JSON into PostgreSQL `game_data` table |
+| `backend/scripts/resolve_relations.py` | Resolve FK row indices → row_keys using PyPoE spec |
+| `backend/scripts/resolve_string_fks.py` | Resolve string-based FK references (e.g. GrantedEffect) |
+| `backend/scripts/game_graph.py` | In-memory knowledge graph with BFS traversal |
+| `backend/scripts/query_graph.py` | CLI for graph traversal queries |
+| `backend/data/poe2_data/en/` | 24 JSON files, English game data |
+| `backend/data/poe2_data/tc/` | 14 JSON files, Traditional Chinese game data |
+| `backend/data/poe2_data/sc/` | 24 JSON files, Simplified Chinese game data |
+| `backend/data/poe2_data/game_relations.json` | 212K resolved relationship edges |
 
 ### Knowledge & entities
 | File | Purpose |

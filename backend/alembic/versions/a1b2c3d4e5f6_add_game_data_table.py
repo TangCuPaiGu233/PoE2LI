@@ -25,10 +25,10 @@ def upgrade() -> None:
         "game_data",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("table_name", sa.String(64), nullable=False),
-        sa.Column("row_key", sa.String(256), nullable=False),
-        sa.Column("name_en", sa.String(256), nullable=True),
-        sa.Column("name_tc", sa.String(256), nullable=True),
-        sa.Column("name_sc", sa.String(256), nullable=True),
+        sa.Column("row_key", sa.Text(), nullable=False),
+        sa.Column("name_en", sa.Text(), nullable=True),
+        sa.Column("name_tc", sa.Text(), nullable=True),
+        sa.Column("name_sc", sa.Text(), nullable=True),
         sa.Column("data", sa.JSON(), nullable=False),
         sa.Column("source", sa.String(16), nullable=False, server_default="ggpk"),
         sa.Column("game_version", sa.String(32), nullable=True),
@@ -36,16 +36,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_game_data_table_name", "game_data", ["table_name"])
-    op.create_index("ix_game_data_name_en", "game_data", ["name_en"])
-    op.create_index("ix_game_data_name_tc", "game_data", ["name_tc"])
-    op.create_index("ix_game_data_name_sc", "game_data", ["name_sc"])
     op.create_index("ix_game_data_table_key", "game_data", ["table_name", "row_key"], unique=True)
 
 
 def downgrade() -> None:
     op.drop_index("ix_game_data_table_key", table_name="game_data")
-    op.drop_index("ix_game_data_name_sc", table_name="game_data")
-    op.drop_index("ix_game_data_name_tc", table_name="game_data")
-    op.drop_index("ix_game_data_name_en", table_name="game_data")
     op.drop_index("ix_game_data_table_name", table_name="game_data")
     op.drop_table("game_data")
