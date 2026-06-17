@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 from app.core.llm_config import LLM_MODEL, llm_thinking_extra_body
 from app.core.llm_client import get_llm_client
+from app.services.game_graph_service import get_cn_names, get_ascendancy_context, query_related
 
 # ── Static system prompts (cached across all requests) ──
 HOMEWORK_SYSTEM_PROMPT = attach_poe2_rule("""你是一个 Path of Exile 2（流放之路2）构建分析专家。请仔细分析以下构建数据，生成一份中文攻略。
@@ -31,6 +32,7 @@ HOMEWORK_SYSTEM_PROMPT = attach_poe2_rule("""你是一个 Path of Exile 2（流�
 - 请基于数据自行判断：Companion 是核心输出还是辅助手段，不要预设结论
 - 装备数据包含完整词缀，仔细阅读词缀来判断装备的核心价值
 - 如果 DPS 为 0，请分析伤害可能来自哪里（Companion、Minion、DoT 等）
+- 如果下方数据中包含「升华天赋参考」，其中的天赋节点名称来自游戏官方数据。引用天赋节点时**必须使用其中提供的中文名称**，不要自行翻译或猜测
 
 输出要求：
 1. 用中文回答
@@ -267,9 +269,17 @@ def _build_prompt(build_data: DecodeResponse) -> str:
     # Extract tree info
     node_count = sum(len(ts.nodes) for ts in tree)
 
+    # Look up Chinese names from GameGraph
+    cn_class, cn_asc = get_cn_names(build.className, build.ascendClassName)
+    class_part = f"{cn_class}({build.className})" if cn_class != build.className else build.className
+    asc_part = f"{cn_asc}({build.ascendClassName})" if cn_asc != build.ascendClassName else build.ascendClassName
+
+    # Get ascendancy context from game data graph
+    asc_context = get_ascendancy_context(build.className, build.ascendClassName)
+
     # Return only build data (instructions are in HOMEWORK_SYSTEM_PROMPT)
-    return f"""## 构建信息
-- 职业: {build.className} / {build.ascendClassName}
+    result = f"""## 构建信息
+- 职业: {class_part} / {asc_part}
 - 等级: {build.level}
 - 天赋节点数: {node_count}
 
@@ -286,6 +296,11 @@ def _build_prompt(build_data: DecodeResponse) -> str:
 
 ## 装备（完整词缀）
 {items_str}"""
+
+    if asc_context:
+        result += f"\n\n{asc_context}"
+
+    return result
 
 
 def _fix_keys(result: dict) -> dict:
@@ -505,13 +520,21 @@ def chat_about_build(build, question: str, db_session=None) -> str:
     except Exception as e:
         logger.warning(f"RAG retrieval failed (falling back to direct context only): {e}")
 
+    # 2b. GameGraph enrichment — add ascendancy context from game data
+    graph_context = ""
+    try:
+        if build.ascendClassName:
+            graph_context = query_related(build.ascendClassName, max_hops=1, max_nodes=30)
+    except Exception as e:
+        logger.warning(f"GameGraph chat enrichment failed: {e}")
+
     # 3. Split into system (cacheable, same for ALL requests) + user (build-specific)
     #    System message = pure instructions → always cached
     #    User message = build context + RAG + question → varies per build/question
 
     user_prompt = f"""【当前构建上下文】
 {context_str}
-{rag_context if rag_context else ''}【玩家提问】
+{rag_context if rag_context else ''}{graph_context}【玩家提问】
 {question}"""
 
     logger.info(f"Chat context for build {build.id}: {context_str[:300]}")

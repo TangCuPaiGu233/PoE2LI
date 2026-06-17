@@ -16,7 +16,7 @@ import argparse
 # Default paths (adjust for your environment)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_RELATIONS = os.path.join(SCRIPT_DIR, "..", "data", "poe2_data", "game_relations.json")
-DEFAULT_DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data", "poe2_data", "en")
+DEFAULT_DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data", "poe2_data")
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--table", help="Restrict to specific table")
     parser.add_argument("--search", action="store_true", help="Search mode: just find matches, no expansion")
     parser.add_argument("--relations", default=DEFAULT_RELATIONS, help="Path to game_relations.json")
-    parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR, help="Path to EN data dir")
+    parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR, help="Path to poe2_data base dir (contains en/, tc/, sc/)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 

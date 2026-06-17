@@ -20,12 +20,13 @@ from collections import defaultdict, deque
 class GameGraph:
     """In-memory knowledge graph for PoE2 game data with BFS traversal."""
     
-    def __init__(self, relations_path, data_dir=None, locale="en"):
+    def __init__(self, relations_path, data_dir=None, locale="sc"):
         """
         Args:
             relations_path: path to game_relations.json
-            data_dir: optional path to locale data dir (e.g. en/) for raw data
-            locale: "en" / "tc" / "sc"
+            data_dir: path to poe2_data base dir containing en/, tc/, sc/ subdirs
+                      (or a single locale dir for backward compat)
+            locale: preferred display locale for names (default "sc")
         """
         self.locale = locale
         
@@ -58,38 +59,69 @@ class GameGraph:
               f"{len(self.backward)} target nodes, {len(self.edges)} edges")
     
     def _load_data(self, data_dir, locale):
-        """Load raw table data for name lookups."""
-        for tname in self.tables:
-            path = os.path.join(data_dir, f"{tname}.json")
-            if not os.path.exists(path):
-                continue
-            with open(path, "r", encoding="utf-8") as f:
-                records = json.load(f)
-            
-            # Build key -> record mapping (matching import logic)
-            key_field = self._get_key_field(tname)
-            for i, row in enumerate(records):
-                if key_field and key_field in row and row[key_field] is not None:
-                    val = row[key_field]
-                    if isinstance(val, list):
-                        key = f"{i}_{','.join(str(v) for v in val[:3])}"
+        """Load raw table data for name lookups.
+        
+        Supports two directory layouts:
+          - Base dir: data_dir/{en,tc,sc}/*.json  (preferred)
+          - Single locale dir: data_dir/*.json     (backward compat)
+        """
+        # Detect layout
+        locales_to_load = []
+        if os.path.isdir(os.path.join(data_dir, "en")):
+            # Base directory layout — load all available locales
+            for loc in ("en", "tc", "sc"):
+                loc_dir = os.path.join(data_dir, loc)
+                if os.path.isdir(loc_dir):
+                    locales_to_load.append((loc, loc_dir))
+        else:
+            # Single locale directory
+            locales_to_load.append((locale, data_dir))
+        
+        for loc, loc_dir in locales_to_load:
+            for tname in self.tables:
+                path = os.path.join(loc_dir, f"{tname}.json")
+                if not os.path.exists(path):
+                    continue
+                with open(path, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+                
+                key_field = self._get_key_field(tname)
+                for i, row in enumerate(records):
+                    if key_field and key_field in row and row[key_field] is not None:
+                        val = row[key_field]
+                        if isinstance(val, list):
+                            key = f"{i}_{','.join(str(v) for v in val[:3])}"
+                        else:
+                            key = str(val)
                     else:
-                        key = str(val)
-                else:
-                    key = str(i)
-                
-                # Extract display name
-                name = self._extract_name(row, tname)
-                self.entity_index[(tname, key)] = {
-                    "name": name,
-                    "row": row,
-                }
-                
-                # Build name -> entity lookup
-                if name:
-                    self._name_lookup[name.lower()].append((tname, key))
-                # Also index the key itself
-                self._name_lookup[key.lower()].append((tname, key))
+                        key = str(i)
+                    
+                    node_key = (tname, key)
+                    name = self._extract_name(row, tname)
+                    
+                    if node_key not in self.entity_index:
+                        self.entity_index[node_key] = {
+                            "name_en": None, "name_tc": None, "name_sc": None,
+                            "row": row,
+                        }
+                    
+                    # Store locale-specific name
+                    name_field = f"name_{loc}"
+                    if name:
+                        self.entity_index[node_key][name_field] = name
+                    
+                    # For backward compat, "name" = primary locale or first available
+                    info = self.entity_index[node_key]
+                    if not info.get("name"):
+                        info["name"] = name
+                    
+                    # Index all locale names for search
+                    if name:
+                        self._name_lookup[name.lower()].append(node_key)
+                    
+                    # Also index the key itself (only once)
+                    if loc == locales_to_load[0][0]:
+                        self._name_lookup[key.lower()].append(node_key)
     
     def _get_key_field(self, table_name):
         key_fields = {
@@ -112,25 +144,45 @@ class GameGraph:
                 return row[field].strip()
         return None
     
+    def _get_display_name(self, node_key):
+        """Get display name string, preferring user's locale then fallbacks."""
+        info = self.entity_index.get(node_key, {})
+        # Build priority order: preferred locale first, then fallbacks
+        locale_order = {"sc": ["name_sc", "name_tc", "name_en"],
+                        "tc": ["name_tc", "name_sc", "name_en"],
+                        "en": ["name_en", "name_tc", "name_sc"]}
+        order = locale_order.get(self.locale, ["name_en", "name_tc", "name_sc"])
+        
+        names = []
+        for field in order:
+            n = info.get(field)
+            if n and n not in names:
+                names.append(n)
+        if not names:
+            return node_key[1]  # fallback to key
+        return " / ".join(names)
+    
     def find_entity(self, query, table_filter=None):
         """Find entities matching a query string.
         
         Args:
-            query: search string (name, id, or partial match)
+            query: search string (name, id, or partial match) — supports EN/TC/SC
             table_filter: optional table name to restrict search
         
-        Returns: list of (table, key, name) tuples, sorted by relevance
+        Returns: list of (table, key, display_name, match_type) tuples
         """
         q = query.lower().strip()
         results = []
+        seen = set()
         
         # Exact match first
         if q in self._name_lookup:
             for table, key in self._name_lookup[q]:
                 if table_filter and table != table_filter:
                     continue
-                info = self.entity_index.get((table, key), {})
-                results.append((table, key, info.get("name", key), "exact"))
+                if (table, key) not in seen:
+                    seen.add((table, key))
+                    results.append((table, key, self._get_display_name((table, key)), "exact"))
         
         # Partial match
         for name_lower, entities in self._name_lookup.items():
@@ -138,10 +190,9 @@ class GameGraph:
                 for table, key in entities:
                     if table_filter and table != table_filter:
                         continue
-                    # Avoid duplicates
-                    if not any(r[0] == table and r[1] == key for r in results):
-                        info = self.entity_index.get((table, key), {})
-                        results.append((table, key, info.get("name", key), "partial"))
+                    if (table, key) not in seen:
+                        seen.add((table, key))
+                        results.append((table, key, self._get_display_name((table, key)), "partial"))
         
         # Sort: exact first, then by table name
         results.sort(key=lambda x: (0 if x[3] == "exact" else 1, x[0]))
@@ -190,15 +241,13 @@ class GameGraph:
         # Build node details
         nodes = {}
         for (t, k), hop in visited.items():
-            info = self.entity_index.get((t, k), {})
             nodes[(t, k)] = {
-                "name": info.get("name", k),
+                "name": self._get_display_name((t, k)),
                 "hop": hop,
             }
         
-        root_info = self.entity_index.get(root, {})
         return {
-            "root": (table, key, root_info.get("name", key)),
+            "root": (table, key, self._get_display_name(root)),
             "nodes": nodes,
             "edges": result_edges,
         }
@@ -227,23 +276,20 @@ class GameGraph:
                     remaining = sum(len(v) for k, v in by_hop.items() if k >= hop) - (printed - sum(len(by_hop[h2]) for h2 in by_hop if h2 < hop))
                     print(f"  ... ({remaining} more edges)")
                     return
-                # Determine direction
+                # Use display names (SC/TC/EN)
+                src_name = self._get_display_name((src_t, src_k))
+                dst_name = self._get_display_name((dst_t, dst_k))
+                src_label = f"{src_t}:{src_k}"
+                dst_label = f"{dst_t}:{dst_k}"
+                
                 if (src_t, src_k) == result["root"][:2]:
-                    dst_info = self.entity_index.get((dst_t, dst_k), {})
-                    dst_name = dst_info.get("name", dst_k)
-                    name_str = f" ({dst_name})" if dst_name and dst_name != dst_k else ""
-                    print(f"    → {rel} → {dst_t}:{dst_k}{name_str}")
+                    name_suffix = f" ({dst_name})" if dst_name != dst_k else ""
+                    print(f"    → {rel} → {dst_label}{name_suffix}")
                 elif (dst_t, dst_k) == result["root"][:2]:
-                    src_info = self.entity_index.get((src_t, src_k), {})
-                    src_name = src_info.get("name", src_k)
-                    name_str = f" ({src_name})" if src_name and src_name != src_k else ""
-                    print(f"    ← {src_t}:{src_k}{name_str} ← {rel}")
+                    name_suffix = f" ({src_name})" if src_name != src_k else ""
+                    print(f"    ← {src_label}{name_suffix} ← {rel}")
                 else:
-                    src_info = self.entity_index.get((src_t, src_k), {})
-                    dst_info = self.entity_index.get((dst_t, dst_k), {})
-                    s_name = src_info.get("name", src_k)
-                    d_name = dst_info.get("name", dst_k)
-                    print(f"    {src_t}:{src_k} --{rel}--> {dst_t}:{dst_k}")
+                    print(f"    {src_label} --{rel}--> {dst_label}")
                 printed += 1
             print()
 
@@ -253,7 +299,7 @@ def main():
     import sys
     
     relations_path = sys.argv[1] if len(sys.argv) > 1 else "game_relations.json"
-    data_dir = sys.argv[2] if len(sys.argv) > 2 else r"D:\PC_AI\Project\PoE2LI\backend\data\poe2_data\en"
+    data_dir = sys.argv[2] if len(sys.argv) > 2 else r"D:\PC_AI\Project\PoE2LI\backend\data\poe2_data"
     
     print("Building graph...")
     g = GameGraph(relations_path, data_dir)
