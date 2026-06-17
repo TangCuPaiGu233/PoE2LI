@@ -31,24 +31,40 @@ from app.services.observability import flush, trace_chat_turn
 logger = logging.getLogger(__name__)
 
 
-def _save_chat_history(user_msg: str, answer: str, ctx) -> None:
+def _save_chat_history(messages: list[dict], user_msg: str, answer: str, ctx, reasoning: str = "") -> None:
     """Persist chat turn to chat_history table."""
     try:
-        import uuid, os
-        from app.core.database import SessionLocal
-        db = SessionLocal()
-        thread_id = os.getenv("CHAT_THREAD_ID", str(uuid.uuid4())[:12])
-        db.execute(
-            db.bind.execute if hasattr(db, "bind") else lambda sql, params: None,
+        import json, hashlib, psycopg2
+        # Use hash of first user message as thread_id, stable across multi-turn
+        first_user = ""
+        for m in (messages or []):
+            if m.get("role") == "user":
+                first_user = m.get("content", "")
+                if isinstance(first_user, list):
+                    first_user = str(first_user[0].get("text", "")) if first_user else ""
+                break
+        thread_id = hashlib.md5((first_user or user_msg)[:200].encode()).hexdigest()[:12]
+        db_url = os.getenv("DATABASE_URL", "postgresql://poe2li:poe2li_secret@postgres:5432/poe2li")
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        tool_info = []
+        if hasattr(ctx, 'rag_queries') and ctx.rag_queries:
+            tool_info.append({"type": "rag_queries", "queries": ctx.rag_queries})
+        if ctx.last_sources:
+            tool_info.append({"type": "sources", "count": len(ctx.last_sources),
+                              "previews": [s.get("preview","")[:80] for s in ctx.last_sources[:3]]})
+        tools_json = json.dumps(tool_info, ensure_ascii=False) if tool_info else None
+        cur.execute(
+            "INSERT INTO chat_history (thread_id, role, content, tool_calls) VALUES (%s, 'user', %s, NULL)",
+            (thread_id, user_msg[:5000])
         )
-        # Use raw SQL via bind
-        from sqlalchemy import text
-        db.execute(text(
-            "INSERT INTO chat_history (thread_id, role, content, tool_calls) "
-            "VALUES (:tid, 'user', :umsg, NULL), (:tid, 'assistant', :answer, NULL)"
-        ), {"tid": thread_id, "umsg": user_msg[:5000], "answer": answer[:10000]})
-        db.commit()
-        db.close()
+        cur.execute(
+            "INSERT INTO chat_history (thread_id, role, content, tool_calls, reasoning) VALUES (%s, 'assistant', %s, %s, %s)",
+            (thread_id, answer[:10000], tools_json, reasoning[:5000] if reasoning else None)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
     except Exception as e:
         logger.warning("[CHAT] save chat_history failed: %s", e)
 
@@ -271,6 +287,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     used_tools = False
     answer_acc = ""
+    reasoning_acc = ""
     tool_round = 0
     while tool_round < MAX_TOOL_ROUNDS:
         tool_round += 1
@@ -383,7 +400,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if not used_tools:
         if ctx.last_sources:
             yield {"type": "sources", "content": ctx.last_sources}
-        _save_chat_history(user_msg, answer_acc, ctx)
+        _save_chat_history(messages, user_msg, answer_acc, ctx, reasoning_acc)
         async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
             yield ev
         flush()
@@ -396,6 +413,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     try:
         async for kind, text in _emit_streamed_answer(client, agent_messages):
             if kind == "reasoning":
+                reasoning_acc += text
                 yield {"type": "reasoning", "content": text}
             else:
                 answer_acc += text
@@ -415,7 +433,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         if suspicious:
             yield {"type": "entity_warnings", "content": suspicious}
             logger.info("[CHAT] entity validation: %d suspicious entities found", len(suspicious))
-        _save_chat_history(user_msg, answer_acc, ctx)
+        _save_chat_history(messages, user_msg, answer_acc, ctx, reasoning_acc)
 
     async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
         yield ev

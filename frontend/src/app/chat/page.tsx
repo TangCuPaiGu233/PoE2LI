@@ -177,6 +177,7 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottomRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const SCROLL_THRESHOLD = 72;
 
@@ -205,10 +206,19 @@ export default function ChatPage() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  // Abort in-flight SSE stream on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+
   const send = useCallback(async (q: string, imageDataUrls?: string[]) => {
     const text = q.trim();
     const imgs = imageDataUrls?.length ? imageDataUrls : [];
     if ((!text && !imgs.length) || streaming) return;
+    // Abort any previous in-flight stream before starting a new one
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setInput(""); setPendingImages([]); setImageError(""); setShowWelcome(false);
     stickToBottomRef.current = true;
     const userMsg: Message = { role: "user", content: text, ...(imgs.length ? { images: imgs } : {}) };
@@ -229,7 +239,7 @@ export default function ChatPage() {
     let reasonLog = "";
 
     try {
-      const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }) });
+      const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }), signal: controller.signal });
       const reader = resp.body?.getReader();
       if (!reader) {
         setMessages(p => {
@@ -323,6 +333,11 @@ export default function ChatPage() {
         }
       }
     } catch (e) {
+      // User-initiated abort (new message / navigation) — not a real error
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setStreaming(false); setSkill("idle"); setThinking([]); setReasoning("");
+        return;
+      }
       setMessages(p => {
         const l = p[p.length - 1];
         return l?.role === "assistant"

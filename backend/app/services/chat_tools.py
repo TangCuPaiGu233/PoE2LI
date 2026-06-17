@@ -75,15 +75,15 @@ def _query_jaccard(a: str, b: str) -> float:
     return len(sa & sb) / union if union > 0 else 0.0
 
 
-_RAG_DEDUP_THRESHOLD = 0.30
-RAG_SOFT_LIMIT = 2  # batch counts as all of them — one call should be enough
+_RAG_DEDUP_THRESHOLD = 0.50
+RAG_SOFT_LIMIT = 3  # allow one batch + one targeted follow-up search
 
 
 def _check_rag_dedup(query: str, ctx: ChatToolContext) -> str | None:
     """Return a warning message if this query is too similar to a previous one, else None."""
     if not ctx.rag_queries:
         return None
-    for prev in reversed(ctx.rag_queries[-3:]):  # only check last 3
+    for prev in reversed(ctx.rag_queries[-5:]):  # only check last 5
         if _query_jaccard(query, prev) > _RAG_DEDUP_THRESHOLD:
             return (
                 f"检索去重：当前 query 「{query}」与已搜过的 「{prev}」高度相似（Jaccard={_query_jaccard(query, prev):.2f}）。"
@@ -879,7 +879,7 @@ async def execute_tool(
         # Rich single-call batch: on first call, internally run batch retrieval for broader coverage.
         # Subsequent calls fall through to normal single-query path.
         if ctx.rag_search_calls == 0:
-            ctx.rag_search_calls = RAG_SOFT_LIMIT  # consume full budget — one-shot
+            ctx.rag_search_calls = max(1, RAG_SOFT_LIMIT - 1)  # leave 1 slot for targeted follow-up
             ctx.rag_queries.append(query)
             # Convert to batch: use the LLM's query as primary, add auto expansions
             batch_args = {
