@@ -18,6 +18,7 @@ from app.orchestrator.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
 
+from app.services.chat_response_guard import strip_ungrounded_price_claims
 from app.services.chat_tools import (
     RAG_SOFT_LIMIT,
     SEARCH_GAME_MAX_PER_TURN,
@@ -447,6 +448,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     answer_acc = ""
     reasoning_acc = ""
     tool_round = 0
+    _had_listing_price = False
     while tool_round < MAX_TOOL_ROUNDS:
         tool_round += 1
         try:
@@ -622,6 +624,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
             if result.trade_result:
                 yield {"type": "trade_result", "content": result.trade_result}
+                if isinstance(result.trade_result, dict) and result.trade_result.get("listing_price"):
+                    _had_listing_price = True
             if result.recommend_result:
                 yield {"type": "recommend_result", "content": result.recommend_result}
 
@@ -637,6 +641,11 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if not used_tools:
         if ctx.last_sources:
             yield {"type": "sources", "content": ctx.last_sources}
+        guarded = strip_ungrounded_price_claims(answer_acc, had_listing=_had_listing_price)
+        if guarded != answer_acc:
+            extra = guarded[len(answer_acc):]
+            answer_acc = guarded
+            yield {"type": "answer", "content": extra}
         _save_chat_history(messages, user_msg, answer_acc, ctx, reasoning_acc)
         async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
             yield ev
@@ -648,6 +657,11 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     if answer_acc.strip():
         # Final sanitization pass (catches wiki patterns spanning delta chunks)
         answer_acc = _sanitize_answer(answer_acc)
+        guarded = strip_ungrounded_price_claims(answer_acc, had_listing=_had_listing_price)
+        if guarded != answer_acc:
+            extra = guarded[len(answer_acc):]
+            answer_acc = guarded
+            yield {"type": "answer", "content": extra}
         if ctx.last_sources:
             yield {"type": "sources", "content": ctx.last_sources}
         _save_chat_history(messages, user_msg, answer_acc, ctx, reasoning_acc)
@@ -683,6 +697,11 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     # Final sanitization pass on accumulated answer (catches wiki patterns spanning chunks)
     if answer_acc:
         answer_acc = _sanitize_answer(answer_acc)
+        guarded = strip_ungrounded_price_claims(answer_acc, had_listing=_had_listing_price)
+        if guarded != answer_acc:
+            extra = guarded[len(answer_acc):]
+            answer_acc = guarded
+            yield {"type": "answer", "content": extra}
 
     # Post-hoc entity validation
     if answer_acc:
