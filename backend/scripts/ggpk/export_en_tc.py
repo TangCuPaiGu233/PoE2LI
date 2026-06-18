@@ -24,39 +24,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 DEFAULT_GGPK = r"C:\Program Files (x86)\Grinding Gear Games\Path of Exile 2 - poe2_production\Content.ggpk"
 DEFAULT_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "..", "data", "poe2_data")
 
-ALL_TABLES = [
-    # ── Original 25 ──
-    "ActiveSkills.dat", "SkillGems.dat", "GemTags.dat", "ActiveSkillType.dat",
-    "GrantedEffects.dat", "GrantedEffectsPerLevel.dat",
-    "BaseItemTypes.dat", "ItemClasses.dat", "Tags.dat", "Mods.dat",
-    "PassiveSkills.dat", "Ascendancy.dat",
-    "AlternatePassiveSkills.dat", "AlternatePassiveAdditions.dat",
-    "Stats.dat", "StatDescriptions.dat",
-    "MonsterVarieties.dat", "MonsterResistances.dat", "MonsterArmours.dat",
-    "ItemExperiencePerLevel.dat", "CharacterStartStates.dat",
-    "WorldAreas.dat", "MapPins.dat",
-    "Words.dat", "QuestFlags.dat",
-    # ── Expansion: high priority ──
-    "CraftingBenchOptions.dat", "CraftingBenchUnlockCategories.dat",
-    "CraftingBenchSortCategories.dat", "BuffDefinitions.dat",
-    "FlavourText.dat", "ModType.dat", "ModFamily.dat",
-    "PassiveSkillTrees.dat", "PassiveSkillMasteryEffects.dat",
-    "PassiveSkillMasteryGroups.dat", "PassiveSkillStatCategories.dat",
-    "PassiveKeystoneList.dat", "SupportGems.dat", "ModGrantedSkills.dat",
-    # ── Expansion: medium priority ──
-    "MapSeries.dat", "MapSeriesTiers.dat", "Maps.dat",
-    "AtlasNode.dat", "AtlasNodeDefinition.dat", "AtlasRegions.dat",
-    "UniqueMaps.dat",
-    "LeagueInfo.dat", "LeagueFlag.dat",
-    "PantheonPanelLayout.dat", "IncursionArchitect.dat",
-    "HeistNPCs.dat", "HeistJobs.dat", "HeistContracts.dat", "HeistObjectives.dat",
-    "NPCs.dat", "NPCMaster.dat", "NPCConversations.dat",
-    "Achievements.dat", "AchievementItems.dat",
-    "CurrencyItems.dat",
-    "HideoutNPCs.dat", "Hideouts.dat", "HideoutDoodads.dat",
-    "AbyssObjects.dat",
-    "BetrayalChoiceActions.dat", "BetrayalTargets.dat",
-]
+from table_registry import ALL_TABLES as _REG_TABLES
+
+# Convert registry names to .dat format for GGPK export
+ALL_TABLES = [t + ".dat" for t in _REG_TABLES]
 
 LANG_PREFIXES = {
     "french", "german", "korean", "russian", "spanish",

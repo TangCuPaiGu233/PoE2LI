@@ -15,78 +15,41 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.core.database import SessionLocal
 from app.models.game_data import GameDatum
 
-# ── Table config: key field (for row_key) + display name field ──
-TABLE_CONFIG = {
-    # ── Original 25 ──
-    "ActiveSkills":             {"key": "Id",            "name": "DisplayedName"},
-    "SkillGems":                {"key": "BaseItemType",   "name": None},
-    "GemTags":                  {"key": "Id",            "name": "Name"},
-    "ActiveSkillType":          {"key": "Id",            "name": None},
-    "GrantedEffects":           {"key": "Id",            "name": None},
-    "GrantedEffectsPerLevel":   {"key": None,            "name": None},
-    "BaseItemTypes":            {"key": "Id",            "name": "Name"},
-    "ItemClasses":              {"key": "Id",            "name": "Name"},
-    "Tags":                     {"key": "Id",            "name": None},
-    "Mods":                     {"key": "Id",            "name": "Name"},
-    "PassiveSkills":            {"key": "Id",            "name": "Name"},
-    "Ascendancy":               {"key": "Id",            "name": "Name"},
-    "AlternatePassiveSkills":   {"key": "Id",            "name": "Name"},
-    "AlternatePassiveAdditions":{"key": "Id",            "name": None},
-    "Stats":                    {"key": "Id",            "name": None},
-    "StatDescriptions":         {"key": "Id",            "name": "Description"},
-    "MonsterVarieties":         {"key": "Id",            "name": "Name"},
-    "MonsterResistances":       {"key": "Id",            "name": None},
-    "MonsterArmours":           {"key": "Id",            "name": None},
-    "ItemExperiencePerLevel":   {"key": None,            "name": None},
-    "CharacterStartStates":     {"key": "Id",            "name": "Name"},
-    "WorldAreas":               {"key": "Id",            "name": "Name"},
-    "MapPins":                  {"key": "Id",            "name": "Name"},
-    "Words":                    {"key": "Id",            "name": "Text", "name_sc": "Text2", "name_tc": "Text2"},
-    "QuestFlags":               {"key": "Id",            "name": None},
-    # ── Expansion: high priority ──
-    "CraftingBenchOptions":         {"key": "Id",            "name": None},
-    "CraftingBenchUnlockCategories":{"key": "Id",            "name": None},
-    "CraftingBenchSortCategories":  {"key": "Id",            "name": "Name"},
-    "BuffDefinitions":              {"key": "Id",            "name": "Name"},
-    "FlavourText":                  {"key": "Id",            "name": "Text"},
-    "ModType":                      {"key": None,           "name": "Name"},
-    "ModFamily":                    {"key": "Id",            "name": None},
-    "PassiveSkillTrees":            {"key": "Id",            "name": "Name"},
-    "PassiveSkillMasteryEffects":   {"key": "Id",            "name": None},
-    "PassiveSkillMasteryGroups":    {"key": "Id",            "name": None},
-    "PassiveSkillStatCategories":   {"key": "Id",            "name": "Name"},
-    "PassiveKeystoneList":          {"key": "Passive",       "name": "DisplayText"},
-    "SupportGems":                  {"key": "SkillGem",      "name": None},
-    "ModGrantedSkills":             {"key": None,           "name": None},
-    # ── Expansion: medium priority ──
-    "MapSeries":                    {"key": "Id",            "name": "Name"},
-    "MapSeriesTiers":               {"key": None,           "name": None},
-    "Maps":                         {"key": "BaseItemType",  "name": None},
-    "AtlasNode":                    {"key": "Id",            "name": None},
-    "AtlasNodeDefinition":          {"key": "Id",            "name": None},
-    "AtlasRegions":                 {"key": "Id",            "name": None},
-    "UniqueMaps":                   {"key": None,           "name": "Name"},
-    "LeagueInfo":                   {"key": None,           "name": "Description"},
-    "LeagueFlag":                   {"key": "Id",            "name": None},
-    "PantheonPanelLayout":          {"key": "Id",            "name": None},
-    "IncursionArchitect":           {"key": None,           "name": None},
-    "HeistNPCs":                    {"key": None,           "name": "Name"},
-    "HeistJobs":                    {"key": "Id",            "name": "Name"},
-    "HeistContracts":               {"key": None,           "name": None},
-    "HeistObjectives":              {"key": "BaseItemType",  "name": "Name"},
-    "NPCs":                         {"key": "Id",            "name": "Name"},
-    "NPCMaster":                    {"key": "Id",            "name": None},
-    "NPCConversations":             {"key": "Id",            "name": None},
-    "Achievements":                 {"key": "Id",            "name": "Description"},
-    "AchievementItems":             {"key": "Id",            "name": "Name"},
-    "CurrencyItems":                {"key": "BaseItemType",  "name": "Description"},
-    "HideoutNPCs":                  {"key": None,           "name": None},
-    "Hideouts":                     {"key": None,           "name": None},
-    "HideoutDoodads":               {"key": None,           "name": None},
-    "AbyssObjects":                 {"key": "Id",            "name": None},
-    "BetrayalChoiceActions":        {"key": "Id",            "name": None},
-    "BetrayalTargets":              {"key": "Id",            "name": None},
+# ── Import shared registry and build TABLE_CONFIG ──
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "ggpk"))
+from table_registry import ALL_TABLES as _REG_TABLES, KEY_FIELDS as _REG_KEYS
+
+# Name field overrides for well-known tables (display name column).
+# New tables use name=None; get_display_name() fallback chain handles them.
+_NAME_OVERRIDES = {
+    "ActiveSkills": "DisplayedName", "GemTags": "Name", "BaseItemTypes": "Name",
+    "ItemClasses": "Name", "Mods": "Name", "PassiveSkills": "Name",
+    "Ascendancy": "Name", "AlternatePassiveSkills": "Name",
+    "StatDescriptions": "Description", "MonsterVarieties": "Name",
+    "CharacterStartStates": "Name", "WorldAreas": "Name", "MapPins": "Name",
+    "Words": "Text", "CraftingBenchSortCategories": "Name",
+    "BuffDefinitions": "Name", "FlavourText": "Text", "ModType": "Name",
+    "PassiveSkillTrees": "Name", "PassiveSkillStatCategories": "Name",
+    "PassiveKeystoneList": "DisplayText",
+    "MapSeries": "Name", "UniqueMaps": "Name", "LeagueInfo": "Description",
+    "HeistNPCs": "Name", "HeistJobs": "Name", "HeistObjectives": "Name",
+    "NPCs": "Name", "Achievements": "Description", "AchievementItems": "Name",
+    "CurrencyItems": "Description",
+    # Words locale overrides
+    "Words_sc": "Text2", "Words_tc": "Text2",
 }
+
+TABLE_CONFIG = {}
+for _t in _REG_TABLES:
+    _key = _REG_KEYS.get(_t)
+    _name = _NAME_OVERRIDES.get(_t)
+    _cfg = {"key": _key, "name": _name}
+    # Add locale-specific name overrides
+    if f"{_t}_sc" in _NAME_OVERRIDES:
+        _cfg["name_sc"] = _NAME_OVERRIDES[f"{_t}_sc"]
+    if f"{_t}_tc" in _NAME_OVERRIDES:
+        _cfg["name_tc"] = _NAME_OVERRIDES[f"{_t}_tc"]
+    TABLE_CONFIG[_t] = _cfg
 
 
 def load_json(path):

@@ -14,6 +14,7 @@ Usage:
 """
 import json
 import os
+import sys
 from collections import defaultdict, deque
 
 
@@ -124,42 +125,14 @@ class GameGraph:
                         self._name_lookup[key.lower()].append(node_key)
     
     def _get_key_field(self, table_name):
-        key_fields = {
-            # ── Original 25 ──
-            "ActiveSkills": "Id", "SkillGems": "BaseItemType", "GemTags": "Id",
-            "ActiveSkillType": "Id", "GrantedEffects": "Id", "GrantedEffectsPerLevel": None,
-            "BaseItemTypes": "Id", "ItemClasses": "Id", "Tags": "Id",
-            "Mods": "Id", "PassiveSkills": "Id", "Ascendancy": "Id",
-            "AlternatePassiveSkills": "Id", "AlternatePassiveAdditions": "Id",
-            "Stats": "Id", "StatDescriptions": "Id",
-            "MonsterVarieties": "Id", "MonsterResistances": "Id",
-            "MonsterArmours": "Id", "ItemExperiencePerLevel": None,
-            "CharacterStartStates": "Id", "WorldAreas": "Id", "MapPins": "Id",
-            "Words": None, "QuestFlags": "Id",
-            # ── Expansion: high priority ──
-            "CraftingBenchOptions": "Id", "CraftingBenchUnlockCategories": "Id",
-            "CraftingBenchSortCategories": "Id", "BuffDefinitions": "Id",
-            "FlavourText": "Id", "ModType": None, "ModFamily": "Id",
-            "PassiveSkillTrees": "Id", "PassiveSkillMasteryEffects": "Id",
-            "PassiveSkillMasteryGroups": "Id", "PassiveSkillStatCategories": "Id",
-            "PassiveKeystoneList": "Passive", "SupportGems": "SkillGem",
-            "ModGrantedSkills": None,
-            # ── Expansion: medium priority ──
-            "MapSeries": "Id", "MapSeriesTiers": None, "Maps": "BaseItemType",
-            "AtlasNode": "Id", "AtlasNodeDefinition": "Id", "AtlasRegions": "Id",
-            "UniqueMaps": None,
-            "LeagueInfo": None, "LeagueFlag": "Id",
-            "PantheonPanelLayout": "Id", "IncursionArchitect": None,
-            "HeistNPCs": None, "HeistJobs": "Id",
-            "HeistContracts": None, "HeistObjectives": "BaseItemType",
-            "NPCs": "Id", "NPCMaster": "Id", "NPCConversations": "Id",
-            "Achievements": "Id", "AchievementItems": "Id",
-            "CurrencyItems": "BaseItemType",
-            "HideoutNPCs": None, "Hideouts": None, "HideoutDoodads": None,
-            "AbyssObjects": "Id",
-            "BetrayalChoiceActions": "Id", "BetrayalTargets": "Id",
-        }
-        return key_fields.get(table_name)
+        # Import shared registry (lazy, cached)
+        if not hasattr(self, '_reg_keys'):
+            _ggpk_dir = os.path.join(os.path.dirname(__file__), "ggpk")
+            if _ggpk_dir not in sys.path:
+                sys.path.insert(0, _ggpk_dir)
+            from table_registry import KEY_FIELDS
+            self._reg_keys = KEY_FIELDS
+        return self._reg_keys.get(table_name)
     
     def _extract_name(self, row, table_name, locale=None):
         """Extract display name from a row.

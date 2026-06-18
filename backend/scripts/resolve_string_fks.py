@@ -8,6 +8,7 @@ Usage:
 """
 import json
 import os
+import sys
 import argparse
 from collections import defaultdict
 
@@ -27,43 +28,11 @@ STRING_FK_HEURISTICS = {
     },
 }
 
-KEY_FIELDS = {
-    # ── Original 25 ──
-    "ActiveSkills": "Id", "SkillGems": "BaseItemType", "GemTags": "Id",
-    "ActiveSkillType": "Id", "GrantedEffects": "Id", "GrantedEffectsPerLevel": None,
-    "BaseItemTypes": "Id", "ItemClasses": "Id", "Tags": "Id",
-    "Mods": "Id", "PassiveSkills": "Id", "Ascendancy": "Id",
-    "AlternatePassiveSkills": "Id", "AlternatePassiveAdditions": "Id",
-    "Stats": "Id", "StatDescriptions": "Id",
-    "MonsterVarieties": "Id", "MonsterResistances": "Id",
-    "MonsterArmours": "Id", "ItemExperiencePerLevel": None,
-    "CharacterStartStates": "Id", "WorldAreas": "Id", "MapPins": "Id",
-    "Words": "Id", "QuestFlags": "Id",
-    # ── Expansion: high priority ──
-    "CraftingBenchOptions": "Id", "CraftingBenchUnlockCategories": "Id",
-    "CraftingBenchSortCategories": "Id", "BuffDefinitions": "Id",
-    "FlavourText": "Id", "ModType": None, "ModFamily": "Id",
-    "PassiveSkillTrees": "Id", "PassiveSkillMasteryEffects": "Id",
-    "PassiveSkillMasteryGroups": "Id", "PassiveSkillStatCategories": "Id",
-    "PassiveKeystoneList": "Passive", "SupportGems": "SkillGem",
-    "ModGrantedSkills": None,
-    # ── Expansion: medium priority ──
-    "MapSeries": "Id", "MapSeriesTiers": None, "Maps": "BaseItemType",
-    "AtlasNode": "Id", "AtlasNodeDefinition": "Id", "AtlasRegions": "Id",
-    "UniqueMaps": None,
-    "LeagueInfo": None, "LeagueFlag": "Id",
-    "PantheonPanelLayout": "Id", "IncursionArchitect": None,
-    "HeistNPCs": None, "HeistJobs": "Id",
-    "HeistContracts": None, "HeistObjectives": "BaseItemType",
-    "NPCs": "Id", "NPCMaster": "Id", "NPCConversations": "Id",
-    "Achievements": "Id", "AchievementItems": "Id",
-    "CurrencyItems": "BaseItemType",
-    "HideoutNPCs": None, "Hideouts": None, "HideoutDoodads": None,
-    "AbyssObjects": "Id",
-    "BetrayalChoiceActions": "Id", "BetrayalTargets": "Id",
-}
+# Import shared registry
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "ggpk"))
+from table_registry import KEY_FIELDS, ALL_TABLES
 
-OUR_TABLES = list(KEY_FIELDS.keys())
+OUR_TABLES = ALL_TABLES
 
 
 def load_table_keys(data_dir, table_name):
