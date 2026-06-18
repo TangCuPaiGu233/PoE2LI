@@ -447,7 +447,10 @@ async def _stream_chat(messages: list[dict]):
     logger.info("[CHAT] runtime=%s | query=%s", chat_runtime_name(), user_msg[:120])
 
     async for event in stream_chat(messages):
-        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        if event.get("type") == "heartbeat":
+            yield ": heartbeat\n\n"  # SSE comment — keeps proxy alive
+        else:
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
 @qa_router.post("/api/chat")

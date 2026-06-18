@@ -605,7 +605,15 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             }
 
             try:
-                result = await execute_tool(fn, args, ctx)
+                # Wrap tool execution with periodic heartbeat to prevent
+                # Next.js/Undici proxy body timeout during long tool calls
+                # (e.g. trade_search can take 20-120s).
+                _tool_task = asyncio.create_task(execute_tool(fn, args, ctx))
+                while not _tool_task.done():
+                    await asyncio.wait([_tool_task], timeout=10)
+                    if not _tool_task.done():
+                        yield {"type": "heartbeat"}
+                result = _tool_task.result()
             except Exception as e:
                 logger.error("[CHAT] tool %s failed: %s", fn, e)
                 result_content = json.dumps({"error": str(e)}, ensure_ascii=False)

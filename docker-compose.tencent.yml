@@ -1,25 +1,35 @@
-version: "3.8"
-
 # Tencent cloud override — no public DB/Redis, no LAN proxy, optional celery profile.
 services:
   postgres:
     ports: []
-    mem_limit: 512m
+    deploy:
+      resources:
+        limits:
+          memory: 512m
 
   redis:
     ports: []
-    mem_limit: 128m
+    deploy:
+      resources:
+        limits:
+          memory: 128m
 
   backend:
     environment:
       - HTTP_PROXY=
       - HTTPS_PROXY=
-    mem_limit: 768m
+    deploy:
+      resources:
+        limits:
+          memory: 1228m
 
   frontend:
     ports:
       - "3000:3000"
-    mem_limit: 384m
+    deploy:
+      resources:
+        limits:
+          memory: 384m
 
   celery_worker:
     profiles:
