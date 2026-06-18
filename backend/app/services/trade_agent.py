@@ -40,11 +40,12 @@ Item slot IDs:
   twosword=weapon.twosword twoaxe=weapon.twoaxe twomace=weapon.twomace
   chest=armour.chest helmet=armour.helmet gloves=armour.gloves boots=armour.boots
   shield=armour.shield quiver=armour.quiver
-  jewel=jewel (珠宝/宝石/蓝玉/日象之饰等)
+  jewel=jewel (珠宝/被动树珠宝)
+  gem=gem (辅助宝石/技能宝石/support gem/skill gem)
 
 Output JSON:
 {{
-  "item_slot": "jewel",
+  "item_slot": "gem",
   "must_have": [{{"concept": "chaos_damage", "operator": ">=", "value": null}}],
   "nice_to_have": [{{"concept": "minion_damage", "operator": "exists"}}],
   "count_min": 1,
@@ -887,7 +888,9 @@ def _infer_item_slot(query: str) -> str | None:
     for zh in sorted(ITEM_TYPES_ZH.keys(), key=len, reverse=True):
         if zh in query:
             return ITEM_TYPES_ZH[zh][0]
-    if any(k in query for k in ("蓝玉", "日象", "珠宝", "宝石", "jewel", "Jewel")):
+    if any(k in query for k in ("辅助宝石", "技能宝石", "support gem", "skill gem")):
+        return "gem"
+    if any(k in query for k in ("蓝玉", "日象", "珠宝", "jewel", "Jewel")):
         return "jewel"
     return None
 
@@ -1034,16 +1037,13 @@ def _fallback_trade_link(
         if slot_result.get("error"):
             note = f"{note}；{slot_result['error']}"
 
-    # Last resort: still POST category search — never return home page without search_id
-    intent = _search_intent("jewel", [{"type": "and", "stats": []}])
-    slot_result = search_trade(intent, league, market)
-    url = slot_result.get("trade_url") or ""
+    # Last resort: return degraded result without misleading search
     return {
-        "url": url,
-        "total": slot_result.get("total_results", 0),
-        "label": "珠宝浏览",
+        "url": "",
+        "total": 0,
+        "label": "未匹配",
         "degraded": True,
-        "note": f"{note}（最宽珠宝搜索）",
+        "note": f"{note}（无法识别装备类型，请补充物品类别如「辅助宝石」「珠宝」等）",
     }
 
 

@@ -99,8 +99,9 @@ ITEM_TYPES_ZH = {
     "生命药剂": ("flask.life", "Life Flask"),
     "魔力药剂": ("flask.mana", "Mana Flask"),
     "珠宝": ("jewel", "Jewel"),
-    "宝石": ("jewel", "Jewel"),
+    "辅助宝石": ("gem", "Support Gem"),
     "技能宝石": ("gem", "Skill Gem"),
+    "宝石": ("gem", "Gem"),
     "地图": ("map", "Map"),
 }
 
