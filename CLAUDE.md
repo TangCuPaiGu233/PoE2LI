@@ -57,7 +57,8 @@ ReAct loop (≤8 rounds)           plan → parallel dispatch → synthesize
     └──────── chat_tools.execute_tool ┘
                     │
          entity_resolve / rag_search / trade_search /
-         decode_pob / recommend / resolve_trade_stat
+         decode_pob / recommend / resolve_trade_stat /
+         search_game
                     │
          retrieval_pipeline, trade_agent, pob_service, …
 ```
@@ -71,11 +72,11 @@ ReAct loop (≤8 rounds)           plan → parallel dispatch → synthesize
 
 | File | Role |
 |------|------|
-| `backend/app/services/chat_agent.py` | System prompt (`AGENT_SYSTEM` rules 0–31), ReAct loop, streaming |
+| `backend/app/services/chat_agent.py` | System prompt (`AGENT_SYSTEM` rules 0–36), ReAct loop, streaming |
 | `backend/app/services/chat_tools.py` | Tool definitions + `execute_tool()` + `detect_input_signals()` |
 | `backend/app/orchestrator/session_context.py` | `build_session_context()` — prior turns, trade anchors, PoB detection |
 
-The agent calls OpenAI-compatible tools (`entity_resolve`, `rag_search`, `trade_search`, `decode_pob`, `recommend`, `resolve_trade_stat`). Rules in `AGENT_SYSTEM` cover multi-turn price follow-ups, 百科 vs 市集, 扭曲项链/畸变项链 disambiguation, WeGame panels, etc.
+The agent calls OpenAI-compatible tools (`entity_resolve`, `rag_search`, `trade_search`, `decode_pob`, `recommend`, `resolve_trade_stat`, `search_game`). Rules in `AGENT_SYSTEM` cover multi-turn price follow-ups, 百科 vs 市集, 扭曲项链/畸变项链 disambiguation, WeGame panels, etc.
 
 `detect_input_signals()` injects **hints** (not hard routes), e.g. `bare_item_name:use_rag`, `trade_base_type:扭曲项链=Distorted Amulet`.
 
@@ -125,6 +126,7 @@ The agent calls OpenAI-compatible tools (`entity_resolve`, `rag_search`, `trade_
 | `decode_pob` | `pob_service.py` + WeGame/ninja fetchers |
 | `recommend` | multi-hop item comparison |
 | `resolve_trade_stat` | `trade_stat_service.py` — vector match stat IDs |
+| `search_game` | `game_graph_service.py` — GGPK knowledge graph BFS search |
 
 Env knobs: `CHAT_TRADE_SEARCH_MAX` (default 8), `ORCHESTRATOR_MAX_PARALLEL` (default 12).
 
@@ -199,7 +201,7 @@ Empirically validated (2026-06-05):
 - **`mod_translations`**: EN→CN affix lookup-first, AI fallback + writeback
 - **`knowledge_chunks`**: RAG vectors; always filter `league` + `game_version`
 - **`kb_entities` / `kb_edges`**: Knowledge graph
-- **`game_data`**: Raw GGPK game data, 24 tables × 3 languages (EN/TC/SC), 119K+ rows
+- **`game_data`**: Raw GGPK game data, 24 tables × 3 languages (EN/TC/SC), 242K+ rows
 - **`jobs`**: Async task tracking
 
 ## Compliance (Non-negotiable)
@@ -249,15 +251,17 @@ The system has three layers, each with a distinct role:
 | 环境 | 角色 | 访问 |
 |------|------|------|
 | **NAS** | 开发/测试/KB写入 | `ssh -p 2212 skc@192.168.110.26` · `python deploy_nas.py` |
-| **腾讯云** | 公网生产 | `python scripts/deploy_tencent.py` |
+| **腾讯云** | 公网生产 | `TENCENT_BRANCH=main python scripts/deploy_tencent.py` |
 
 **Docker caveat**: Only `/app/data` volume-mounted. Code changes need `docker compose build` or `docker cp` / `scripts/nas/hotfix_*.py`.
+
+**腾讯云注意**: backend `mem_limit: 1228m`（GameGraph 加载 566MB poe2_data 需 ~1.1GB，768m 会 OOM）。poe2_data 不在 git 里，须从 NAS 手动传（tar → SFTP → 解压到 `/opt/PoE2LI/data/poe2_data/`）。trade 数据 JSON 也须手动同步。
 
 Chat test URLs: NAS `http://192.168.110.26:3000/chat` · API `http://192.168.110.26:8000/health`.
 
 ## Knowledge Base (2026-06)
 
-**~22K chunks** across PoB (~18K EN), poe2db (~3.4K tri-lang), poe2wiki, homework, craftofexile aliases.
+**~23K chunks** across PoB (~18K EN), poe2db (~3.4K tri-lang), poe2wiki, homework, craftofexile aliases.
 
 **Entity catalog**: `backend/data/entity_catalog.json` (~1.4K entities) — O(1) chip icon + tooltip when present.
 
@@ -275,7 +279,7 @@ NAS data path: `/volume1/docker/PoE2LI/data/` → container `/app/data/`.
 
 ## GGPK Game Data Pipeline (2026-06)
 
-Raw game data extracted from PoE2 Content.ggpk (international client) and CN WeGame client. Provides 119K+ structured records across 24 core game tables, with 212K+ resolved relationship edges forming a traversable knowledge graph.
+Raw game data extracted from PoE2 Content.ggpk (international client) and CN WeGame client. Provides 242K+ structured records across 24 core game tables, with 549K+ resolved relationship edges forming a traversable knowledge graph.
 
 ### Pipeline overview
 
@@ -331,7 +335,7 @@ python scripts/resolve_relations.py --data-dir backend/data/poe2_data/en --outpu
 python scripts/resolve_string_fks.py
 ```
 
-Produces `game_relations.json` (~32 MB): 93 FK field definitions across 19 tables, 212K+ resolved edges. Each edge: `{src_table, src_key, dst_table, dst_key, relation}`.
+Produces `game_relations.json` (~88 MB): 93 FK field definitions across 19 tables, 549K+ resolved edges. Each edge: `{src_table, src_key, dst_table, dst_key, relation}`.
 
 **Key relationship hubs**: Stats (38K incoming edges — most referenced table), Tags (80K), GrantedEffects (50K), ActiveSkillType (12K).
 
@@ -347,7 +351,7 @@ python scripts/query_graph.py "Blacksmith" --search   # search only, no expansio
 **Python API** (for LLM Agent integration):
 ```python
 from scripts.game_graph import GameGraph
-g = GameGraph("data/poe2_data/game_relations.json", "data/poe2_data/en")
+g = GameGraph("data/poe2_data/game_relations.json", "data/poe2_data")
 results = g.find_entity("ground_slam", table_filter="ActiveSkills")
 tree = g.expand("ActiveSkills", "ground_slam", max_hops=2, max_nodes=200)
 g.print_tree(tree)
@@ -419,6 +423,8 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 | `backend/app/services/chat_orchestrator.py` | Runtime switch + orchestrator stream |
 | `backend/app/services/chat_agent.py` | Legacy ReAct agent + `AGENT_SYSTEM` |
 | `backend/app/services/chat_tools.py` | Tool registry + `execute_tool` |
+| `backend/app/services/game_graph_service.py` | LLM-callable GGPK search (auto-fallback, expand, community synonyms) |
+| `backend/app/services/chat_response_guard.py` | Post-hoc price fabrication guard (`strip_ungrounded_price_claims`) |
 | `backend/app/orchestrator/llm_planner.py` | LLM task planner |
 | `backend/app/orchestrator/session_context.py` | Multi-turn context contract |
 | `backend/app/orchestrator/dispatcher.py` | Parallel sub-agent dispatch |
@@ -437,7 +443,7 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 | `backend/data/poe2_data/en/` | 24 JSON files, English game data |
 | `backend/data/poe2_data/tc/` | 14 JSON files, Traditional Chinese game data |
 | `backend/data/poe2_data/sc/` | 24 JSON files, Simplified Chinese game data |
-| `backend/data/poe2_data/game_relations.json` | 212K resolved relationship edges |
+| `backend/data/poe2_data/game_relations.json` | 549K resolved relationship edges |
 
 ### Knowledge & entities
 | File | Purpose |
