@@ -126,6 +126,25 @@ def _sanitize_reasoning(text: str) -> str:
     return text.strip()
 
 
+def _safe_flush_point(buf: str) -> int:
+    """Find the last safe position to flush the content buffer.
+
+    Avoids cutting in the middle of unclosed [poe:...] patterns that could
+    span across buffer boundaries and evade sanitization.  Returns the
+    number of characters that can be safely flushed from the front.
+    """
+    last_open = buf.rfind('[poe:')
+    if last_open < 0:
+        return len(buf)
+    # Check if this [poe: has a closing ] after it
+    close = buf.find(']', last_open + 5)
+    if close >= 0:
+        # Pattern is fully closed — safe to flush everything
+        return len(buf)
+    # Unclosed [poe: found — hold back from that position
+    return last_open
+
+
 # Regex to detect tool-call XML tags (handles fullwidth ｜ and ASCII |, optional spaces)
 _TOOL_TAG_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*>')
 _TOOL_TAG_CLOSE_RE = re.compile(r'</\s*[｜|]\s*DSML\s*[｜|][^>]*>')
@@ -456,7 +475,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             # Small buffer for content streaming: catches cross-delta wiki syntax
             # and tool-call XML leaks before they reach the user
             _content_buf = ""
-            _STREAM_BUF_THRESHOLD = 80  # chars before flushing
+            _STREAM_BUF_THRESHOLD = 300  # chars before flushing (large enough for [poe:X|Y] patterns)
 
             async for chunk in stream:
                 delta = getattr(chunk.choices[0], "delta", None) if chunk.choices else None
@@ -482,11 +501,15 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                     content_parts.append(delta.content)
                     _content_buf += delta.content
                     if len(_content_buf) >= _STREAM_BUF_THRESHOLD:
-                        sanitized_chunk = _sanitize_answer(_content_buf)
-                        if sanitized_chunk:
-                            answer_acc += sanitized_chunk
-                            yield {"type": "answer", "content": sanitized_chunk}
-                        _content_buf = ""
+                        # Only flush up to a safe point to avoid splitting [poe:...] patterns
+                        safe_end = _safe_flush_point(_content_buf)
+                        if safe_end > 0:
+                            to_flush = _content_buf[:safe_end]
+                            _content_buf = _content_buf[safe_end:]
+                            sanitized_chunk = _sanitize_answer(to_flush)
+                            if sanitized_chunk:
+                                answer_acc += sanitized_chunk
+                                yield {"type": "answer", "content": sanitized_chunk}
 
                 # Accumulate tool calls
                 delta_tool_calls = getattr(delta, "tool_calls", None)
