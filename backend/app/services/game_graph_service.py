@@ -452,7 +452,7 @@ def search_game(
             f"匹配: {total} 个（{len(exact)} 精确）",
             f"分布: {table_summary}",
             "",
-        ]
+        ])
 
         # List search results (cap at 15, summarize remainder by table)
         list_cap = min(max_results, 15)
