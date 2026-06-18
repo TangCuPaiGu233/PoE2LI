@@ -17,6 +17,7 @@ from collections import defaultdict
 from PyPoE.poe.file.specification import load, constants
 
 OUR_TABLES = [
+    # ── Original 25 ──
     "ActiveSkills", "SkillGems", "GemTags", "ActiveSkillType",
     "GrantedEffects", "GrantedEffectsPerLevel",
     "BaseItemTypes", "ItemClasses", "Tags",
@@ -25,6 +26,26 @@ OUR_TABLES = [
     "Stats", "StatDescriptions", "MonsterVarieties", "MonsterResistances", "MonsterArmours",
     "ItemExperiencePerLevel", "CharacterStartStates",
     "WorldAreas", "MapPins", "Words", "QuestFlags",
+    # ── Expansion: high priority ──
+    "CraftingBenchOptions", "CraftingBenchUnlockCategories",
+    "CraftingBenchSortCategories", "BuffDefinitions",
+    "FlavourText", "ModType", "ModFamily",
+    "PassiveSkillTrees", "PassiveSkillMasteryEffects",
+    "PassiveSkillMasteryGroups", "PassiveSkillStatCategories",
+    "PassiveKeystoneList", "SupportGems", "ModGrantedSkills",
+    # ── Expansion: medium priority ──
+    "MapSeries", "MapSeriesTiers", "Maps",
+    "AtlasNode", "AtlasNodeDefinition", "AtlasRegions",
+    "UniqueMaps",
+    "LeagueInfo", "LeagueFlag",
+    "PantheonPanelLayout", "IncursionArchitect",
+    "HeistNPCs", "HeistJobs", "HeistContracts", "HeistObjectives",
+    "NPCs", "NPCMaster", "NPCConversations",
+    "Achievements", "AchievementItems",
+    "CurrencyItems",
+    "HideoutNPCs", "Hideouts", "HideoutDoodads",
+    "AbyssObjects",
+    "BetrayalChoiceActions", "BetrayalTargets",
 ]
 
 
@@ -80,6 +101,7 @@ def get_row_key(row, index, table_name):
     """Get the row_key for a record, matching the import script logic."""
     # Use TABLE_CONFIG from import_game_data.py
     key_fields = {
+        # ── Original 25 ──
         "ActiveSkills": "Id", "SkillGems": "BaseItemType", "GemTags": "Id",
         "ActiveSkillType": "Id", "GrantedEffects": "Id", "GrantedEffectsPerLevel": None,
         "BaseItemTypes": "Id", "ItemClasses": "Id", "Tags": "Id",
@@ -90,6 +112,28 @@ def get_row_key(row, index, table_name):
         "MonsterArmours": "Id", "ItemExperiencePerLevel": None,
         "CharacterStartStates": "Id", "WorldAreas": "Id", "MapPins": "Id",
         "Words": "Id", "QuestFlags": "Id",
+        # ── Expansion: high priority ──
+        "CraftingBenchOptions": "Id", "CraftingBenchUnlockCategories": "Id",
+        "CraftingBenchSortCategories": "Id", "BuffDefinitions": "Id",
+        "FlavourText": "Id", "ModType": None, "ModFamily": "Id",
+        "PassiveSkillTrees": "Id", "PassiveSkillMasteryEffects": "Id",
+        "PassiveSkillMasteryGroups": "Id", "PassiveSkillStatCategories": "Id",
+        "PassiveKeystoneList": "Passive", "SupportGems": "SkillGem",
+        "ModGrantedSkills": None,
+        # ── Expansion: medium priority ──
+        "MapSeries": "Id", "MapSeriesTiers": None, "Maps": "BaseItemType",
+        "AtlasNode": "Id", "AtlasNodeDefinition": "Id", "AtlasRegions": "Id",
+        "UniqueMaps": None,
+        "LeagueInfo": None, "LeagueFlag": "Id",
+        "PantheonPanelLayout": "Id", "IncursionArchitect": None,
+        "HeistNPCs": None, "HeistJobs": "Id",
+        "HeistContracts": None, "HeistObjectives": "BaseItemType",
+        "NPCs": "Id", "NPCMaster": "Id", "NPCConversations": "Id",
+        "Achievements": "Id", "AchievementItems": "Id",
+        "CurrencyItems": "BaseItemType",
+        "HideoutNPCs": None, "Hideouts": None, "HideoutDoodads": None,
+        "AbyssObjects": "Id",
+        "BetrayalChoiceActions": "Id", "BetrayalTargets": "Id",
     }
     key_field = key_fields.get(table_name)
     if key_field and key_field in row and row[key_field] is not None:

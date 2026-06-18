@@ -17,6 +17,7 @@ from app.models.game_data import GameDatum
 
 # ── Table config: key field (for row_key) + display name field ──
 TABLE_CONFIG = {
+    # ── Original 25 ──
     "ActiveSkills":             {"key": "Id",            "name": "DisplayedName"},
     "SkillGems":                {"key": "BaseItemType",   "name": None},
     "GemTags":                  {"key": "Id",            "name": "Name"},
@@ -42,6 +43,49 @@ TABLE_CONFIG = {
     "MapPins":                  {"key": "Id",            "name": "Name"},
     "Words":                    {"key": "Id",            "name": "Text", "name_sc": "Text2", "name_tc": "Text2"},
     "QuestFlags":               {"key": "Id",            "name": None},
+    # ── Expansion: high priority ──
+    "CraftingBenchOptions":         {"key": "Id",            "name": None},
+    "CraftingBenchUnlockCategories":{"key": "Id",            "name": None},
+    "CraftingBenchSortCategories":  {"key": "Id",            "name": "Name"},
+    "BuffDefinitions":              {"key": "Id",            "name": "Name"},
+    "FlavourText":                  {"key": "Id",            "name": "Text"},
+    "ModType":                      {"key": None,           "name": "Name"},
+    "ModFamily":                    {"key": "Id",            "name": None},
+    "PassiveSkillTrees":            {"key": "Id",            "name": "Name"},
+    "PassiveSkillMasteryEffects":   {"key": "Id",            "name": None},
+    "PassiveSkillMasteryGroups":    {"key": "Id",            "name": None},
+    "PassiveSkillStatCategories":   {"key": "Id",            "name": "Name"},
+    "PassiveKeystoneList":          {"key": "Passive",       "name": "DisplayText"},
+    "SupportGems":                  {"key": "SkillGem",      "name": None},
+    "ModGrantedSkills":             {"key": None,           "name": None},
+    # ── Expansion: medium priority ──
+    "MapSeries":                    {"key": "Id",            "name": "Name"},
+    "MapSeriesTiers":               {"key": None,           "name": None},
+    "Maps":                         {"key": "BaseItemType",  "name": None},
+    "AtlasNode":                    {"key": "Id",            "name": None},
+    "AtlasNodeDefinition":          {"key": "Id",            "name": None},
+    "AtlasRegions":                 {"key": "Id",            "name": None},
+    "UniqueMaps":                   {"key": None,           "name": "Name"},
+    "LeagueInfo":                   {"key": None,           "name": "Description"},
+    "LeagueFlag":                   {"key": "Id",            "name": None},
+    "PantheonPanelLayout":          {"key": "Id",            "name": None},
+    "IncursionArchitect":           {"key": None,           "name": None},
+    "HeistNPCs":                    {"key": None,           "name": "Name"},
+    "HeistJobs":                    {"key": "Id",            "name": "Name"},
+    "HeistContracts":               {"key": None,           "name": None},
+    "HeistObjectives":              {"key": "BaseItemType",  "name": "Name"},
+    "NPCs":                         {"key": "Id",            "name": "Name"},
+    "NPCMaster":                    {"key": "Id",            "name": None},
+    "NPCConversations":             {"key": "Id",            "name": None},
+    "Achievements":                 {"key": "Id",            "name": "Description"},
+    "AchievementItems":             {"key": "Id",            "name": "Name"},
+    "CurrencyItems":                {"key": "BaseItemType",  "name": "Description"},
+    "HideoutNPCs":                  {"key": None,           "name": None},
+    "Hideouts":                     {"key": None,           "name": None},
+    "HideoutDoodads":               {"key": None,           "name": None},
+    "AbyssObjects":                 {"key": "Id",            "name": None},
+    "BetrayalChoiceActions":        {"key": "Id",            "name": None},
+    "BetrayalTargets":              {"key": "Id",            "name": None},
 }
 
 

@@ -25,6 +25,7 @@ DEFAULT_GGPK = r"C:\Program Files (x86)\Grinding Gear Games\Path of Exile 2 - po
 DEFAULT_OUTPUT = os.path.join(os.path.dirname(__file__), "..", "..", "data", "poe2_data")
 
 ALL_TABLES = [
+    # ── Original 25 ──
     "ActiveSkills.dat", "SkillGems.dat", "GemTags.dat", "ActiveSkillType.dat",
     "GrantedEffects.dat", "GrantedEffectsPerLevel.dat",
     "BaseItemTypes.dat", "ItemClasses.dat", "Tags.dat", "Mods.dat",
@@ -35,6 +36,26 @@ ALL_TABLES = [
     "ItemExperiencePerLevel.dat", "CharacterStartStates.dat",
     "WorldAreas.dat", "MapPins.dat",
     "Words.dat", "QuestFlags.dat",
+    # ── Expansion: high priority ──
+    "CraftingBenchOptions.dat", "CraftingBenchUnlockCategories.dat",
+    "CraftingBenchSortCategories.dat", "BuffDefinitions.dat",
+    "FlavourText.dat", "ModType.dat", "ModFamily.dat",
+    "PassiveSkillTrees.dat", "PassiveSkillMasteryEffects.dat",
+    "PassiveSkillMasteryGroups.dat", "PassiveSkillStatCategories.dat",
+    "PassiveKeystoneList.dat", "SupportGems.dat", "ModGrantedSkills.dat",
+    # ── Expansion: medium priority ──
+    "MapSeries.dat", "MapSeriesTiers.dat", "Maps.dat",
+    "AtlasNode.dat", "AtlasNodeDefinition.dat", "AtlasRegions.dat",
+    "UniqueMaps.dat",
+    "LeagueInfo.dat", "LeagueFlag.dat",
+    "PantheonPanelLayout.dat", "IncursionArchitect.dat",
+    "HeistNPCs.dat", "HeistJobs.dat", "HeistContracts.dat", "HeistObjectives.dat",
+    "NPCs.dat", "NPCMaster.dat", "NPCConversations.dat",
+    "Achievements.dat", "AchievementItems.dat",
+    "CurrencyItems.dat",
+    "HideoutNPCs.dat", "Hideouts.dat", "HideoutDoodads.dat",
+    "AbyssObjects.dat",
+    "BetrayalChoiceActions.dat", "BetrayalTargets.dat",
 ]
 
 LANG_PREFIXES = {

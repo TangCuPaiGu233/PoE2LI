@@ -125,6 +125,7 @@ class GameGraph:
     
     def _get_key_field(self, table_name):
         key_fields = {
+            # ── Original 25 ──
             "ActiveSkills": "Id", "SkillGems": "BaseItemType", "GemTags": "Id",
             "ActiveSkillType": "Id", "GrantedEffects": "Id", "GrantedEffectsPerLevel": None,
             "BaseItemTypes": "Id", "ItemClasses": "Id", "Tags": "Id",
@@ -135,6 +136,28 @@ class GameGraph:
             "MonsterArmours": "Id", "ItemExperiencePerLevel": None,
             "CharacterStartStates": "Id", "WorldAreas": "Id", "MapPins": "Id",
             "Words": None, "QuestFlags": "Id",
+            # ── Expansion: high priority ──
+            "CraftingBenchOptions": "Id", "CraftingBenchUnlockCategories": "Id",
+            "CraftingBenchSortCategories": "Id", "BuffDefinitions": "Id",
+            "FlavourText": "Id", "ModType": None, "ModFamily": "Id",
+            "PassiveSkillTrees": "Id", "PassiveSkillMasteryEffects": "Id",
+            "PassiveSkillMasteryGroups": "Id", "PassiveSkillStatCategories": "Id",
+            "PassiveKeystoneList": "Passive", "SupportGems": "SkillGem",
+            "ModGrantedSkills": None,
+            # ── Expansion: medium priority ──
+            "MapSeries": "Id", "MapSeriesTiers": None, "Maps": "BaseItemType",
+            "AtlasNode": "Id", "AtlasNodeDefinition": "Id", "AtlasRegions": "Id",
+            "UniqueMaps": None,
+            "LeagueInfo": None, "LeagueFlag": "Id",
+            "PantheonPanelLayout": "Id", "IncursionArchitect": None,
+            "HeistNPCs": None, "HeistJobs": "Id",
+            "HeistContracts": None, "HeistObjectives": "BaseItemType",
+            "NPCs": "Id", "NPCMaster": "Id", "NPCConversations": "Id",
+            "Achievements": "Id", "AchievementItems": "Id",
+            "CurrencyItems": "BaseItemType",
+            "HideoutNPCs": None, "Hideouts": None, "HideoutDoodads": None,
+            "AbyssObjects": "Id",
+            "BetrayalChoiceActions": "Id", "BetrayalTargets": "Id",
         }
         return key_fields.get(table_name)
     
@@ -147,7 +170,7 @@ class GameGraph:
         if table_name == "Words" and locale in ("sc", "tc"):
             if "Text2" in row and isinstance(row["Text2"], str) and row["Text2"].strip():
                 return row["Text2"].strip()
-        for field in ["Name", "DisplayedName", "Id", "Text"]:
+        for field in ["Name", "DisplayedName", "Id", "Text", "Description", "FullName"]:
             if field in row and isinstance(row[field], str) and row[field].strip():
                 return row[field].strip()
         return None
@@ -172,39 +195,72 @@ class GameGraph:
     
     def find_entity(self, query, table_filter=None):
         """Find entities matching a query string.
-        
+
         Args:
             query: search string (name, id, or partial match) — supports EN/TC/SC
             table_filter: optional table name to restrict search
-        
+
         Returns: list of (table, key, display_name, match_type) tuples
         """
         q = query.lower().strip()
         results = []
         seen = set()
-        
-        # Exact match first
+
+        def _add(table, key, match_type):
+            if table_filter and table != table_filter:
+                return
+            if (table, key) not in seen:
+                seen.add((table, key))
+                results.append((table, key, self._get_display_name((table, key)), match_type))
+
+        # 1) Exact match
         if q in self._name_lookup:
             for table, key in self._name_lookup[q]:
-                if table_filter and table != table_filter:
-                    continue
-                if (table, key) not in seen:
-                    seen.add((table, key))
-                    results.append((table, key, self._get_display_name((table, key)), "exact"))
-        
-        # Partial match
+                _add(table, key, "exact")
+
+        # 2) Whole-query partial match (query is substring of indexed name)
         for name_lower, entities in self._name_lookup.items():
             if q in name_lower and q != name_lower:
                 for table, key in entities:
-                    if table_filter and table != table_filter:
-                        continue
-                    if (table, key) not in seen:
-                        seen.add((table, key))
-                        results.append((table, key, self._get_display_name((table, key)), "partial"))
-        
-        # Sort: exact first, then by table name
-        results.sort(key=lambda x: (0 if x[3] == "exact" else 1, x[0]))
+                    _add(table, key, "partial")
+
+        # 3) Token-based match — split query into tokens and match individually
+        tokens = self._tokenize(q)
+        if tokens:
+            for token in tokens:
+                if len(token) < 2:
+                    continue
+                for name_lower, entities in self._name_lookup.items():
+                    if token in name_lower and name_lower != q:
+                        for table, key in entities:
+                            _add(table, key, "token")
+
+        # 4) Reverse partial — indexed name is substring of query
+        #    (catches short names like "天赋" that appear in longer queries)
+        for name_lower, entities in self._name_lookup.items():
+            if len(name_lower) >= 2 and name_lower in q and name_lower != q:
+                for table, key in entities:
+                    _add(table, key, "reverse")
+
+        # Sort: exact > partial > token > reverse, then by table name
+        priority = {"exact": 0, "partial": 1, "token": 2, "reverse": 3}
+        results.sort(key=lambda x: (priority.get(x[3], 9), x[0]))
         return results
+
+    @staticmethod
+    def _tokenize(text: str) -> list[str]:
+        """Split query into meaningful tokens using jieba (lazy import)."""
+        try:
+            import jieba
+            return [t.strip() for t in jieba.lcut(text) if len(t.strip()) >= 2]
+        except ImportError:
+            # Fallback: character bigrams for CJK, whitespace split for Latin
+            tokens = text.split()
+            # Also add CJK bigrams
+            for i in range(len(text) - 1):
+                if ord(text[i]) > 0x2E80:  # CJK range
+                    tokens.append(text[i:i+2])
+            return [t for t in tokens if len(t) >= 2]
     
     def expand(self, table, key, max_hops=2, max_nodes=200):
         """BFS expansion from a starting entity.
