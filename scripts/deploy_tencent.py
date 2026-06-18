@@ -17,7 +17,7 @@ USER = os.getenv("TENCENT_USER", "root")
 PORT = int(os.getenv("TENCENT_PORT", "22"))
 PASS = os.getenv("TENCENT_SSH_PASS", "")
 ROOT = os.getenv("TENCENT_ROOT", "/opt/PoE2LI")
-BRANCH = os.getenv("TENCENT_BRANCH", "cursor/cn-trade-realm")
+BRANCH = os.getenv("TENCENT_BRANCH", "main")
 REPO = "https://github.com/TangCuPaiGu233/PoE2LI.git"
 
 NAS_HOST = "192.168.110.26"
@@ -193,6 +193,22 @@ def main() -> int:
             f"cd {ROOT}; {COMPOSE} up -d postgres redis backend frontend",
             timeout=600,
         )
+
+        # Enforce memory limits — Docker Compose V2 ignores both mem_limit and
+        # deploy.resources.limits.memory in non-swarm mode, so apply via docker update.
+        _mem_limits = {
+            "poe2li-postgres": "512m",
+            "poe2li-redis": "128m",
+            "poe2li-backend": "1228m",
+            "poe2li-frontend": "384m",
+        }
+        for _ctr, _mem in _mem_limits.items():
+            run(
+                client,
+                f"docker update --memory={_mem} --memory-swap={_mem} {_ctr}",
+                timeout=30,
+                check=False,
+            )
 
         if os.getenv("SYNC_NAS_DATA", "").strip().lower() in ("1", "true", "yes", "y"):
             sync_nas_data(client)
