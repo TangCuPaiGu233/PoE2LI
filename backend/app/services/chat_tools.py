@@ -280,7 +280,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                     "table_filter": {
                         "type": "string",
-                        "description": "Optional table filter: Ascendancy, PassiveSkills, ActiveSkills, BaseItemTypes, Mods, SkillGems, Stats, etc.",
+                        "description": (
+                            "Optional — OMIT unless user explicitly asks about a specific table. "
+                            "Valid values: Ascendancy, PassiveSkills, ActiveSkills, BaseItemTypes, Mods, SkillGems, Stats, MonsterVarieties. "
+                            "WARNING: filtering too narrowly may miss valid results spread across multiple tables."
+                        ),
                     },
                 },
                 "required": ["query"],

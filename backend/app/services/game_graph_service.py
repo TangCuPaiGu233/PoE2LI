@@ -410,6 +410,23 @@ def search_game(
 
     try:
         results = gg.find_entity(query, table_filter=table_filter)
+
+        # --- Auto-fallback: if table_filter yielded nothing, retry without it ---
+        if not results and table_filter:
+            results = gg.find_entity(query)
+            if results:
+                # Tell the AI which table actually has the data
+                hit_tables = Counter(t for t, _, _, _ in results)
+                hint = ", ".join(f"{t} ({c})" for t, c in hit_tables.most_common(3))
+                table_hint = (
+                    f"⚠️ table_filter=\"{table_filter}\" 无结果，已在全部表中搜索。"
+                    f"匹配分布在: {hint}\n"
+                )
+            else:
+                table_hint = ""
+        else:
+            table_hint = ""
+
         if not results:
             return (
                 f"【游戏数据搜索结果】\n"
@@ -417,16 +434,20 @@ def search_game(
                 f"⚠️ 这意味着该内容在 PoE2 当前版本中可能不存在，请勿凭训练数据编造。"
             )
 
-        # Split exact vs partial
+        # Split exact vs partial (also track token/reverse for expand safety)
         exact = [r for r in results if r[3] == "exact"]
         partial = [r for r in results if r[3] == "partial"]
-        total = len(exact) + len(partial)
+        others = [r for r in results if r[3] in ("token", "reverse")]
+        total = len(exact) + len(partial) + len(others)
 
         # Table-grouped summary for AI quick parsing
         table_counts = Counter(table for table, _, _, _ in results)
         table_summary = ", ".join(f"{t} ({c})" for t, c in table_counts.most_common())
 
-        lines = [
+        lines = []
+        if table_hint:
+            lines.append(table_hint)
+        lines.extend([
             f"【游戏数据搜索结果】",
             f"匹配: {total} 个（{len(exact)} 精确）",
             f"分布: {table_summary}",
@@ -437,7 +458,7 @@ def search_game(
         list_cap = min(max_results, 15)
         shown = 0
         for table, key, display, match_type in results[:list_cap]:
-            tag = "精确" if match_type == "exact" else "部分"
+            tag = {"exact": "精确", "partial": "部分", "token": "关联", "reverse": "包含"}[match_type]
             lines.append(f"{shown + 1}. [{tag}] {table}:{key} — {display}")
             shown += 1
 
@@ -449,8 +470,9 @@ def search_game(
 
         # Auto-expand the best match only for specific queries (<=5 exact matches).
         # For broad queries with many matches, the list summary is more useful.
-        if len(exact) <= 5 and total <= 10:
-            best = exact[0] if exact else partial[0]
+        expandable = exact + partial + others
+        if len(exact) <= 5 and total <= 10 and expandable:
+            best = exact[0] if exact else (partial[0] if partial else others[0])
             best_table, best_key, best_display, _ = best
             expanded = gg.expand(best_table, best_key, max_hops=expand_hops, max_nodes=40)
 
