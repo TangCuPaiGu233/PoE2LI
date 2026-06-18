@@ -440,6 +440,10 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             # State for filtering tool-call XML from reasoning stream
             _in_tool_xml = False
             _partial_tag = ""
+            # Small buffer for content streaming: catches cross-delta wiki syntax
+            # and tool-call XML leaks before they reach the user
+            _content_buf = ""
+            _STREAM_BUF_THRESHOLD = 80  # chars before flushing
 
             async for chunk in stream:
                 delta = getattr(chunk.choices[0], "delta", None) if chunk.choices else None
@@ -460,9 +464,16 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                         reasoning_parts.append(clean_text)
                         yield {"type": "reasoning", "content": clean_text}
 
-                # Accumulate content
+                # Accumulate content AND stream in real-time (with small buffer)
                 if delta.content:
                     content_parts.append(delta.content)
+                    _content_buf += delta.content
+                    if len(_content_buf) >= _STREAM_BUF_THRESHOLD:
+                        sanitized_chunk = _sanitize_answer(_content_buf)
+                        if sanitized_chunk:
+                            answer_acc += sanitized_chunk
+                            yield {"type": "answer", "content": sanitized_chunk}
+                        _content_buf = ""
 
                 # Accumulate tool calls
                 delta_tool_calls = getattr(delta, "tool_calls", None)
@@ -478,6 +489,14 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                                 tool_calls_acc[idx]["function"]["name"] += tc_chunk.function.name
                             if tc_chunk.function.arguments:
                                 tool_calls_acc[idx]["function"]["arguments"] += tc_chunk.function.arguments
+
+            # Flush remaining content buffer
+            if _content_buf:
+                sanitized_tail = _sanitize_answer(_content_buf)
+                if sanitized_tail:
+                    answer_acc += sanitized_tail
+                    yield {"type": "answer", "content": sanitized_tail}
+                _content_buf = ""
 
         except Exception as e:
             logger.error("[CHAT] agent plan failed: %s", e)
@@ -505,18 +524,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                 })())
 
         if not tool_calls:
-            if full_content:
-                # Sanitize wiki syntax and tool-call XML leaks
-                content = _sanitize_answer(full_content)
-                # If response is entirely tool-call XML, treat as no answer
-                if content and not _is_tool_call_only(full_content):
-                    answer_acc += content
-                    # Content was already streamed in chunks above,
-                    # but we need to yield sanitized version
-                    chunk_size = 40
-                    for i in range(0, len(content), chunk_size):
-                        yield {"type": "answer", "content": content[i:i + chunk_size]}
-                        await asyncio.sleep(0.02)
+            # Content was already streamed in real-time during the LLM loop above.
+            # No need to re-emit — just break out of the agent loop.
             break
 
         # Append assistant message with tool calls
@@ -601,6 +610,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     # If the tool loop already produced an answer (LLM answered without tool calls
     # after previous tool rounds), skip synthesis to avoid duplicate output.
     if answer_acc.strip():
+        # Final sanitization pass (catches wiki patterns spanning delta chunks)
+        answer_acc = _sanitize_answer(answer_acc)
         if ctx.last_sources:
             yield {"type": "sources", "content": ctx.last_sources}
         _save_chat_history(messages, user_msg, answer_acc, ctx, reasoning_acc)
