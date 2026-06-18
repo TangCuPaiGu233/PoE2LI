@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -19,6 +20,7 @@ from app.services.follow_up_suggestions import generate_follow_up_questions
 
 from app.services.chat_tools import (
     RAG_SOFT_LIMIT,
+    SEARCH_GAME_MAX_PER_TURN,
     TOOL_DEFINITIONS,
     TOOL_LABELS,
     ChatToolContext,
@@ -81,6 +83,101 @@ def _validate_answer_entities(answer: str, ctx) -> list[dict]:
 MAX_TOOL_ROUNDS = 8
 TRADE_SEARCH_MAX_PER_TURN = int(os.getenv("CHAT_TRADE_SEARCH_MAX", "8"))
 
+# Patterns for sanitizing LLM output
+# Handle both fullwidth ｜ (U+FF5C) and ASCII | (U+007C), with optional spaces
+_TOOL_CALL_XML_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*>.*?</\s*[｜|]\s*DSML\s*[｜|][^>]*>', re.DOTALL)
+# Also match unclosed / standalone opening tags (e.g. <｜DSML｜tool_calls> with no closing)
+_TOOL_CALL_XML_OPEN_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*/?\s*>', re.DOTALL)
+_WIKI_LINK_RE = re.compile(r'\[\[(?:poe:)?([^|\]]+)\|([^\]]+)\]\]')  # [[poe:X|Y]] or [[X|Y]] → Y
+_WIKI_PIPE_RE = re.compile(r'\|poe:')  # stray |poe: tags
+
+
+def _sanitize_answer(text: str) -> str:
+    """Strip wiki syntax and tool-call XML leaks from LLM output."""
+    if not text:
+        return text
+    # Remove raw tool call XML (e.g. <｜DSML｜tool_calls>...</｜DSML｜tool_calls>)
+    text = _TOOL_CALL_XML_RE.sub('', text)
+    text = _TOOL_CALL_XML_OPEN_RE.sub('', text)
+    # Convert wiki links [[page|display]] → display
+    text = _WIKI_LINK_RE.sub(r'\2', text)
+    # Remove stray |poe: fragments
+    text = _WIKI_PIPE_RE.sub('', text)
+    return text.strip()
+
+
+def _sanitize_reasoning(text: str) -> str:
+    """Strip tool-call XML from reasoning/thinking content (shown in UI)."""
+    if not text:
+        return text
+    text = _TOOL_CALL_XML_RE.sub('', text)
+    text = _TOOL_CALL_XML_OPEN_RE.sub('', text)
+    return text.strip()
+
+
+# Regex to detect tool-call XML tags (handles fullwidth ｜ and ASCII |, optional spaces)
+_TOOL_TAG_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*>')
+_TOOL_TAG_CLOSE_RE = re.compile(r'</\s*[｜|]\s*DSML\s*[｜|][^>]*>')
+
+def _filter_reasoning_chunk(
+    text: str, in_tool_xml: bool, partial: str
+) -> tuple[str, bool, str]:
+    """Filter tool-call XML from a streaming reasoning chunk.
+
+    Returns (clean_text, still_in_tool_xml, leftover_partial).
+    Strips everything between <...DSML...> and </...DSML...> tags.
+    """
+    combined = partial + text
+    if not combined:
+        return "", in_tool_xml, ""
+
+    result_chars: list[str] = []
+    i = 0
+    while i < len(combined):
+        ch = combined[i]
+        if in_tool_xml:
+            # We're inside a DSML block — suppress everything until we find
+            # the closing </｜DSML｜...> or </...DSML...>
+            m = _TOOL_TAG_CLOSE_RE.search(combined, i)
+            if m:
+                # Found closing tag — skip to after it
+                i = m.end()
+                in_tool_xml = False
+            else:
+                # No closing tag in this chunk — suppress everything
+                return "".join(result_chars), True, ""
+        elif ch == '<':
+            # Check for opening DSML tag: <｜DSML｜...> or <|DSML|...>
+            rest = combined[i:]
+            tag_match = _TOOL_TAG_RE.match(rest)
+            if tag_match:
+                # Found complete opening tag — skip it and enter suppression mode
+                i += tag_match.end()
+                in_tool_xml = True
+            elif len(rest) <= 25 and any(
+                rest.startswith(pfx)
+                for pfx in ('<|', '<｜', '< |', '< ｜', '<|D', '<｜D', '< |D', '< ｜D',
+                            '<| D', '<｜ D', '< | D', '< ｜ D')
+            ):
+                # Possible partial opening tag at end — buffer it for next chunk
+                return "".join(result_chars), in_tool_xml, rest
+            else:
+                result_chars.append(ch)
+                i += 1
+        else:
+            result_chars.append(ch)
+            i += 1
+
+    return "".join(result_chars), in_tool_xml, ""
+
+
+def _is_tool_call_only(text: str) -> bool:
+    """Check if the text is entirely tool-call XML (no real answer content)."""
+    if not text or not text.strip():
+        return False
+    cleaned = _TOOL_CALL_XML_RE.sub('', text).strip()
+    return len(cleaned) < 10  # only whitespace/trivial text left
+
 AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2_SITE_RULE + """
 
 ## 游戏数据验证（最高优先级）
@@ -97,7 +194,7 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 1. 你是编排者：先判断用户意图，再调用工具获取事实，最后基于工具结果用中文回答。
 2. 不要在没有调用工具的情况下编造物品、技能数值、BD 数据或交易链接。
 3. 用户消息若含 PoB 分享码(eN开头)、pobb.in 或 poe.ninja 或 wegame.com.cn/helper/poe2 分享链接 → 必须先调用 decode_pob。
-4. 百科/机制/技能/物品问题 → **先 search_game**（查证游戏数据），再 entity_resolve（如有中文专名），再 rag_search。search_game 传入英文或中文名均可，一次调用即可，不要重复调用。
+4. 百科/机制/技能/物品问题 → **先 search_game**（查证游戏数据），再 entity_resolve（如有中文专名），再 rag_search。**search_game 必须使用用户的语言**：当前用户是国服中文，所以用中文关键词搜索（如搜"光环"不搜"aura"，搜"野兽"不搜"beast"）。只有中文搜索无结果时才用英文 fallback。不要重复调用。
 5. 找装备/市价/交易 → trade_search（detail_count 1-10 控制返回前 N 条完整 listing；问价通常 1-3，对比可 2-5）。
 6. 「哪个更好/推荐/对比」→ recommend。
 7. **多物品市价列表**（用户一次问多个装备/暗金分别多少钱）：逐个调用 trade_search，每查完一个物品先输出该物品报价，全部完成后再给汇总；不要在一次 trade_search 里混查多个物品。
@@ -127,10 +224,28 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 29. **扭曲项链 vs 畸变项链**：国服 Trade 译名中 **扭曲项链=Distorted Amulet**（普通基底词缀池），**畸变项链=Twisted Amulet**（Delirium 涂油/Instilled 底）。用户说「扭曲项链」且未提涂油时，按 Distorted Amulet 检索；涂油/Instilled/扭曲护身符才指 Twisted Amulet。
 30. **物品百科 vs 市集**：仅物品/基底名、或问「词条/词缀/能出什么/介绍/是什么」→ **必须** `search_game` + `entity_resolve` + `rag_search`；**禁止** `trade_search`（除非用户明确要搜装备/查价/多少钱）。检测信号含 `bare_item_name` 或 `item_knowledge_query` 时遵守本条。
 31. 若仍调用 `trade_search` 且 query 含基底名，query **只写基底 CN 名**（如「扭曲项链」），服务端会自动加 `type` 过滤；不要对百科问题返回泛类目搜索结果。
+32. **search_game 效率**：同一主题最多调用 **3 次** search_game（如：中文关键词 → 中文+表过滤 → 英文 Id fallback）。拿到结果后就基于已有数据回答，**禁止**穷举所有可能的关键词变体（如 MonsterAuraDamage、MonsterAuraSpeed、MonsterAuraFire...逐个搜一遍）。如果 3 次搜索已返回足够数据，直接组织回答。
+33. **search_game 结果使用（必须遵守）**：当 search_game 返回了匹配结果（显示"匹配: N 个"），你**必须**在回答中引用这些结果。结果列表中的每一条都是游戏数据库中真实存在的实体，**禁止**说"未找到相关数据"或"没有找到"。即使结果不完全匹配用户的问题，也要如实报告搜索到的内容并解释与用户问题的关系。例如：搜索"光环"返回了 16 个 Mods 实体，就应当列出这些词缀并说明它们属于怪物光环系统。
+34. **trade_search 预算策略与装备档次**：
+    - 用户说"X 以下最好的/最优/性价比最高"时，**不要只搜最低价**。应搜**预算上限附近**的多词缀好货，而不是列一堆 1 崇高的垃圾。核心逻辑：用户有预算，就要在预算内找到**词缀最好**的，不是**最便宜**的。
+    - **关键词缀有档次之分**：很多词缀存在 +1/+2/+3/+4 等多个等级，高等级远比低等级强。例如召唤项链：+3/+4 所有召唤生物技能等级 >>> +2。搜索时**必须先搜高档次**（如 +3、+4），如果预算内买不到再降到 +2。其他常见高档次需求举例：技能等级 +3/+4、大生命/大抗性词缀、T1 词缀等。
+    - **搜索策略**：先 trade_search 高档次（如"+3 召唤技能等级 项链"），看价格是否在预算内；如果太贵，再降一档搜 +2 并搭配更多辅助词缀。最终回答中应列出不同档次的选择供用户对比。
+35. **装备搜索前主动追问（需求模糊时）**：当用户的装备/搜索需求**缺少关键信息**时，**不要直接开搜**，先用 1-2 句话引导用户补充条件，然后再搜索。
+    - **什么时候追问**：用户只说了装备类型和预算，但**没说具体想要什么词缀/属性**。例如："找一条召唤项链 10D以下"——没说最看重什么（召唤技能等级？精魂？抗性？生命？施法速度？），此时应追问。
+    - **什么时候不追问**：用户已经给出了具体词缀需求（如"+3 召唤技能等级 精魂 项链"），或者只是查价格/百科，直接搜。
+    - **怎么追问**：简短自然，列出 2-3 个可能的方向供用户选择，**不要列一大堆问题**。例如：
+      "召唤项链的核心词缀有好几个方向，你最看重哪个？
+      ① 召唤技能等级（+3/+4 提升最大）
+      ② 精魂（多开光环/捷）
+      ③ 生存向（生命/抗性）
+      也可以组合，比如'+3 等级 + 精魂'。告诉我侧重点，我好帮你精准搜。"
+    - **追问后搜索**：根据用户回复构造精确的 trade_search query，不要再用模糊查询。
 ## 回答格式
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
 - 资料不足就说明不足，标注 [推测] 仅限合理推断
 - 交易搜索结果需在正文中解释最佳匹配含义；有 listing_price 时写「市集参考价：XXX」，并说明是近似匹配最低价
+- **禁止使用 Wiki 链接语法**：不要出现 `|poe:`、`[[...|...]]`、`[[poe:...]]` 等 PoE Wiki / MediaWiki 格式。直接用中文名称即可，必要时括号注明英文原名。
+- **不要生成空白条目**：每个列表项、bullet point 后面必须有具体内容。如果某一条没有可写的内容，就不要列出来，不要留空白的 • 或 -。
 """
 
 
@@ -141,7 +256,6 @@ def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
         active = [t for t in active if t["function"]["name"] != "trade_search"]
     if ctx.rag_search_calls >= RAG_SOFT_LIMIT:
         active = [t for t in active if t["function"]["name"] != "rag_search"]
-        # If no rag_search, entity_resolve by itself is less useful — keep it but hint
     return active
 
 
@@ -180,7 +294,7 @@ async def _emit_streamed_answer(
     messages: list[dict[str, Any]],
     *,
     temperature: float = 0.3,
-    max_tokens: int = 2048,
+    max_tokens: int = 8192,
 ) -> AsyncIterator[tuple[str, str]]:
     """Yield (event_type, text) for answer/reasoning. Falls back to non-stream if needed."""
     stream_kwargs: dict[str, Any] = {
@@ -193,6 +307,7 @@ async def _emit_streamed_answer(
     thinking = llm_thinking_extra_body()
     if thinking:
         stream_kwargs["extra_body"] = thinking
+        stream_kwargs["reasoning_effort"] = "max"
 
     answer_parts: list[str] = []
     try:
@@ -222,8 +337,10 @@ async def _emit_streamed_answer(
     fb_kwargs = dict(stream_kwargs)
     fb_kwargs.pop("stream", None)
     fb_kwargs.pop("extra_body", None)
+    fb_kwargs.pop("reasoning_effort", None)
     if thinking:
         fb_kwargs["extra_body"] = thinking
+        fb_kwargs["reasoning_effort"] = "max"
     resp = await client.chat.completions.create(**fb_kwargs)
     choice = _first_choice(resp)
     if choice is None:
@@ -301,14 +418,67 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     while tool_round < MAX_TOOL_ROUNDS:
         tool_round += 1
         try:
-            response = await client.chat.completions.create(
-                model=_model(),
-                messages=agent_messages,
-                tools=_active_tools(ctx),
-                tool_choice="auto",
-                temperature=0.2,
-                max_tokens=1024,
-            )
+            plan_kwargs: dict[str, Any] = {
+                "model": _model(),
+                "messages": agent_messages,
+                "tools": _active_tools(ctx),
+                "tool_choice": "auto",
+                "temperature": 0.2,
+                "max_tokens": 8192,
+                "stream": True,
+            }
+            thinking = llm_thinking_extra_body()
+            if thinking:
+                plan_kwargs["extra_body"] = thinking
+                plan_kwargs["reasoning_effort"] = "high"
+            stream = await client.chat.completions.create(**plan_kwargs)
+
+            # Accumulate streaming chunks
+            content_parts: list[str] = []
+            reasoning_parts: list[str] = []
+            tool_calls_acc: dict[int, dict] = {}
+            # State for filtering tool-call XML from reasoning stream
+            _in_tool_xml = False
+            _partial_tag = ""
+
+            async for chunk in stream:
+                delta = getattr(chunk.choices[0], "delta", None) if chunk.choices else None
+                if delta is None:
+                    continue
+
+                # Accumulate reasoning (with tool-call XML filtering)
+                reasoning_chunk = getattr(delta, "reasoning_content", None) or (
+                    delta.model_extra.get("reasoning_content")
+                    if hasattr(delta, "model_extra") and delta.model_extra
+                    else None
+                )
+                if reasoning_chunk:
+                    clean_text, _in_tool_xml, _partial_tag = _filter_reasoning_chunk(
+                        reasoning_chunk, _in_tool_xml, _partial_tag
+                    )
+                    if clean_text:
+                        reasoning_parts.append(clean_text)
+                        yield {"type": "reasoning", "content": clean_text}
+
+                # Accumulate content
+                if delta.content:
+                    content_parts.append(delta.content)
+
+                # Accumulate tool calls
+                delta_tool_calls = getattr(delta, "tool_calls", None)
+                if delta_tool_calls:
+                    for tc_chunk in delta_tool_calls:
+                        idx = tc_chunk.index
+                        if idx not in tool_calls_acc:
+                            tool_calls_acc[idx] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
+                        if tc_chunk.id:
+                            tool_calls_acc[idx]["id"] = tc_chunk.id
+                        if tc_chunk.function:
+                            if tc_chunk.function.name:
+                                tool_calls_acc[idx]["function"]["name"] += tc_chunk.function.name
+                            if tc_chunk.function.arguments:
+                                tool_calls_acc[idx]["function"]["arguments"] += tc_chunk.function.arguments
+
         except Exception as e:
             logger.error("[CHAT] agent plan failed: %s", e)
             err = f"AI 规划失败: {e}"
@@ -318,26 +488,39 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
             flush()
             return
 
-        choice = _first_choice(response)
-        if choice is None:
-            err = "AI 规划失败: LLM 未返回有效结果"
-            logger.error("[CHAT] agent plan empty choices")
-            yield {"type": "answer", "content": err}
-            async for ev in _yield_done_with_follow_ups(user_msg, err):
-                yield ev
-            flush()
-            return
-        msg = choice.message
-        tool_calls = getattr(msg, "tool_calls", None) or []
+        full_content = "".join(content_parts)
+        round_reasoning = "".join(reasoning_parts)
+        # Build tool_calls list (sorted by index)
+        tool_calls = []
+        for idx in sorted(tool_calls_acc.keys()):
+            tc_data = tool_calls_acc[idx]
+            if tc_data["id"] and tc_data["function"]["name"]:
+                # Create a simple namespace object to match non-streaming interface
+                tool_calls.append(type("TC", (), {
+                    "id": tc_data["id"],
+                    "function": type("Fn", (), {
+                        "name": tc_data["function"]["name"],
+                        "arguments": tc_data["function"]["arguments"],
+                    })(),
+                })())
 
         if not tool_calls:
-            if msg.content:
-                answer_acc += msg.content
-                yield {"type": "answer", "content": msg.content}
+            if full_content:
+                # Sanitize wiki syntax and tool-call XML leaks
+                content = _sanitize_answer(full_content)
+                # If response is entirely tool-call XML, treat as no answer
+                if content and not _is_tool_call_only(full_content):
+                    answer_acc += content
+                    # Content was already streamed in chunks above,
+                    # but we need to yield sanitized version
+                    chunk_size = 40
+                    for i in range(0, len(content), chunk_size):
+                        yield {"type": "answer", "content": content[i:i + chunk_size]}
+                        await asyncio.sleep(0.02)
             break
 
         # Append assistant message with tool calls
-        assistant_entry: dict[str, Any] = {"role": "assistant", "content": msg.content or ""}
+        assistant_entry: dict[str, Any] = {"role": "assistant", "content": full_content or ""}
         assistant_entry["tool_calls"] = [
             {
                 "id": tc.id,
@@ -415,6 +598,16 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
         flush()
         return
 
+    # If the tool loop already produced an answer (LLM answered without tool calls
+    # after previous tool rounds), skip synthesis to avoid duplicate output.
+    if answer_acc.strip():
+        if ctx.last_sources:
+            yield {"type": "sources", "content": ctx.last_sources}
+        _save_chat_history(messages, user_msg, answer_acc, ctx, reasoning_acc)
+        async for ev in _yield_done_with_follow_ups(user_msg, answer_acc):
+            yield ev
+        flush()
+        return
 
     # Stream final synthesis after tool rounds
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}
@@ -422,11 +615,15 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     try:
         async for kind, text in _emit_streamed_answer(client, agent_messages):
             if kind == "reasoning":
-                reasoning_acc += text
-                yield {"type": "reasoning", "content": text}
+                clean = _sanitize_reasoning(text)
+                if clean:
+                    reasoning_acc += clean
+                    yield {"type": "reasoning", "content": clean}
             else:
-                answer_acc += text
-                yield {"type": "answer", "content": text}
+                sanitized = _sanitize_answer(text)
+                if sanitized:
+                    answer_acc += sanitized
+                    yield {"type": "answer", "content": sanitized}
     except Exception as e:
         logger.error("[CHAT] agent stream failed: %s", e)
         err = f"生成失败: {e}"
@@ -435,6 +632,10 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     if ctx.last_sources:
         yield {"type": "sources", "content": ctx.last_sources}
+
+    # Final sanitization pass on accumulated answer (catches wiki patterns spanning chunks)
+    if answer_acc:
+        answer_acc = _sanitize_answer(answer_acc)
 
     # Post-hoc entity validation
     if answer_acc:

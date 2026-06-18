@@ -61,8 +61,16 @@ CRITICAL RULES:
 1. "最高/最大/最高伤害" → set sort="pdps" (NOT a stat! This is sorting, not filtering!)
    "元素伤害最高" → sort="edps"
    "最便宜/价格最低" → sort="price", sort_dir="asc"
-2. "价格低于 X E/D/神" → budget={{"max": X, "currency": "exalted"/"divine"/"chaos"}}
+2. 预算/价格解析 — 货币映射（务必准确）：
+   - E / 崇高 / exalt / exalted → currency="exalted"
+   - D / 神 / 神圣 / divine → currency="divine"
+   - C / 混沌 / chaos → currency="chaos"
+   格式举例：
    "价格低于 2E" → budget={{"max": 2, "currency": "exalted"}}
+   "10D以下" → budget={{"max": 10, "currency": "divine"}}
+   "5神以内" → budget={{"max": 5, "currency": "divine"}}
+   "100C以下" → budget={{"max": 100, "currency": "chaos"}}
+   注意：用户说"XD以下/以内/不超过X D"中的 D 是 divine（神圣石），不是 exalted！
 3. item_slot MUST use full Trade category IDs (e.g. accessory.amulet, NOT amulet); unique/item names go in raw_summary
 4. must_have: stats the item MUST have. Use AND group.
 5. nice_to_have: stats that are NICE to have. COUNT group with count_min.
@@ -357,10 +365,16 @@ def _parse_intent(query: str, user_msg: str = "") -> dict:
     concepts = list_all_concepts()
     concept_list = "\n".join(f"  - {c}" for c in concepts)
 
+    # Build user content: include original user message as context for budget extraction.
+    # The AI's trade_search query often omits price info that the user specified.
+    user_content = query
+    if user_msg and user_msg.strip() != query.strip():
+        user_content = f"用户原话：{user_msg.strip()}\n搜索查询：{query}"
+
     client = _get_llm_client()
     messages = [
         {"role": "system", "content": PARSE_SYSTEM.format(concept_list=concept_list)},
-        {"role": "user", "content": query},
+        {"role": "user", "content": user_content},
     ]
     try:
         resp = client.chat.completions.create(
@@ -383,10 +397,11 @@ def _parse_intent(query: str, user_msg: str = "") -> dict:
         parsed = _apply_ilvl_policy(parsed, user_msg, query)
         parsed = _normalize_intent_slots_and_concepts(parsed, query)
         logger.info(
-            "Intent: slot=%s, must=%s, nice=%s",
+            "Intent: slot=%s, must=%s, nice=%s, budget=%s",
             parsed.get("item_slot"),
             len(parsed.get("must_have", [])),
             len(parsed.get("nice_to_have", [])),
+            parsed.get("budget"),
         )
         return parsed
     except Exception as e:

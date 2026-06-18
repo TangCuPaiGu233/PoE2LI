@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -290,11 +290,97 @@ def query_related(entity_name: str, max_hops: int = 1, max_nodes: int = 50) -> s
         return ""
 
 
+# ---------------------------------------------------------------------------
+# Community synonym mapping
+# ---------------------------------------------------------------------------
+# Some player-facing terms don't match any entity name in the game data.
+# Map them to entity key patterns for direct retrieval.
+
+_COMMUNITY_SYNONYMS: dict[str, dict] = {
+    "隐藏天赋": {
+        "description": "涂油天赋（Anoint Passives）— 使用蒸馏情绪涂油项链获得的核心天赋",
+        "key_prefixes": ["DeliriumAnoint_"],
+        "table": "PassiveSkills",
+    },
+    "涂油天赋": {
+        "description": "涂油天赋（Anoint Passives）— 使用蒸馏情绪涂油项链获得的核心天赋",
+        "key_prefixes": ["DeliriumAnoint_"],
+        "table": "PassiveSkills",
+    },
+    "涂油": {
+        "description": "涂油天赋（Anoint Passives）— 使用蒸馏情绪涂油项链获得的核心天赋",
+        "key_prefixes": ["DeliriumAnoint_"],
+        "table": "PassiveSkills",
+    },
+    "彩蛋天赋": {
+        "description": "彩蛋天赋 — 需要前置条件才会显示的特殊天赋",
+        "keys": ["armour_and_evasion45", "evasion_and_energy_shield37"],
+        "table": "PassiveSkills",
+    },
+}
+
+
+def _check_community_synonyms(gg, query: str) -> str | None:
+    """Check if query matches a known community synonym.
+
+    Returns formatted result string if matched, None otherwise.
+    """
+    q_lower = query.lower().strip()
+
+    for term, config in _COMMUNITY_SYNONYMS.items():
+        if term not in q_lower:
+            continue
+
+        table = config["table"]
+        entries: list[tuple[str, str, str]] = []  # (key, cn_name, en_name)
+
+        # Collect by key prefixes
+        for prefix in config.get("key_prefixes", []):
+            for (t, k) in gg.entity_index:
+                if t == table and k.startswith(prefix):
+                    info = gg.entity_index[(t, k)]
+                    cn = info.get("name_sc") or ""
+                    en = info.get("name_en") or ""
+                    # Deduplicate by CN name
+                    if cn and cn not in [e[1] for e in entries]:
+                        entries.append((k, cn, en))
+
+        # Collect by explicit keys
+        for k in config.get("keys", []):
+            info = gg.entity_index.get((table, k))
+            if info:
+                cn = info.get("name_sc") or ""
+                en = info.get("name_en") or ""
+                if cn and cn not in [e[1] for e in entries]:
+                    entries.append((k, cn, en))
+
+        if not entries:
+            continue
+
+        lines = [
+            "【游戏数据搜索结果】",
+            f"匹配: {config['description']}",
+            f"共 {len(entries)} 个天赋:",
+            "",
+        ]
+        for i, (key, cn, en) in enumerate(entries, 1):
+            suffix = f" ({en})" if en and en != cn else ""
+            lines.append(f"{i}. [{table}:{key}] {cn}{suffix}")
+
+        return "\n".join(lines)
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# LLM-callable search
+# ---------------------------------------------------------------------------
+
 def search_game(
     query: str,
     table_filter: str | None = None,
     expand_hops: int = 1,
-    max_results: int = 5,
+    max_results: int = 30,
 ) -> str:
     """LLM-callable game data search.
 
@@ -315,6 +401,13 @@ def search_game(
 
     query = query.strip()
 
+    # ---- Community synonym lookup ----
+    # Some queries use community terms that don't match any entity name.
+    # Map them to known entity key prefixes for direct retrieval.
+    synonym_result = _check_community_synonyms(gg, query)
+    if synonym_result:
+        return synonym_result
+
     try:
         results = gg.find_entity(query, table_filter=table_filter)
         if not results:
@@ -329,56 +422,67 @@ def search_game(
         partial = [r for r in results if r[3] == "partial"]
         total = len(exact) + len(partial)
 
+        # Table-grouped summary for AI quick parsing
+        table_counts = Counter(table for table, _, _, _ in results)
+        table_summary = ", ".join(f"{t} ({c})" for t, c in table_counts.most_common())
+
         lines = [
             f"【游戏数据搜索结果】",
             f"匹配: {total} 个（{len(exact)} 精确）",
+            f"分布: {table_summary}",
             "",
         ]
 
-        # List search results
+        # List search results (cap at 15, summarize remainder by table)
+        list_cap = min(max_results, 15)
         shown = 0
-        for table, key, display, match_type in results[:max_results]:
+        for table, key, display, match_type in results[:list_cap]:
             tag = "精确" if match_type == "exact" else "部分"
             lines.append(f"{shown + 1}. [{tag}] {table}:{key} — {display}")
             shown += 1
 
-        if len(results) > max_results:
-            lines.append(f"  ... 还有 {len(results) - max_results} 个结果")
+        remaining = results[list_cap:]
+        if remaining:
+            rem_counts = Counter(t for t, _, _, _ in remaining)
+            rem_summary = ", ".join(f"{t} ({c})" for t, c in rem_counts.most_common())
+            lines.append(f"  ... 还有 {len(remaining)} 个结果: {rem_summary}")
 
-        # Auto-expand the best match (first exact, or first partial)
-        best = exact[0] if exact else partial[0]
-        best_table, best_key, best_display, _ = best
-        expanded = gg.expand(best_table, best_key, max_hops=expand_hops, max_nodes=40)
+        # Auto-expand the best match only for specific queries (<=5 exact matches).
+        # For broad queries with many matches, the list summary is more useful.
+        if len(exact) <= 5 and total <= 10:
+            best = exact[0] if exact else partial[0]
+            best_table, best_key, best_display, _ = best
+            expanded = gg.expand(best_table, best_key, max_hops=expand_hops, max_nodes=40)
 
-        lines.append(f"\n--- {best_display} 关联数据 ---")
+            lines.append(f"\n--- {best_display} 关联数据 ---")
 
-        # Group edges by relation
-        by_relation: dict[str, list[str]] = defaultdict(list)
-        for src_t, src_k, rel, dst_t, dst_k, hop in expanded["edges"]:
-            if hop != 1:
-                continue
-            if (src_t, src_k) == (best_table, best_key):
-                dst_info = gg.entity_index.get((dst_t, dst_k), {})
-                name = dst_info.get("name_sc") or gg._get_display_name((dst_t, dst_k))
-                by_relation[rel].append(name)
-            elif (dst_t, dst_k) == (best_table, best_key):
-                src_info = gg.entity_index.get((src_t, src_k), {})
-                name = src_info.get("name_sc") or gg._get_display_name((src_t, src_k))
-                by_relation[f"← {rel}"].append(name)
+            # Group edges by relation
+            by_relation: dict[str, list[str]] = defaultdict(list)
+            for src_t, src_k, rel, dst_t, dst_k, hop in expanded["edges"]:
+                if hop != 1:
+                    continue
+                if (src_t, src_k) == (best_table, best_key):
+                    dst_info = gg.entity_index.get((dst_t, dst_k), {})
+                    name = dst_info.get("name_sc") or gg._get_display_name((dst_t, dst_k))
+                    by_relation[rel].append(name)
+                elif (dst_t, dst_k) == (best_table, best_key):
+                    src_info = gg.entity_index.get((src_t, src_k), {})
+                    name = src_info.get("name_sc") or gg._get_display_name((src_t, src_k))
+                    by_relation[f"← {rel}"].append(name)
 
-        if by_relation:
-            for rel, targets in by_relation.items():
-                lines.append(f"  {rel}: {', '.join(targets[:12])}")
-        else:
-            lines.append("  （无关联数据）")
+            if by_relation:
+                for rel, targets in by_relation.items():
+                    lines.append(f"  {rel}: {', '.join(targets[:12])}")
+            else:
+                lines.append("  （无关联数据）")
 
-        # For Ascendancy entities, also list passive skill nodes
-        if best_table == "Ascendancy":
-            asc_nodes = _collect_ascendancy_nodes(gg, expanded)
-            if asc_nodes:
-                lines.append("")
-                for section in asc_nodes:
-                    lines.append(section)
+            # For Ascendancy entities, also list passive skill nodes
+            if best_table == "Ascendancy":
+                asc_nodes = _collect_ascendancy_nodes(gg, expanded)
+                if asc_nodes:
+                    lines.append("")
+                    for section in asc_nodes:
+                        lines.append(section)
 
         return "\n".join(lines)
 

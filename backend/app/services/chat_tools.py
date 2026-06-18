@@ -50,6 +50,7 @@ class ChatToolContext:
     last_recommend: dict | None = None
     rag_search_calls: int = 0
     trade_search_calls: int = 0
+    search_game_calls: int = 0
     last_build_summary: str | None = None
     rag_queries: list[str] = field(default_factory=list)  # dedup: track all rag queries this turn
     last_chunks: list[str] = field(default_factory=list)  # evidence for entity validation
@@ -78,6 +79,7 @@ def _query_jaccard(a: str, b: str) -> float:
 
 _RAG_DEDUP_THRESHOLD = 0.50
 RAG_SOFT_LIMIT = 3  # allow one batch + one targeted follow-up search
+SEARCH_GAME_MAX_PER_TURN = 5  # max search_game calls per turn
 
 
 def _check_rag_dedup(query: str, ctx: ChatToolContext) -> str | None:
@@ -260,14 +262,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "items, mods, skills, gems, monsters, stats. Returns Chinese + English names and "
                 "related entities from the authoritative game database. "
                 "MUST be called for ANY question about game mechanics, entities, or data — "
-                "your training data about PoE2 is unreliable (PoE1 vs PoE2 confusion)."
+                "your training data about PoE2 is unreliable (PoE1 vs PoE2 confusion). "
+                "IMPORTANT: Use the SAME LANGUAGE as the user. Current user is on Chinese server — "
+                "search with Chinese terms (e.g. '光环' not 'aura', '野兽' not 'beast')."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Entity name to search (Chinese, English, or ID). Examples: '灵魂行者', 'Spirit Walker', 'Distorted Amulet', '扭曲项链'",
+                        "description": (
+                            "Entity name to search. MUST match the user's language: "
+                            "for Chinese users, use Chinese terms like '光环', '野兽光环', '扭曲项链'. "
+                            "English fallback only when Chinese yields no results. "
+                            "Examples: '灵魂行者', '光环', '扭曲项链', 'Spirit Walker', 'Distorted Amulet'"
+                        ),
                     },
                     "table_filter": {
                         "type": "string",
@@ -963,5 +972,19 @@ async def execute_tool(
     if name == "recommend":
         return await _run_recommend(args, ctx)
     if name == "search_game":
-        return _run_search_game(args, ctx)
+        ctx.search_game_calls += 1
+        if ctx.search_game_calls > SEARCH_GAME_MAX_PER_TURN:
+            return ToolRunResult(content=json.dumps({
+                "status": "blocked",
+                "reason": f"本轮已调用 {SEARCH_GAME_MAX_PER_TURN} 次 search_game，预算耗尽。请基于已有搜索结果组织回答，不要再搜索。",
+            }, ensure_ascii=False))
+        result = _run_search_game(args, ctx)
+        if ctx.search_game_calls >= 3:
+            # Append plain-text warning (search_game returns text, not JSON)
+            hint = (
+                f"\n\n⚠️ 这是本轮第 {ctx.search_game_calls} 次 search_game 调用。"
+                f"请优先基于已有搜索结果组织回答，避免继续搜索。"
+            )
+            result.content = (result.content + hint)[:12000]
+        return result
     return ToolRunResult(content=json.dumps({"error": f"unknown_tool:{name}"}))
