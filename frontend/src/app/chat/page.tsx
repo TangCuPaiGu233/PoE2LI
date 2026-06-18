@@ -11,6 +11,7 @@ import {
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMarkdown from "@/components/chat/ChatMarkdown";
 import ChatMessageImage from "@/components/chat/ChatMessageImage";
+import ThinkingPanel, { type ToolCallInfo } from "@/components/chat/ThinkingPanel";
 
 // ── types ──
 interface TradeMatch {
@@ -84,6 +85,7 @@ interface Message {
   sources?: { type: string; preview: string }[];
   reasoning?: string;
   thinkingSteps?: string[];
+  toolCalls?: ToolCallInfo[];
   trade?: TradeResult;
   trades?: TradeResult[];
   followUps?: string[];
@@ -97,46 +99,8 @@ const TOOL_LABELS: Record<string, string> = {
   decode_pob: "解析 PoB / 导入 BD",
   trade_search: "搜索交易市场",
   recommend: "对比推荐装备",
+  search_game: "搜索游戏数据",
 };
-
-
-
-function ThinkingPanel({
-  steps,
-  reasoning,
-  showPending,
-}: {
-  steps?: string[];
-  reasoning?: string;
-  showPending?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const hasSteps = !!(steps && steps.length);
-  const hasReasoning = !!reasoning?.trim();
-  if (!hasSteps && !hasReasoning && !showPending) return null;
-  return (
-    <details
-      className="mb-2 min-w-0 max-w-full"
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
-    >
-      <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors tracking-wider uppercase select-none">
-        思考过程
-      </summary>
-      <div className="mt-2 p-3 ninja-panel text-xs text-[var(--ninja-text-muted)] leading-relaxed max-h-48 overflow-y-auto space-y-1.5">
-        {hasSteps && steps!.map((t, i) => (
-          <p key={`step-${i}`} className="text-[var(--ninja-text-muted)]">{t}</p>
-        ))}
-        {!hasSteps && showPending && (
-          <p className="text-[var(--ninja-text-dim)] animate-pulse-glow">正在分析意图...</p>
-        )}
-        {hasReasoning && (
-          <p className="text-[var(--ninja-accent)] opacity-60 whitespace-pre-wrap">{reasoning}</p>
-        )}
-      </div>
-    </details>
-  );
-}
 
 function detectStreamSkill(text: string, toolName?: string, current = "idle"): string {
   if (toolName === "trade_search" || text.includes("交易市场") || text.includes("交易搜索")) return "trade_search";
@@ -171,6 +135,7 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false);
   const [thinking, setThinking] = useState<string[]>([]);
   const [reasoning, setReasoning] = useState("");
+  const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
   const [skill, setSkill] = useState("idle");
   const [showWelcome, setShowWelcome] = useState(true);
   const mainRef = useRef<HTMLElement>(null);
@@ -202,7 +167,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     scrollToBottom(streaming ? "auto" : "smooth");
-  }, [messages, thinking, reasoning, streaming, scrollToBottom]);
+  }, [messages, thinking, reasoning, toolCalls, streaming, scrollToBottom]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -237,6 +202,7 @@ export default function ChatPage() {
     let acc = ""; let sk = "idle"; let pendingFollowUps: string[] | null = null;
     let thinkLog: string[] = ["已收到问题，正在连接服务器…"];
     let reasonLog = "";
+    let toolCallsArr: ToolCallInfo[] = [];
 
     try {
       const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }), signal: controller.signal });
@@ -292,6 +258,16 @@ export default function ChatPage() {
               const toolLine = argsHint ? `工具调用 · ${label} (${argsHint})` : `工具调用 · ${label}`;
               thinkLog.push(toolLine);
               setThinking([...thinkLog]);
+              // Build structured tool call for card UI
+              const tc: ToolCallInfo = {
+                id: `tc_${Date.now()}_${toolCallsArr.length}`,
+                name,
+                label,
+                args: (args && typeof args === "object" ? args : {}) as Record<string, unknown>,
+                status: "pending",
+              };
+              toolCallsArr.push(tc);
+              setToolCalls([...toolCallsArr]);
             } else if (ev.type === "tool_result") {
               const c = ev.content || {};
               const name = typeof c.name === "string" ? c.name : "";
@@ -302,6 +278,14 @@ export default function ChatPage() {
               const prefix = c.ok === false ? "工具失败" : "工具完成";
               thinkLog.push(`${prefix} · ${label}: ${preview}`);
               setThinking([...thinkLog]);
+              // Update structured tool call status (immutable update)
+              const newStatus = c.ok === false ? "error" : "success";
+              toolCallsArr = toolCallsArr.map(t =>
+                t.name === name && t.status === "pending"
+                  ? { ...t, status: newStatus as ToolCallInfo["status"], resultPreview: preview }
+                  : t
+              );
+              setToolCalls([...toolCallsArr]);
             } else if (ev.type === "reasoning") { reasonLog += ev.content; setReasoning(reasonLog); }
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
             else if (ev.type === "trade_result") { setMessages(p => { const l = p[p.length - 1]; if (l?.role === "assistant") { return [...p.slice(0, -1), { ...l, trades: [ev.content as TradeResult], trade: undefined }]; } return [...p, { role: "assistant", content: "", trades: [ev.content as TradeResult] }]; }); }
@@ -312,6 +296,7 @@ export default function ChatPage() {
               pendingFollowUps = null;
               const savedSteps = thinkLog.length ? [...thinkLog] : undefined;
               const savedReasoning = reasonLog || undefined;
+              const savedToolCalls = toolCallsArr.length ? [...toolCallsArr] : undefined;
               setMessages(p => {
                 const l = p[p.length - 1];
                 if (l?.role !== "assistant") return p;
@@ -319,13 +304,16 @@ export default function ChatPage() {
                   ...l,
                   ...(savedReasoning ? { reasoning: savedReasoning } : {}),
                   ...(savedSteps ? { thinkingSteps: savedSteps } : {}),
+                  ...(savedToolCalls ? { toolCalls: savedToolCalls } : {}),
                   ...(fu ? { followUps: fu } : {}),
                 }];
               });
               thinkLog = [];
               reasonLog = "";
+              toolCallsArr = [];
               setThinking([]);
               setReasoning("");
+              setToolCalls([]);
               setStreaming(false);
               setSkill("idle");
             }
@@ -335,7 +323,7 @@ export default function ChatPage() {
     } catch (e) {
       // User-initiated abort (new message / navigation) — not a real error
       if (e instanceof DOMException && e.name === "AbortError") {
-        setStreaming(false); setSkill("idle"); setThinking([]); setReasoning("");
+        setStreaming(false); setSkill("idle"); setThinking([]); setReasoning(""); setToolCalls([]);
         return;
       }
       setMessages(p => {
@@ -345,7 +333,7 @@ export default function ChatPage() {
           : [...p, { role: "assistant", content: `网络错误: ${e}` }];
       });
     }
-    setStreaming(false); setSkill("idle");
+    setStreaming(false); setSkill("idle"); setToolCalls([]);
   }, [messages, streaming]);
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -471,9 +459,10 @@ export default function ChatPage() {
                   const liveStream = streaming && isLast;
                   return (
                     <ThinkingPanel
-                      steps={liveStream ? thinking : m.thinkingSteps}
                       reasoning={liveStream ? reasoning : m.reasoning}
-                      showPending={liveStream && thinking.length === 0 && !reasoning}
+                      toolCalls={liveStream ? toolCalls : m.toolCalls}
+                      isStreaming={liveStream}
+                      showPending={liveStream && !reasoning && toolCalls.length === 0}
                     />
                   );
                 })()}
