@@ -98,24 +98,15 @@ function StatusIcon({ status }: { status: ToolCallInfo["status"] }) {
 }
 
 function ToolCallCard({ tc }: { tc: ToolCallInfo }) {
-  const [expanded, setExpanded] = useState(false);
   const icon = TOOL_ICONS[tc.name] || "🔧";
   const title = getToolTitle(tc);
   const subtitle = getToolSubtitle(tc);
-
-  const hasDetails =
-    (tc.args && Object.keys(tc.args).length > 0) || tc.resultPreview;
 
   return (
     <div
       className={`tool-card ${tc.status === "pending" ? "tool-card-pending" : ""}`}
     >
-      {/* Header row */}
-      <button
-        type="button"
-        className="w-full flex items-center gap-2 text-left cursor-pointer"
-        onClick={() => hasDetails && setExpanded(!expanded)}
-      >
+      <div className="flex items-center gap-2">
         <span className="text-sm shrink-0">{icon}</span>
         <div className="flex-1 min-w-0">
           <div className="text-xs text-[var(--ninja-text-muted)] truncate">
@@ -144,38 +135,7 @@ function ToolCallCard({ tc }: { tc: ToolCallInfo }) {
             </div>
           )}
         </div>
-        {hasDetails && (
-          <span
-            className={`text-[10px] text-[var(--ninja-text-dim)] shrink-0 transition-transform duration-200 ${
-              expanded ? "rotate-90" : ""
-            }`}
-          >
-            ▶
-          </span>
-        )}
-      </button>
-
-      {/* Expandable details */}
-      {expanded && hasDetails && (
-        <div className="mt-2 pt-2 border-t border-[var(--ninja-border)] text-[11px] space-y-1.5">
-          {tc.args && Object.keys(tc.args).length > 0 && (
-            <div>
-              <span className="text-[var(--ninja-text-dim)]">参数：</span>
-              <span className="text-[var(--ninja-text-muted)] font-mono">
-                {JSON.stringify(tc.args, null, 0).slice(0, 200)}
-              </span>
-            </div>
-          )}
-          {tc.resultPreview && (
-            <div>
-              <span className="text-[var(--ninja-text-dim)]">结果：</span>
-              <span className="text-[var(--ninja-text-muted)] whitespace-pre-wrap">
-                {tc.resultPreview.slice(0, 300)}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
