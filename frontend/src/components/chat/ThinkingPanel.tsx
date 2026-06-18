@@ -56,11 +56,9 @@ function getToolSubtitle(tc: ToolCallInfo): string {
 }
 
 function buildSummary(
-  toolCalls: ToolCallInfo[],
-  hasReasoning: boolean
+  toolCalls: ToolCallInfo[]
 ): string {
   const parts: string[] = [];
-  if (hasReasoning) parts.push("推理分析");
 
   const toolLabels = [...new Set(toolCalls.map((t) => t.label))];
   if (toolLabels.length > 0) {
@@ -149,12 +147,10 @@ export default function ThinkingPanel({
   showPending,
 }: ThinkingPanelProps) {
   const [open, setOpen] = useState(false);
-  const [reasoningOpen, setReasoningOpen] = useState(false);
   const autoCollapsedRef = useRef(false);
 
   const hasToolCalls = !!(toolCalls && toolCalls.length > 0);
-  const hasReasoning = !!(reasoning && reasoning.trim());
-  const hasContent = hasToolCalls || hasReasoning || showPending;
+  const hasContent = hasToolCalls || showPending;
 
   // Smart folding: auto-expand during streaming, auto-collapse after done
   useEffect(() => {
@@ -174,16 +170,9 @@ export default function ThinkingPanel({
     }
   }, [isStreaming, open, hasContent]);
 
-  // Also expand reasoning when it changes during streaming
-  useEffect(() => {
-    if (isStreaming && hasReasoning) {
-      setReasoningOpen(true);
-    }
-  }, [isStreaming, hasReasoning]);
-
   if (!hasContent) return null;
 
-  const summary = buildSummary(toolCalls || [], hasReasoning);
+  const summary = buildSummary(toolCalls || []);
   const pendingCount = (toolCalls || []).filter(
     (t) => t.status === "pending"
   ).length;
@@ -212,27 +201,8 @@ export default function ThinkingPanel({
       {/* Expandable body */}
       {open && (
         <div className="mt-2 space-y-2" style={{ animation: "fadeIn 0.2s ease-out" }}>
-          {/* Reasoning section */}
-          {hasReasoning && (
-            <div className="reasoning-section">
-              <button
-                type="button"
-                className="reasoning-toggle"
-                onClick={() => setReasoningOpen(!reasoningOpen)}
-              >
-                <span>{reasoningOpen ? "▾" : "▸"}</span>
-                推理过程 ({reasoning!.trim().length}字)
-              </button>
-              {reasoningOpen && (
-                <div className="reasoning-content mt-1.5 pl-3 border-l border-[var(--ninja-accent)]/20">
-                  {reasoning}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Pending indicator */}
-          {showPending && !hasToolCalls && !hasReasoning && (
+          {showPending && !hasToolCalls && (
             <div className="flex items-center gap-2 text-xs text-[var(--ninja-text-dim)]">
               <Spinner />
               <span className="animate-pulse-glow">正在分析意图…</span>
@@ -264,31 +234,6 @@ export default function ThinkingPanel({
         }
         .tool-card-pending {
           border-left: 2px solid var(--ninja-accent);
-        }
-        .reasoning-toggle {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          color: var(--ninja-text-dim);
-          font-size: 0.75rem;
-          cursor: pointer;
-          user-select: none;
-          background: none;
-          border: none;
-          padding: 0;
-          transition: color 0.15s;
-        }
-        .reasoning-toggle:hover {
-          color: var(--ninja-text-muted);
-        }
-        .reasoning-content {
-          color: var(--ninja-accent);
-          opacity: 0.55;
-          font-size: 0.75rem;
-          white-space: pre-wrap;
-          line-height: 1.6;
-          max-height: 12rem;
-          overflow-y: auto;
         }
         .thinking-summary {
           display: flex;
