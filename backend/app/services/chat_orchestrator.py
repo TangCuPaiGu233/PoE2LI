@@ -43,6 +43,8 @@ SYNTHESIS_SYSTEM = (
 5. decode_pob 的 summary 含 stats 行时原样引用抗性/DPS，闪电抗勿改称魔抗。
 6. 多子 Agent 时按用户问题组织：先直接答核心，再分节补充交易/机制/BD 信息。
 7. 使用清晰中文 markdown（### 小标题、列表、**关键数值**）。
+8. 评价装备时必须识别所有高价值信号（T1 词缀、破裂、稀有附魔、Desecrated 基底、crafted、高 ilvl），禁止只看最强单词缀就定性。listing_price 是搜索最低价，不等于用户物品估价。
+9. 子 Agent 返回的 listings[] 含 fractured_mods / enchant_mods / crafted_mods / implicit_mods 字段，综合评估时**必须逐条列出**这些特殊词缀的价值。
 """
 )
 
