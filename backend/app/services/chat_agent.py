@@ -90,6 +90,8 @@ _TOOL_CALL_XML_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*>.*?</\s*[｜|]\
 _TOOL_CALL_XML_OPEN_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*/?\s*>', re.DOTALL)
 _WIKI_LINK_RE = re.compile(r'\[\[(?:poe:)?([^|\]]+)\|([^\]]+)\]\]')  # [[poe:X|Y]] or [[X|Y]] → Y
 _WIKI_BRACKET_RE = re.compile(r'\[poe:([^\]|\n]+?)(?:\|[^\]|\n]+?)?\]')  # [poe:X] → X, [poe:X|Y] → X
+# Unclosed [poe:Name... without closing ] — split across table cells or truncated by LLM
+_WIKI_ORPHAN_RE = re.compile(r'\[poe:([^|\n\]]+)')  # **[poe:法师之血** → **法师之血**
 _WIKI_PIPE_RE = re.compile(r'\|poe:')  # stray |poe: tags
 
 
@@ -104,6 +106,8 @@ def _sanitize_answer(text: str) -> str:
     text = _WIKI_LINK_RE.sub(r'\2', text)
     # Convert single-bracket [poe:name] or [poe:name|en] → name
     text = _WIKI_BRACKET_RE.sub(r'\1', text)
+    # Catch remaining unclosed [poe:Name fragments (split across table cells by |)
+    text = _WIKI_ORPHAN_RE.sub(r'\1', text)
     # Remove stray |poe: fragments
     text = _WIKI_PIPE_RE.sub('', text)
     return text.strip()
@@ -117,6 +121,7 @@ def _sanitize_reasoning(text: str) -> str:
     text = _TOOL_CALL_XML_OPEN_RE.sub('', text)
     text = _WIKI_LINK_RE.sub(r'\2', text)
     text = _WIKI_BRACKET_RE.sub(r'\1', text)
+    text = _WIKI_ORPHAN_RE.sub(r'\1', text)
     text = _WIKI_PIPE_RE.sub('', text)
     return text.strip()
 
@@ -250,7 +255,9 @@ AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2
 - 使用清晰的中文 markdown（### 小标题、列表、**关键数值**）
 - 资料不足就说明不足，标注 [推测] 仅限合理推断
 - 交易搜索结果需在正文中解释最佳匹配含义；有 listing_price 时写「市集参考价：XXX」，并说明是近似匹配最低价
-- **禁止使用 Wiki 链接语法**：不要出现 `[poe:名称]`、`[[poe:名称]]`、`[[名称|显示]]`、`|poe:` 等 PoE Wiki / MediaWiki 格式。直接用中文名称即可，必要时括号注明英文原名。
+- **禁止使用 Wiki 链接语法**：不要出现 `[poe:名称]`、`[[poe:名称]]`、`[[名称|显示]]`、`|poe:` 等 PoE Wiki / MediaWiki 格式。直接用中文名称即可，必要时括号注明英文原名。**尤其在表格中**：表格单元格内只能用纯文本，绝对不要写 `[poe:...]`，否则管道符 `|` 会破坏表格结构。
+  ✅ `| 法师之血 | 腰带 | 5 div |`
+  ❌ `| [poe:法师之血] | 腰带 | 5 div |`
 - **不要生成空白条目**：每个列表项、bullet point 后面必须有具体内容。如果某一条没有可写的内容，就不要列出来，不要留空白的 • 或 -。
 """
 
