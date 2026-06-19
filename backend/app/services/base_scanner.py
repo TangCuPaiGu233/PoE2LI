@@ -195,15 +195,15 @@ def scan_single_base(
         group_id=group_id,
     )
 
-    # Build intent for white-base search with anti-manipulation filters:
-    # - online=True: forces status=online even for CN market (instant buyout only)
-    # Note: "listed" time filter is NOT supported by CN Trade API (returns 400).
-    # Only online status is used for anti-manipulation.
+    # Build intent for white-base search.
+    # Note: CN Trade API does NOT support status=online (returns 0 results)
+    # or listed time filter (returns 400). Global market applies online via
+    # trade_status_filter() automatically. Anti-manipulation for CN relies
+    # on min_results threshold and median pricing in scan_all_bases().
     intent = {
         "base_type": base_en,
         "rarity": "normal",
         "stat_groups": [],
-        "online": True,
     }
 
     # Step 1: Search (with 429 retry)
