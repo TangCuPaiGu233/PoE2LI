@@ -196,13 +196,13 @@ def scan_single_base(
     )
 
     # Build intent for white-base search with anti-manipulation filters:
-    # - listed_days=3: only items listed within 3 days (stale = likely fake price)
     # - online=True: forces status=online even for CN market (instant buyout only)
+    # Note: "listed" time filter is NOT supported by CN Trade API (returns 400).
+    # Only online status is used for anti-manipulation.
     intent = {
         "base_type": base_en,
         "rarity": "normal",
         "stat_groups": [],
-        "listed_days": 3,
         "online": True,
     }
 
