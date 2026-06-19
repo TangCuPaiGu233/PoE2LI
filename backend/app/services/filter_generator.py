@@ -36,10 +36,25 @@ _GENERATED_PRICE_HEADER = "#======[AI 价格分级] 多品类价格 ======#"
 _GENERATED_FALLBACK_HEADER = "#======[AI 保底高亮] 白底兜底 ======#"
 _GENERATED_HIDE_HEADER = "#======[AI 智能隐藏] 确认低价物品 ======#"
 
-# Hide threshold: items cheaper than this (in chaos) are hidden.
+# Hide threshold: items cheaper than 1 Divine are hidden.
 # PoE2 economy: 1D ≈ 8.5c, Chaos Orb = 1c (base unit).
-# 0.5c ≈ 12E ≈ 0.06D — hides cheap junk while keeping most usable items visible.
-_HIDE_PRICE_CHAOS_THRESHOLD = 0.04
+# Dynamically fetched from poe.ninja; fallback 8.5c if unavailable.
+_HIDE_PRICE_CHAOS_FALLBACK = 8.5  # 1D fallback in chaos
+
+
+def _get_default_hide_threshold() -> float:
+    """Return 1D price in chaos as the default hide threshold."""
+    try:
+        from app.services.poe_ninja_service import get_divine_chaos_rate
+        rate = get_divine_chaos_rate()
+        if rate and rate > 0:
+            return rate
+    except Exception:
+        pass
+    return _HIDE_PRICE_CHAOS_FALLBACK
+
+
+_HIDE_PRICE_CHAOS_THRESHOLD = 8.5  # static default; use _get_default_hide_threshold() for live value
 
 # Currencies that must NEVER be hidden regardless of price.
 # Chaos Orb is the base trading unit; Exalted Orb is the primary

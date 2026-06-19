@@ -42,7 +42,7 @@ class PriceScanRequest(BaseModel):
 class GenerateWithPricesRequest(BaseModel):
     market: Literal["cn", "global"] = Field("cn")
     league: str | None = None
-    hide_threshold_chaos: float = Field(1.0, description="隐藏阈值(混沌石): 低于此价格的物品被隐藏 (1c=Chaos Orb)")
+    hide_threshold_chaos: float | None = Field(None, description="隐藏阈值(混沌石): 低于此价格的物品被隐藏。不填则自动使用1D(神圣石)价格")
     item_level_min: int = Field(82, description="最低物品等级")
 
 
@@ -383,12 +383,13 @@ async def list_prices(
 @router.post("/api/filter/generate-with-prices")
 async def generate_filter_with_prices(req: GenerateWithPricesRequest):
     """Generate a .filter file with multi-category price tiers."""
-    from app.services.filter_generator import generate_from_latest_prices
+    from app.services.filter_generator import generate_from_latest_prices, _get_default_hide_threshold
 
+    threshold = req.hide_threshold_chaos if req.hide_threshold_chaos is not None else _get_default_hide_threshold()
     result = generate_from_latest_prices(
         market=req.market,
         league=req.league,
-        hide_threshold_chaos=req.hide_threshold_chaos,
+        hide_threshold_chaos=threshold,
         item_level_min=req.item_level_min,
     )
     if result.get("error"):
