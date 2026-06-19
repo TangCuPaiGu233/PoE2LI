@@ -206,8 +206,23 @@ def scan_single_base(
         "online": True,
     }
 
-    # Step 1: Search
-    search_result = search_trade(intent, league=league, market=market)
+    # Step 1: Search (with 429 retry)
+    _MAX_RETRIES = 3
+    _RETRY_DELAY = 30  # seconds
+    search_result = {}
+    for attempt in range(1, _MAX_RETRIES + 1):
+        search_result = search_trade(intent, league=league, market=market)
+        if not search_result.get("rate_limited"):
+            break
+        if attempt < _MAX_RETRIES:
+            logger.warning(
+                f"Scan {base_en}: rate limited (429), retry {attempt}/{_MAX_RETRIES} "
+                f"in {_RETRY_DELAY}s..."
+            )
+            time.sleep(_RETRY_DELAY)
+        else:
+            logger.error(f"Scan {base_en}: rate limited after {_MAX_RETRIES} retries, skipping")
+
     if search_result.get("error"):
         result.error = search_result["error"]
         logger.warning(f"Scan {base_en}: search failed — {result.error}")

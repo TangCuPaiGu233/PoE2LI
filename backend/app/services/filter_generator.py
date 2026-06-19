@@ -39,13 +39,15 @@ _GENERATED_HIDE_HEADER = "#======[AI 智能隐藏] 确认低价物品 ======#"
 # Hide threshold: items cheaper than this (in chaos) are hidden.
 # PoE2 economy: 1D ≈ 8.5c, Chaos Orb = 1c (base unit).
 # 0.5c ≈ 12E ≈ 0.06D — hides cheap junk while keeping most usable items visible.
-_HIDE_PRICE_CHAOS_THRESHOLD = 0.5
+_HIDE_PRICE_CHAOS_THRESHOLD = 0.04
 
 # Currencies that must NEVER be hidden regardless of price.
-# Chaos Orb is the base trading unit; Gemcutter's Prism and Vaal Orb
-# are core crafting currencies — cheap in PoE2 but always relevant.
+# Chaos Orb is the base trading unit; Exalted Orb is the primary
+# low-value currency in PoE2 (1E ≈ 0.04c) — always show for reference.
+# Gemcutter's Prism and Vaal Orb are core crafting currencies.
 _NEVER_HIDE_CURRENCIES = frozenset({
     "Chaos Orb",
+    "Exalted Orb",
     "Gemcutter's Prism",
     "Vaal Orb",
     "Mirror of Kalandra",
@@ -262,6 +264,10 @@ _JUNK_BASETYPES = [
     # Vendor trash
     "Blacksmith's Whetstone",
     "Armourer's Scrap",
+    # Calamity Fragments (not tracked by poe.ninja, low value)
+    "Primary Calamity Fragment",
+    "Secondary Calamity Fragment",
+    "Tertiary Calamity Fragment",
 ]
 
 

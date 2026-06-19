@@ -1422,6 +1422,27 @@ Show
 	MinimapIcon 0 Green Diamond
 
 #===================未鉴定词缀等级高的装备=====================
+#词缀等级5 黄装 黄边框
+Show
+	UnidentifiedItemTier >= 5
+	Rarity Rare
+	Class "Body Armours" "Boots" "Bows" "Bucklers" "Crossbows" "Foci" "Gloves" "Helmets" "One Hand Maces" "Quarterstaves" "Quivers" "Sceptres" "Shields" "Spears" "Staves" "Talismans" "Two Hand Maces" "Wands" "One Hand Swords" "One Hand Axes" "Claws" "Daggers" "Flails" "Traps"
+	AreaLevel >= 65
+	SetFontSize 40
+	SetBorderColor 255 220 0 255
+	MinimapIcon 0 Yellow Diamond
+	PlayEffect Yellow
+
+#词缀等级5 蓝装 蓝边框
+Show
+	UnidentifiedItemTier >= 5
+	Rarity Magic
+	Class "Body Armours" "Boots" "Bows" "Bucklers" "Crossbows" "Foci" "Gloves" "Helmets" "One Hand Maces" "Quarterstaves" "Quivers" "Sceptres" "Shields" "Spears" "Staves" "Talismans" "Two Hand Maces" "Wands" "One Hand Swords" "One Hand Axes" "Claws" "Daggers" "Flails" "Traps"
+	AreaLevel >= 65
+	SetFontSize 35
+	SetBorderColor 0 150 255 255
+	MinimapIcon 0 Blue Diamond
+
 #词缀等级 >= 5 稀有 后期屏蔽
 #Show
 	#UnidentifiedItemTier >= 5
