@@ -195,11 +195,15 @@ def scan_single_base(
         group_id=group_id,
     )
 
-    # Build minimal intent for white-base search
+    # Build intent for white-base search with anti-manipulation filters:
+    # - listed_days=3: only items listed within 3 days (stale = likely fake price)
+    # - online=True: forces status=online even for CN market (instant buyout only)
     intent = {
         "base_type": base_en,
         "rarity": "normal",
         "stat_groups": [],
+        "listed_days": 3,
+        "online": True,
     }
 
     # Step 1: Search

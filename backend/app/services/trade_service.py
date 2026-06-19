@@ -848,6 +848,9 @@ def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     if intent.get("base_type"):
         query_body["type"] = resolve_trade_base_type(intent["base_type"], market=market)
     status = trade_status_filter(market)
+    # Allow intent to force online status (e.g. base scanner anti-manipulation)
+    if status is None and intent.get("online"):
+        status = {"option": "online"}
     if status is not None:
         query_body["status"] = status
     filters = {}
@@ -869,14 +872,19 @@ def build_trade_query(intent: dict, market: str = DEFAULT_MARKET) -> dict:
     if type_f:
         filters["type_filters"] = {"filters": type_f}
 
-    # ── Trade filters: price ──
+    # ── Trade filters: price + listed time ──
+    trade_f = {}
     if intent.get("price"):
         price = intent["price"]
-        trade_f = {"price": {"option": price.get("currency", "chaos")}}
+        trade_f["price"] = {"option": price.get("currency", "chaos")}
         if price.get("min") is not None:
             trade_f["price"]["min"] = price["min"]
         if price.get("max") is not None:
             trade_f["price"]["max"] = price["max"]
+    # Listed time filter: only items listed within N days (anti-manipulation)
+    if intent.get("listed_days"):
+        trade_f["listed"] = {"option": f"{intent['listed_days']}days"}
+    if trade_f:
         filters["trade_filters"] = {"filters": trade_f}
 
     # ── Requirements filters: level requirement ──
