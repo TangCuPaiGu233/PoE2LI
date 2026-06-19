@@ -62,3 +62,52 @@ def generate_homework_task(self, build_id: int, build_data_dict: dict):
         raise
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, max_retries=1)
+def scan_base_prices_task(self, market: str = "cn", league: str | None = None):
+    """Daily scan of all equipment base prices on the Trade market.
+
+    Scans normal-rarity listings for each base type, writes results to DB,
+    then regenerates the loot filter with high-value bases.
+    """
+    logger.info(f"Starting base price scan: market={market}, league={league}")
+
+    try:
+        from app.services.base_scanner import scan_all_bases
+        from app.services.filter_generator import generate_from_latest_scan
+
+        # Load config
+        from app.api.filter import _load_config
+        cfg = _load_config()
+        market = market or cfg.get("market", "cn")
+        min_price = cfg.get("min_price_chaos", 50.0)
+        min_results = cfg.get("min_results", 3)
+
+        report = scan_all_bases(
+            market=market,
+            league=league,
+            min_price_chaos=min_price,
+            min_results=min_results,
+        )
+
+        # Auto-generate filter after scan
+        try:
+            gen_result = generate_from_latest_scan(
+                market=market,
+                league=league,
+                item_level_min=cfg.get("item_level_min", 82),
+            )
+            logger.info(f"Filter generated: {gen_result.get('output_path')}")
+        except Exception as e:
+            logger.warning(f"Filter generation failed (non-fatal): {e}")
+
+        logger.info(
+            f"Base price scan complete: {report.high_value_count} high-value / "
+            f"{report.scanned} scanned / {report.errors} errors"
+        )
+        return report.to_dict()
+
+    except Exception as exc:
+        logger.error(f"Base price scan failed: {exc}")
+        raise self.retry(exc=exc, countdown=300)

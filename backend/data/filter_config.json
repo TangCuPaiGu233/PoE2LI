@@ -1,0 +1,17 @@
+{
+  "min_price_chaos": 50.0,
+  "min_results": 3,
+  "item_level_min": 82,
+  "market": "cn",
+  "deprecated_uniques": [],
+  "auto_hide_unique_below_chaos": 5,
+  "price_scan_categories": null,
+  "price_source": "trade_api",
+  "price_min_chaos": 30.0,
+  "price_tiers": {
+    "S": 500.0,
+    "A": 100.0,
+    "B": 30.0
+  },
+  "max_per_category": null
+}

@@ -1,0 +1,1738 @@
+﻿#For Path Of Exile 2 [0.4.0] 国际服 港台服 国服
+#amsco's_Script_V4.2
+#Updated Time 2026.5.26
+#
+#========版本说明=============================================
+#[0剧情]：适合无装备基础开荒，不屏蔽任何东西，但会凸显高价值物品
+#
+#[1剧情]：适合无装备基础开荒，或二周目（装备基础）游戏，低等级时会显示白蓝装过渡，高等级时屏蔽白蓝装，屏蔽鉴定卷轴、增幅、蜕变、低级通货碎片
+#
+#[2普通]：适合过完剧情后异界使用，全域屏蔽白蓝装，屏蔽鉴定卷轴、增幅、蜕变、低级通货碎片+、堆叠低于100黄金
+#
+#[3中期]：适合异界，屏蔽校多东西，慎用，全域屏蔽普通黄装（只显示物等74及以上高价值制作底子的白装和黄装），屏蔽鉴定卷轴、增幅、蜕变、低级通货碎片+、低价值通货、堆叠低于200黄金、屏蔽底子显示、屏蔽等级17以下未切割宝石、屏蔽3级以下未切割辅助宝石、屏蔽药剂、护符
+#
+#[4后期]：适合异界速刷、打宝、屏蔽很多东西，新手勿用，全域屏蔽黄装（只显示物等82及以上高价值制作底子的白装），屏蔽鉴定卷轴、增幅、蜕变、低级通货碎片+、低价值通货、堆叠低于300黄金、屏蔽底子显示、屏蔽1-5阶地图、屏蔽等级19以下未切割宝石、屏蔽药剂、护符
+#
+#搜索【此处自定义添加自己需要的底子】，在 BaseType 后面按格式添加自己想要的物品基底
+#========使用方法=============================================
+#本配套过滤可用于国际服、国服、台服(台服原版用国际英；台服用了国际简或繁汉化用国际简或繁)
+#
+#下载好filter文件后， 该文件需要放在下面的文件夹内，以win10为例
+#C:\Users\你的用户名\Documents\MyGames\Path of Exile 2
+#然后登录游戏，在【设定】---【游戏】---【物品筛选器】---下拉选择【[国际服][开荒]物品过滤[asmco].filter】，最后点击 【重新读取】，显示加载成功即OK！
+#按Alt可以显示隐藏的装备。
+#
+#字体和边框颜色与物品价值关系 遗产>传奇>红色>粉色>黄色>绿色>蓝色>白色
+#
+#特等价值 遗产 颜色 212 145 63
+#一等价值 传奇 颜色 175 96 37
+#二等价值 红色 颜色 210 0 0
+#三等价值 粉色 颜色 255 0 255
+#四等价值 黄色 颜色 255 255 119
+#五等价值 蓝色 颜色 136 136 255
+#六等价值 绿色 颜色 74 230 58
+#七等价值 白色 颜色 255 255 255
+#默认通货颜色 170 158 130
+#默认技能石颜色 27 162 155
+#另一个项目名字长度限制50字节，超出后不支持
+#注意：固定命令 Show Hide 大小写不通用
+#过滤读取的顺序，从上往下，只显示一次，后面的规则不会覆盖前面的规则
+#
+#稀有度相关音效 300 200 100
+#稀有度相关字体大小 60 50 40
+#
+#稀有度：Rarity = Unique Rare Magic Normal
+#
+#========物品过滤音效=======================================
+#
+#物品过滤音效包[可自选]
+#音效名                     对应物品                                                                                                  音量设置
+#AlertSound_16 ------------>
+#AlertSound_15 ------------>
+#AlertSound_14 ------------>
+#AlertSound_13 ------------>
+#AlertSound_12 ------------>
+#AlertSound_11 ------------>
+#AlertSound_10 ------------>
+#AlertSound_09 ------------>高价值通货（EX等）                                                                     300
+#AlertSound_08 ------------>地图                                                                                            250
+#AlertSound_07 ------------>价值通货、裂隙碎片、联盟石、精髓（混沌等）                               200
+#AlertSound_06 ------------>物等>60 未鉴定稀有项链、戒指、新价值底子（水晶腰带等）           200
+#AlertSound_05 ------------>Q宝石、瓦尔宝石、高价值宝石、掉落专属宝石等                            200
+#AlertSound_04 ------------>传奇                                                                                           200
+#AlertSound_03 ------------>高价值命运卡（猎首等）                                                              300
+#AlertSound_02 ------------>中高价值命运卡                                                                           250
+#AlertSound_01 ------------>中价值命运卡                                                                              200
+#AlertSound_OldVer -------->防漏音效，提示更新过滤                                                            250
+#
+#========新增过滤设置项======================================
+#
+#01【自定义过滤音】：CustomAlertSound "文件名(含扩展名)" 或 CustomAlertSound "完整文件路径"
+#01举例：CustomAlertSound "C:/Users/YourName/Documents/My Games/Path of Exile/thesearethegem.wav"
+#
+#                                            大 中 小      红     绿    蓝    褐     白     黄     青     灰    橙     粉    紫           圆      钻石     六角     方块    星     三角    十字   月亮    雨滴    风筝    五角      倒立的房子
+#02【自定义掉落小地图图标】：MinimapIcon 大小(0 1 2) 颜色(Red, Green, Blue, Brown, White, Yellow, Cyan, Grey, Orange, Pink, Purple) 形状(Circle, Diamond, Hexagon, Square, Star, Triangle, Cross, Moon, Raindrop, Kite, Pentagon, UpsideDownHouse)
+#02举例：MinimapIcon 0 Blue Circle //注释：大 蓝色 三角
+#
+#                                       红     绿    蓝    褐     白     黄     青    灰     橙     粉     紫
+#03【自定义掉落光束】：PlayEffect 颜色(Red, Green, Blue, Brown, White, Yellow, Cyan, Grey, Orange, Pink, Purple)
+#03举例：PlayEffect Red //注释：红
+#
+#04【屏蔽系统默认掉落音】：DisableDropSound
+#
+#05【过滤指定词缀】：HasExplicitMod "词缀"
+#05举例：HasExplicitMod "Tacati's"
+#
+#06【鉴定与否】：Identified 是否(True False)
+#06举例：Identified False //注释：未鉴定
+#
+#07【过滤指定迷宫附魔物品】：
+#07举例：AnyEnchantment True //注释：是否有迷宫附魔
+#        HasEnchantment "Enchantment Decree of Force" //注释：指定迷宫附魔
+#
+#08【过滤塑界或长老物品】：
+#08举例：
+#        Hide //注释：隐藏
+#        ShaperItem True //注释：塑界物品
+#        或
+#        Hide //注释：隐藏
+#        ElderItem True //注释：长老物品
+#
+#09【过滤忆境物品】：
+#09举例：
+#        Show //注释：显示
+#        SynthesisedItem True //注释：合成物品
+#
+#10【萎灭地图】：
+#10举例：
+#       BlightedMap True //注释：萎灭地图
+#
+#11【受塑界或/和长老影响】
+#11举例：
+#        
+#       HasInfluence Shaper Elder //注释：受塑界或长老影响
+#
+#       HasInfluence == Shaper Elder //注释：受塑界和长老影响
+#
+#12【3.11新规则】
+#
+# HasInfluence //注释：受影响底子 无参数
+# EnchantmentPassiveNode //注释：星团珠宝词缀类型 天赋显著点
+#
+#12【3.12新规则 是赝品】
+#
+#12 举例：Replica True
+#
+#13【3.12新规则 宝石是品质替换】
+#
+#13 举例：AlternateQuality True
+#
+#14 【3.12新规则 宝石品质类型】
+#
+#14 举例：【3.23 取消】
+#GemQualityType Superior 
+#GemQualityType Divergent 
+#GemQualityType Anomalous 
+#GemQualityType Phantasmal
+#
+#15 【3.13新规则1 过滤指定词缀多重判断】
+#
+#15 举例：HasExplicitMod >=2 "of Haast" "of Tzteosh" "of Ephij"
+#
+#16 【3.13新规则2 支持自定义音效音量】
+#
+#16 举例：CustomAlertSound "pop.wav" 300
+#
+#17 【3.13新规则3 星团珠宝上附加天赋点数】
+#
+#17 举例：EnchantmentPassiveNum > 5
+#
+#18【3.16 新规则 灾魇装备】
+#
+#18 举例：Scourged True
+#
+#19【3.17 新规则 宿敌词缀物品】
+#
+#19举例：Class "Archnemesis Mod"
+#
+#20【3.17 新规则 噬界者和焚界者基底词缀】
+#
+#20举例：HasEaterOfWorldsImplicit >=1(~5)
+#             HasSearingExarchImplicit >= 1(~5)
+#
+#21【3.21 新关键词 基底词缀】
+#
+#21举例：HasImplicitMod True/False
+#
+#22【3.21 新关键词 熔炉天赋树】
+#
+#22举例：HasCruciblePassiveTree True/False
+#
+#23【3.23 新关键词 改造技能】
+#
+#23举例：TransfiguredGem True/False
+#
+#==============================================
+
+#=======0.5.0 新增内容========
+#显示 新增 瓦尔|注能装置 粉字粉框 崇高石=混沌级 价值C[小 黄 圆+黄光束 MinimapIcon 2 Yellow Circle + PlayEffect Yellow] 待按价值排序
+Show
+	Class "Stackable Currency"
+    BaseType "Vaal Blacksmith's Infuser" "Vaal Arcanist's Infuser" "Vaal Catalysing Infuser" "Vaal Armourer's Infuser" "Ancient Infuser"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+    DisableDropSound
+
+#显示 新增 普通T3精髓 绿字绿框 待按价值排序
+Show
+	Class "Stackable Currency"
+    ##BaseType "Essence of "
+    BaseType "Essence of the Breach"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    DisableDropSound
+    MinimapIcon 2 Cyan Triangle
+    PlayEffect Cyan
+
+#显示 新增 T1精炼催化剂 待按价值排序 粉字红框
+Show
+	Class "Stackable Currency"
+    BaseType "Refined Flesh Catalyst" "Refined Neural Catalyst" "Refined Carapace Catalyst" "Refined Uul-Netol's Catalyst" "Refined Xoph's Catalyst" "Refined Tul's Catalyst" "Refined Esh's Catalyst" "Refined Chayula's Catalyst" "Refined Reaver Catalyst" "Refined Sibilant Catalyst" "Refined Skittering Catalyst" "Refined Adaptive Catalyst"
+    SetTextColor 255 0 255
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_07.wav" 300
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#显示 新增 远古液化 高价值？粉字粉框 待按价值排序
+Show
+	Class "Stackable Currency"
+    BaseType "Ancient Diluted Liquid Ire" "Ancient Diluted Liquid Guilt" "Ancient Diluted Liquid Greed" "Ancient Liquid Paranoia" "Ancient Liquid Envy" "Ancient Liquid Disgust" "Ancient Liquid Despair" "Ancient Concentrated Liquid Fear" "Ancient Concentrated Liquid Suffering" "Ancient Concentrated Liquid Isolation" "Ancient Potent Liquid Melancholy" "Ancient Potent Liquid Ferocity" "Ancient Potent Liquid Contempt"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+
+#显示 普通液化 粉字粉框
+Show
+	Class "Stackable Currency"
+    BaseType "Potent Liquid Melancholy" "Potent Liquid Ferocity" "Potent Liquid Contempt"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+
+#新增 遗物？通货 绿字绿框绿光束 青钻石小图标 待按价值分类
+Show
+	Class "Stackable Currency"
+    BaseType "Shattered Triskelion" "Altered Collarbone"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Cyan Diamond 
+    PlayEffect Cyan
+
+#新增 T2维金锻造物品 通货 带按价值分类 绿色十字小图标 待按价值分类
+Show
+    Class "Stackable Currency"
+    BaseType "Verisium"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Green Cross
+    PlayEffect Green
+
+#新增 T1维金锻造物品 通货 带按价值分类 紫色十字小图标 待按价值分类
+Show
+    Class "Stackable Currency"
+    BaseType "Exceptional Verisium" "Medved's Crest of the Circle" "Vorana's Crest of the Scythe" "Uhtred's Crest of the Chalice" "Olroth's Crest of the Sun"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    SetFontSize 45
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 1 Purple Cross
+    PlayEffect Purple
+
+#新增 T2维金铁砧物品 通货 带按价值分类 绿色十字小图标 待按价值分类
+Show
+    Class "Stackable Currency"
+    BaseType "Starlit Ore"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Green Cross
+    PlayEffect Green
+
+#新增 T1维金铁砧物品 通货 带按价值分类 紫色十字小图标 待按价值分类
+Show
+    Class "Stackable Currency"
+    BaseType "Venerable Starlit Ore" "Revered Starlit Ore" "Veridical Starlit Ore" "Warding Starlit Ore"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    SetFontSize 45
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 1 Purple Cross
+    PlayEffect Purple
+
+#新增 合金 通货 带按价值分类
+Show
+    Class "Stackable Currency"
+    BaseType "Runic Alloy" "Adaptive Alloy" "Protective Alloy" "Expansive Alloy" "Swift Alloy" "Cyclonic Alloy" "Prismatic Alloy" "Mystic Alloy" "Sovereign Alloy" "Celestial Alloy"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    SetFontSize 45
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 1 Yellow Circle
+    PlayEffect Yellow
+
+#新增 流体？通货 带按价值分类
+Show
+    Class "Stackable Currency"
+    BaseType "Blazing Flux" "Chilling Flux" "Crackling Flux" "Void Flux"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    SetFontSize 45
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 1 Yellow Circle
+    PlayEffect Yellow
+
+#新增 密匙？遗产色字遗产色框
+Show
+    Class "Stackable Currency"
+    BaseType "Cryptic Key"
+    SetTextColor 212 145 63
+    SetBorderColor 212 145 63
+    CustomAlertSound "AlertSound_09.wav" 300
+    SetFontSize 60
+    DisableDropSound
+    MinimapIcon 1 Red Star
+    PlayEffect Red
+
+#新增 增强可镶嵌物品 待按价值分类
+#"Legacy of Hrimnors Hymn" "Legacy of Irongrasp" "Legacy of Oberns Bastion" "Rune of Simplification" 
+Show
+    Class "Augment"
+    BaseType "Aldur's Legacy" "Ancient Rune of Animosity" "Ancient Rune of Control" "Ancient Rune of Decay" "Ancient Rune of Detonation" "Ancient Rune of Discovery" "Ancient Rune of Dueling" "Ancient Rune of Prowess" "Ancient Rune of Retaliation" "Ancient Rune of Shattering" "Ancient Rune of Splinters" "Ancient Rune of the Horde" "Ancient Rune of the Titan" "Ancient Rune of Witchcraft" "Astrid's Creativity" "Betrayal of Aldur" "Breath of Aldur" "Cadigan's Epiphany" "Carved Cunning" "Carved Majesty" "Carved Mischief" "Carved Tenacity" "Charging Rune" "Emergent Instinct" "Emergent Possibility" "Emergent Protection" "Emergent Vigour" "Greater Charging Rune" "Greater Ward Rune" "Idol of Alira" "Idol of Eramir" "Idol of Greust" "Idol of Kraityn" "Idol of Oak" "Idol of Silk" "Idol of the Martyr" "Idol of the Pharisee" "Idol of the Sycophant" "Idol of Yeena" "Ire of Aldur" "Katla's Gloom" "Kolr's Hunt" "Legacy of A Worthy Foe" "Legacy of Adonia's Ego" "Legacy of Alkem Eira" "Legacy of Amor Mandragora" "Legacy of Ashrend" "Legacy of Blackbraid" "Legacy of Brain Rattler" "Legacy of Bramblejack" "Legacy of Briarpatch" "Legacy of Briskwrap" "Legacy of Bristleboar" "Legacy of Brynhand's Mark" "Legacy of Bushwhack" "Legacy of Candlemaker" "Legacy of Chernobog's Pillar" "Legacy of Crown of Thorns" "Legacy of Cursecarver" "Legacy of Deathblow" "Legacy of Deidbell" "Legacy of Dionadair" "Legacy of Duality" "Legacy of Dunkelhalt" "Legacy of Dusk Vigil" "Legacy of Edyrns Tusks" "Legacy of Elevore" "Legacy of Erian's Cobble" "Legacy of Ezomyte Peak" "Legacy of Foxshade" "Legacy of Greymake" "Legacy of Hoghunt" "Legacy of Horns of Bynden" "Legacy of Ironbound" "Legacy of Keeper of the Arc" "Legacy of Kingsguard" "Legacy of Legionstride" "Legacy of Lifesprig" "Legacy of Mjölner" "Legacy of Northpaw" "Legacy of Oaksworn" "Legacy of Olrovasara" "Legacy of Quill Rain" "Legacy of Rondel de Ezo" "Legacy of Runeseeker's Call" "Legacy of Serle's Grit" "Legacy of Spiteful Floret" "Legacy of Starkonja's Head" "Legacy of Svalinn" "Legacy of The Blood Thorn" "Legacy of The Knight-errant" "Legacy of The Sentry" "Legacy of The Smiling Knight" "Legacy of The Unleashed" "Legacy of The Vile Knight" "Legacy of Trampletoe" "Legacy of Trenchtimbre" "Legacy of Twisted Empyrean" "Legacy of Tyranny's Grip" "Legacy of Wanderlust" "Legacy of Wings of Caelyn" "Legacy of Wulfsbane" "Lesser Charging Rune" "Lesser Ward Rune" "Masterwork Rune" "Medved's Tending" "Passion of Aldur" "Perfect Adept Rune" "Perfect Body Rune" "Perfect Charging Rune" "Perfect Desert Rune" "Perfect Glacial Rune" "Perfect Inspiration Rune" "Perfect Iron Rune" "Perfect Mind Rune" "Perfect Rebirth Rune" "Perfect Resolve Rune" "Perfect Robust Rune" "Perfect Stone Rune" "Perfect Storm Rune" "Perfect Vision Rune" "Perfect Ward Rune" "Raven-Touched Shard" "Rune of Accumulation" "Rune of Acrobatics" "Rune of Confrontation" "Rune of Consistency" "Rune of Culmination" "Rune of Foundations" "Rune of Reach" "Rune of Renown" "Rune of the Blossom" "Rune of the Hunt" "Rune of the Prism" "Rune of Vital Flame" "Rune of Vitality" "Serle's Triumph" "Thrud's Might" "Uhtred's Sidereus" "Vorana's Carnage" "Ward Rune" "Warding Rune of Annihilation" "Warding Rune of Armature" "Warding Rune of Bodyguards" "Warding Rune of Courage" "Warding Rune of Desperation" "Warding Rune of Disintegration" "Warding Rune of Equinox" "Warding Rune of Glancing" "Warding Rune of Heart" "Warding Rune of Hollowing" "Warding Rune of Nourishment" "Warding Rune of Obsession" "Warding Rune of Protection" "Warding Rune of Reinforcement" "Warding Rune of Salvaging" "Warding Rune of Stability" "Warding Rune of Symbiosis"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#新增 地图碎片 默认字红框 终局BOSS地图？待按价值分类 
+Show
+    Class "Map Fragments"
+    BaseType "The Triskelion Reforged" "Head of the King" "Breachlord Sac" "Raven's Reflection"
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Red Square
+    PlayEffect Green
+
+#新增 遗产色字遗产色框 巅峰钥匙
+Show
+	Class "Pinnacle Keys"
+    BaseType "Call of the Shadows"
+    SetTextColor 212 145 63
+    SetBorderColor 212 145 63
+    CustomAlertSound "AlertSound_09.wav" 300
+    SetFontSize 60
+    DisableDropSound
+    MinimapIcon 1 Red Star
+    PlayEffect Red
+
+#显示 征兆 待按价值分类[蓝光束 PlayEffect Blue]
+#"Omen of "
+Show
+    Class "Omen"
+    BaseType "Aldur's Saga" "Medved's Saga" "Vorana's Saga" "Uhtred's Saga" "Olroth's Saga" "Omen of Chaotic Effectiveness"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#新增 接肢 Wombgifts 绿字绿框 青光束 青月亮小图标 待按价值分类
+Show
+    Class "Wombgifts"
+    BaseType "Lavish Wombgift" "Ornate Wombgift" "Banded Wombgift" "Signet Wombgift" "Revelatory Wombgift"    
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 1 Cyan Moon
+    PlayEffect Cyan
+
+#=======0.4.0 新增内容========
+#显示 粉字粉框 崇高石=混沌级 价值C[小 黄 圆+黄光束 MinimapIcon 2 Yellow Circle + PlayEffect Yellow] 待按价值排序
+Show
+	Class "Stackable Currency"
+    BaseType "Core Destabiliser" "Architect's Orb" "Orb of Extraction" "Crystallised Corruption" "Vaal Cultivation Orb"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+    DisableDropSound
+
+#新增 增强插槽物品 待按价值排序
+Show
+    Class "Augment"
+    BaseType "Guatelitzi's Thesis" "Citaqualotl's Thesis" "Quipolatl's Thesis" "Jiquani's Thesis"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 1 Yellow Circle
+    PlayEffect Yellow
+
+#新增 瓦尔虹吸器 待按价值分类
+Show
+    Class "Incubators"
+    BaseType "Vaal Siphoner"
+    SetTextColor 210 0 220
+    SetBorderColor 210 0 220
+    SetBackgroundColor 38 0 86
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 1 Purple Kite
+    PlayEffect Purple
+
+#=======0.3.0 新增内容========
+#显示 传奇字传奇框 发丝通货[中 红 圆+红光束 MinimapIcon 2 Red Circle + PlayEffect Red]
+Show
+	Class "Stackable Currency"
+    BaseType "Hinekora's Lock"
+    SetTextColor 255 255 255
+    SetBackgroundColor 150 0 0 220
+    SetBorderColor 150 0 0 220
+    SetFontSize 70
+    DisableDropSound True
+    CustomAlertSound "AlertSound_09.wav" 300
+    MinimapIcon 0 Red Circle
+    PlayEffect Red
+
+#显示 粉字粉框 崇高石=混沌级 价值C[小 黄 圆+黄光束 MinimapIcon 2 Yellow Circle + PlayEffect Yellow] 待按价值排序
+Show
+	Class "Stackable Currency"
+    BaseType "Greater Chaos Orb" "Perfect Chaos Orb""Greater Exalted Orb" "Perfect Exalted Orb"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+    DisableDropSound
+
+#显示 粉字通货色框 价值D[蓝光束 PlayEffect Blue] 待按价值排序
+Show
+	Class "Stackable Currency"
+    BaseType "Greater Regal Orb" "Perfect Regal Orb" "Greater Orb of Augmentation" "Perfect Orb of Augmentation" "Greater Orb of Transmutation" "Perfect Orb of Transmutation"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#新增 通货 绿字绿框绿光束 待按价值分类
+Show
+	Class "Stackable Currency"
+    BaseType "Petition Splinter" "Runic Splinter"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#新增 通货 绿字绿框绿光束 待按价值分类
+Show
+	Class "Stackable Currency"
+    BaseType "Gnawed Jawbone" "Preserved Jawbone" "Ancient Jawbone"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#新增 通货 绿字绿框绿光束 待按价值分类
+Show
+	Class "Stackable Currency"
+    BaseType "Gnawed Rib" "Preserved Rib" "Ancient Rib"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#新增 通货 绿字绿框绿光束 待按价值分类
+Show
+	Class "Stackable Currency"
+    BaseType "Gnawed Collarbone" "Preserved Collarbone" "Ancient Collarbone"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#新增 通货 绿字绿框绿光束 待按价值分类
+Show
+	Class "Stackable Currency"
+    BaseType "Preserved Cranium" 
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#新增 可镶嵌物品 待按价值分类
+Show
+    Class "Augment"
+    BaseType "Amanamu's Gaze" "Tecrod's Gaze" "Kurgal's Gaze" "Ulaman's Gaze"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#新增 地图碎片 默认字红框 终局BOSS地图？待按价值分类 
+Show
+    Class "Map Fragments"
+    BaseType "Idol of Estazunti" "Kulemak's Invitation"
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Red Square
+    PlayEffect Green
+
+#新增 遗产色字遗产色框 巅峰钥匙
+Show
+	Class "Pinnacle Keys"
+    BaseType "Primary Calamity Fragment" "Secondary Calamity Fragment" "Tertiary Calamity Fragment"
+    SetTextColor 212 145 63
+    SetBorderColor 212 145 63
+    CustomAlertSound "AlertSound_09.wav" 300
+    SetFontSize 60
+    DisableDropSound
+    MinimapIcon 1 Red Star
+    PlayEffect Red
+
+#=======[0007碑牌]归类整理内容========
+#碑牌 绿字绿框绿光束
+#"Abyss Precursor Tablet" "Breach Precursor Tablet" "Expedition Precursor Tablet" "Delirium Precursor Tablet" "Ritual Precursor Tablet" "Irradiated Precursor Tablet" "Temple Precursor Tablet"
+Show
+    Class "Tablet"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 1 Green Square
+    PlayEffect Green
+
+#=======[0006催化剂]归类整理内容========
+#显示 催化剂 通货类物品 粉字通货色框 [蓝光束 PlayEffect Blue]
+Show
+	Class "Stackable Currency"
+    BaseType "Flesh Catalyst" "Neural Catalyst" "Carapace Catalyst" "Uul-Netol's Catalyst" "Xoph's Catalyst" "Tul's Catalyst" "Esh's Catalyst" "Chayula's Catalyst" "Reaver Catalyst" "Sibilant Catalyst" "Skittering Catalyst" "Adaptive Catalyst"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    PlayEffect Blue
+
+#显示 所有催化剂，改版防漏
+Show
+	Class "Stackable Currency"
+    BaseType " Catalyst"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    PlayEffect Blue
+
+#=======[0005征兆]归类整理内容========
+#显示 征兆 高价值 [蓝光束 PlayEffect Blue]
+Show
+    Class "Omen"
+    BaseType "Omen of Dextral Annulment" "Omen of Dextral Erasure" "Omen of Sinistral Annulment" "Omen of Sinistral Erasure" "Omen of Whittling"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    SetFontSize 55
+    CustomAlertSound "AlertSound_06.wav" 300
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#显示 征兆 [蓝光束 PlayEffect Blue]
+#"Omen of "
+Show
+    Class "Omen"
+    BaseType "Omen of Answered Prayers" "Omen of Secret Compartments" "Omen of the Hunt" "Omen of Reinforcements" "Omen of Refreshment" "Omen of Resurgence" "Omen of Amelioration" "Omen of Corruption" "Omen of Greater Exaltation" "Omen of Sinistral Exaltation" "Omen of Dextral Exaltation" "Omen of Gambling" "Omen of Bartering" "Omen of the Blessed" "Omen of Chaotic Rarity" "Omen of Chaotic Monsters" "Omen of Chaotic Quantity" "Omen of Chance" "Omen of the Ancients" "Omen of Sanctification" "Omen of Dextral Crystallisation" "Omen of Sinistral Crystallisation" "Omen of Catalysing Exaltation" "Omen of Abyssal Echoes" "Omen of Putrefaction" "Omen of Light" "Omen of Sinistral Necromancy" "Omen of Dextral Necromancy" "Omen of the Sovereign" "Omen of the Liege" "Omen of the Blackblooded"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#显示 所有征兆，改版防漏
+Show
+    Class "Omen"
+    BaseType "Omen of "
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#=======[0004核心]归类整理内容========
+#显示 红字红框 通关灵魂核心 高价值T0
+Show
+    Class "Augment"
+    BaseType "Opiloti's Soul Core of Assault" "Soul Core of Azcapa" "Soul Core of Ticaba"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 300
+    SetFontSize 55
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#显示 粉字红框 通关灵魂核心 高价值T1
+Show
+    Class "Augment"
+    BaseType "Atmohua's Soul Core of Retreat" "Hayoxi's Soul Core of Heatproofing" "Zalatl's Soul Core of Insulation" "Topotante's Soul Core of Dampening" "Guatelitzi's Soul Core of Endurance" "Xopec's Soul Core of Power" "Xipocado's Soul Core of Dominion" "Citaqualotl's Soul Core of Foulness" "Cholotl's Soul Core of War" "Tacati's Soul Core of Affliction" "Quipolatl's Soul Core of Flow" "Tzamoto's Soul Core of Ferocity" "Uromoti's Soul Core of Attenuation" "Estazunti's Soul Core of Convalescence"
+    SetTextColor 255 0 255
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 200
+    SetFontSize 50
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#显示 灵魂核心[蓝光束 PlayEffect Blue]
+Show
+    Class "Augment"
+    BaseType "Soul Core of Tacati" "Soul Core of Opiloti" "Soul Core of Jiquani" "Soul Core of Zalatl" "Soul Core of Citaqualotl" "Soul Core of Puhuarte" "Soul Core of Tzamoto" "Soul Core of Xopec" "Soul Core of Topotante" "Soul Core of Quipolatl" "Soul Core of Atmohua" "Soul Core of Cholotl" "Soul Core of Zantipi"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#显示 所有灵魂核心，改版防漏
+Show
+    Class "Augment"
+    BaseType "Soul Core of " " Soul Core of "
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#=======[0003雕像]归类整理内容========
+#显示 红字红框 通关雕像T0 高价值
+Show
+    Class "Augment"
+    BaseType "Idol of Ralakesh" "Idol of Sirrius"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 300
+    SetFontSize 55
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#显示 粉字红框 通关雕像T1 高价值
+Show
+    Class "Augment"
+    BaseType "Idol of Thruldana" "Idol of Maxarius" "Idol of Eeshta" "Idol of Egrin" "Idol of Grold"
+    SetTextColor 255 0 255
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 200
+    SetFontSize 50
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#显示 雕像
+Show
+    Class "Augment"
+    BaseType "Snake Idol" "Primate Idol" "Owl Idol" "Cat Idol" "Wolf Idol" "Stag Idol" "Boar Idol" "Bear Idol" "Ox Idol" "Rabbit Idol" "Fox Idol"
+    SetTextColor 255 255 255
+    SetBackgroundColor 255 77 0 110
+    SetBorderColor 255 255 255 119
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    DisableDropSound
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+
+#显示 所有雕像，改版防漏
+Show
+    Class "Augment"
+    BaseType " Idol" "Idol of "
+    SetTextColor 255 255 255
+    SetBackgroundColor 255 77 0 110
+    SetBorderColor 255 255 255 119
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    DisableDropSound
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+
+#=======[0002符文]归类整理内容========
+#新增 T0通关符文 高价值 待按价值排序
+Show
+    Class "Augment"
+    BaseType "Farrul's Rune of the Hunt" "Thane Myrk's Rune of Summer" "Lady Hestra's Rune of Winter" "Thane Leld's Rune of Spring" "Fenumus' Rune of Agony" "Thane Girt's Rune of Wildness" "Hedgewitch Assandra's Rune of Wisdom" "Saqawal's Rune of the Sky" "The Greatwolf's Rune of Willpower" "Craiceann's Rune of Recovery" "Craiceann's Rune of Warding" "Countess Seske's Rune of Archery" "Saqawal's Rune of Erosion" "Saqawal's Rune of Memory" "The Greatwolf's Rune of Claws" "Courtesan Mannan's Rune of Cruelty" "Thane Grannell's Rune of Mastery" "Fenumus' Rune of Spinning" "Fenumus' Rune of Draining" "Farrul's Rune of Grace" "Farrul's Rune of the Chase"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 300
+    SetFontSize 55
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#新增 T1特殊高阶符文 待按价值排序
+Show
+    Class "Augment"
+    BaseType "Greater Rune of Leadership" "Greater Rune of Tithing" "Greater Rune of Alacrity" "Greater Rune of Nobility"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 200
+    SetFontSize 50
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#新增 T2高阶符文 待按价值排序
+Show
+    Class "Augment"
+    BaseType "Greater Desert Rune" "Greater Glacial Rune" "Greater Storm Rune" "Greater Iron Rune" "Greater Body Rune" "Greater Mind Rune" "Greater Rebirth Rune" "Greater Inspiration Rune" "Greater Stone Rune" "Greater Vision Rune" "Greater Adept Rune" "Greater Resolve Rune" "Greater Robust Rune" "Greater Tempered Rune"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 1 Yellow Circle
+    PlayEffect Yellow
+
+#新增 T3普通符文 【后期、速刷屏蔽】
+Hide
+    Class "Augment"
+    BaseType "Desert Rune" "Glacial Rune" "Storm Rune" "Iron Rune" "Body Rune" "Mind Rune" "Rebirth Rune" "Inspiration Rune" "Stone Rune" "Vision Rune" "Resolve Rune" "Robust Rune" "Tempered Rune" "Adept Rune" "Blank Rune"
+    #SetTextColor 255 0 255
+    #SetBorderColor 255 0 255
+    #CustomAlertSound "AlertSound_07.wav" 200
+    #SetFontSize 40
+    DisableDropSound
+    #MinimapIcon 2 Yellow Circle
+    #PlayEffect Yellow
+
+#新增 T4低阶符文 【中、后期屏蔽】
+Hide
+    Class "Augment"
+    BaseType "Lesser Desert Rune" "Lesser Glacial Rune" "Lesser Storm Rune" "Lesser Iron Rune" "Lesser Body Rune" "Lesser Mind Rune" "Lesser Rebirth Rune" "Lesser Inspiration Rune" "Lesser Stone Rune" "Lesser Vision Rune" "Lesser Adept Rune" "Lesser Resolve Rune" "Lesser Robust Rune" "Lesser Tempered Rune"
+    #SetTextColor 255 0 255
+    #SetBorderColor 170 158 130
+    #CustomAlertSound "AlertSound_07.wav" 200
+    #SetFontSize 35
+    DisableDropSound
+    #PlayEffect Yellow
+
+#显示 所有符文，改版防漏
+Show
+    Class "Augment"
+    BaseType " Rune" " Rune of "
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 35
+    DisableDropSound
+    PlayEffect Yellow
+
+#=======[0001精髓]归类整理内容========
+#新增 精髓 粉字红框 特殊T0精髓
+Show
+	Class "Stackable Currency"
+    BaseType "Essence of Hysteria" "Essence of Horror" "Essence of Insanity" "Essence of Delirium" "Essence of the Abyss"
+    SetTextColor 255 0 255
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_06.wav" 300
+    SetFontSize 55
+    DisableDropSound
+    MinimapIcon 0 Cyan Triangle 
+    PlayEffect Cyan
+
+#显示 粉字粉框 完美T1精髓
+Show
+	Class "Stackable Currency"
+    ##BaseType "Perfect Essence of "
+    BaseType "Perfect Essence of the Body" "Perfect Essence of the Mind" "Perfect Essence of Enhancement" "Perfect Essence of Abrasion" "Perfect Essence of Flames" "Perfect Essence of Ice" "Perfect Essence of Electricity" "Perfect Essence of Ruin" "Perfect Essence of Battle" "Perfect Essence of Sorcery" "Perfect Essence of Haste" "Perfect Essence of the Infinite" "Perfect Essence of Seeking" "Perfect Essence of Insulation" "Perfect Essence of Thawing" "Perfect Essence of Grounding" "Perfect Essence of Alacrity" "Perfect Essence of Opulence" "Perfect Essence of Command"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_06.wav" 200
+    SetFontSize 50
+    DisableDropSound
+    MinimapIcon 1 Cyan Triangle 
+    PlayEffect Cyan
+
+#显示 粉字绿框 高阶T2精髓
+Show
+	Class "Stackable Currency"
+    ##BaseType "Greater Essence of "
+    BaseType "Greater Essence of the Body" "Greater Essence of the Mind" "Greater Essence of Enhancement" "Greater Essence of Abrasion" "Greater Essence of Flames" "Greater Essence of Ice" "Greater Essence of Electricity" "Greater Essence of Ruin" "Greater Essence of Battle" "Greater Essence of Sorcery" "Greater Essence of Haste" "Greater Essence of the Infinite" "Greater Essence of Seeking" "Greater Essence of Insulation" "Greater Essence of Thawing" "Greater Essence of Grounding" "Greater Essence of Alacrity" "Greater Essence of Opulence" "Greater Essence of Command"
+    SetTextColor 255 0 255
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 1 Cyan Triangle 
+    PlayEffect Cyan
+
+#显示 绿字绿框 普通T3精髓 【速刷、后期屏蔽】
+Hide
+	Class "Stackable Currency"
+    ##BaseType "Essence of "
+    BaseType "Essence of the Body" "Essence of the Mind" "Essence of Enhancement" "Essence of Abrasion" "Essence of Flames" "Essence of Ice" "Essence of Electricity" "Essence of Ruin" "Essence of Battle" "Essence of Sorcery" "Essence of Haste" "Essence of the Infinite" "Essence of Seeking" "Essence of Insulation" "Essence of Thawing" "Essence of Grounding" "Essence of Alacrity" "Essence of Opulence" "Essence of Command"
+    #SetTextColor 74 230 58
+    #SetBorderColor 74 230 58
+    #CustomAlertSound "AlertSound_07.wav" 200
+    #SetFontSize 40
+    DisableDropSound
+    #MinimapIcon 2 Cyan Triangle
+    #PlayEffect Cyan
+
+#显示 绿字通货色框 低阶T4精髓 【中、后期屏蔽】
+Hide
+	Class "Stackable Currency"
+    ##BaseType "Lesser Essence of "
+    BaseType "Lesser Essence of the Body" "Lesser Essence of the Mind" "Lesser Essence of Enhancement" "Lesser Essence of Abrasion" "Lesser Essence of Flames" "Lesser Essence of Ice" "Lesser Essence of Electricity" "Lesser Essence of Ruin" "Lesser Essence of Battle" "Lesser Essence of Sorcery" "Lesser Essence of Haste" "Lesser Essence of the Infinite" "Lesser Essence of Seeking" "Lesser Essence of Insulation" "Lesser Essence of Thawing" "Lesser Essence of Grounding" "Lesser Essence of Alacrity" "Lesser Essence of Opulence" "Lesser Essence of Command"   
+    #SetTextColor 74 230 58
+    #SetBorderColor 170 158 130
+    #SetFontSize 35
+    DisableDropSound
+    #PlayEffect Cyan
+
+#显示 所有精髓，改版防漏
+Show
+	Class "Stackable Currency"
+    BaseType " Essence of " "Essence of "
+    SetTextColor 74 230 58
+    SetBorderColor 170 158 130
+    SetFontSize 35
+    DisableDropSound
+    PlayEffect Cyan
+
+#=======[0000精煉]归类整理内容========
+#显示 精煉 粉字粉框 高价值T0
+Show
+	Class "Stackable Currency"
+    BaseType "Concentrated Liquid Isolation" "Concentrated Liquid Suffering"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_06.wav" 300
+    SetFontSize 55
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Yellow
+
+#显示 精煉 粉字粉框
+Show
+	Class "Stackable Currency"
+    BaseType "Diluted Liquid Ire" "Diluted Liquid Guilt" "Diluted Liquid Greed" "Liquid Paranoia" "Liquid Envy" "Liquid Disgust" "Liquid Despair" "Concentrated Liquid Fear"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+
+#显示 所有精煉，改版防漏
+Show
+	Class "Stackable Currency"
+    BaseType " Liquid " "Liquid "
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    DisableDropSound
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+
+#=======0.2.1 新增内容========
+
+#=======0.2.0 新增内容========
+#新增 破裂石 通货类物品 红字红框 [大 黄 圆+红光束 MinimapIcon 0 Yellow Circle + PlayEffect Red]
+Show
+    BaseType "Fracturing Orb"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    SetBackgroundColor 255 255 255
+    CustomAlertSound "AlertSound_09.wav" 300
+    SetFontSize 65
+    DisableDropSound
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Red
+
+#新增 遗产密匙 遗产色字遗产色框
+Show
+    BaseType "Twilight Reliquary Key" "Xesht's Reliquary Key" "The Trialmaster's Reliquary Key" "Ritualistic Reliquary Key" "Tangmazu's Reliquary Key" "Olroth's Reliquary Key" "The Arbiter's Reliquary Key" "Zarokh's Reliquary Key"
+    SetTextColor 212 145 63
+    SetBorderColor 212 145 63
+    CustomAlertSound "AlertSound_09.wav" 300
+    SetFontSize 60
+    DisableDropSound
+    MinimapIcon 1 Red Star
+    PlayEffect Red
+
+#=================通货类=================#
+#显示 传奇字传奇框 镜子 价值S[大 红 圆+红光束 MinimapIcon 0 Red Circle + PlayEffect Red]
+Show
+    BaseType "Mirror of Kalandra"
+    SetTextColor 255 255 255
+    SetBackgroundColor 150 0 0 220
+    SetBorderColor 150 0 0 220
+    SetFontSize 70
+    DisableDropSound True
+    CustomAlertSound "AlertSound_09.wav" 300
+    MinimapIcon 0 Red Circle
+    PlayEffect Red
+
+#显示 红字红框 神圣石级 价值A[大 黄 圆+红光束 MinimapIcon 0 Yellow Circle + PlayEffect Red]
+Show
+    BaseType "Divine Orb" "Perfect Jeweller's Orb" "Greater Jeweller's Orb"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    SetBackgroundColor 255 255 255
+    CustomAlertSound "AlertSound_09.wav" 300
+    SetFontSize 65
+    MinimapIcon 0 Yellow Circle
+    PlayEffect Red
+    DisableDropSound
+
+#显示 【暂停使用】粉字粉框 崇高石级降级 价值B[中 黄 圆+红光束 MinimapIcon 1 Yellow Circle + PlayEffect Red]
+#Show
+    #BaseType 
+    #SetTextColor 210 0 0
+    #SetBorderColor 210 0 0
+    #SetBackgroundColor 255 255 255
+    #CustomAlertSound "AlertSound_07.wav" 200
+    #SetFontSize 60
+    #MinimapIcon 1 Yellow Circle
+    #PlayEffect Red
+    #DisableDropSound
+
+#显示 粉字粉框 崇高石=混沌级 价值C[小 黄 圆+黄光束 MinimapIcon 2 Yellow Circle + PlayEffect Yellow]
+Show
+    BaseType "Gemcutter's Prism" "Exalted Orb" "Lesser Jeweller's Orb" "Orb of Chance" "Orb of Annulment" "Chaos Orb"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+    DisableDropSound
+
+#显示 粉字通货色框 价值D[蓝光束 PlayEffect Blue]
+Show
+    BaseType "Vaal Orb" "Glassblower's Bauble" "Regal Orb" "Orb of Alchemy" "Armourer's Scrap" "Blacksmith's Whetstone" "Arcanist's Etcher" "Artificer's Orb"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Blue
+    DisableDropSound
+
+#显示 粉字通货色框 价值D-[蓝光束 PlayEffect Blue]
+Hide
+    BaseType "Chance Shard"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    #CustomAlertSound "AlertSound_07.wav" 200
+    #MinimapIcon 2 Yellow Circle
+    #PlayEffect Blue
+    DisableDropSound
+
+#屏蔽 通货色字 价值F
+Hide
+    BaseType "Regal Shard" "Artificer's Shard"
+    DisableDropSound
+
+# 屏蔽 通货色字 价值F 屏蔽 Show ---> Hide
+Hide
+    BaseType "Orb of Augmentation" "Orb of Transmutation" "Scroll of Wisdom" "Transmutation Shard"
+    DisableDropSound
+
+# 显示 黄金 通货色字 价值F
+Show
+    BaseType == "Gold"
+    StackSize >= 300
+    SetBorderColor 170 158 130
+    DisableDropSound
+
+# 屏蔽 黄金 通货色字 价值G
+Hide
+    BaseType == "Gold"
+    DisableDropSound
+
+#显示 粉字粉框 异国货币[小 黄 圆+黄光束 MinimapIcon 2 Yellow Circle + PlayEffect Yellow]
+Show
+    BaseType "Exotic Coinage"
+    SetTextColor 255 0 255
+    SetBorderColor 255 0 255
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 45
+    MinimapIcon 2 Yellow Circle
+    PlayEffect Yellow
+    DisableDropSound
+
+#显示 粉字通货色框 文物碎片 [蓝光束 PlayEffect Blue]
+Show
+    BaseType "Broken Circle Artifact" "Black Scythe Artifact" "Order Artifact" "Sun Artifact"
+    SetTextColor 255 0 255
+    SetBorderColor 170 158 130
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    PlayEffect Blue
+    DisableDropSound
+
+#显示 高价值 传奇遗物 底子唯一 【力抗】和【一血】
+Show 
+    BaseType "Vase Relic" "Incense Relic"
+    Rarity = Unique
+    SetBorderColor 175 96 37
+    SetBackgroundColor 255 255 255
+    DisableDropSound True 
+    CustomAlertSound "AlertSound_04.wav" 300
+    SetFontSize 50
+    MinimapIcon 0 Red Star
+    PlayEffect Red
+
+#显示遗物 绿色绿框 待按价值分类
+#"Urn Relic" "Amphora Relic" "Vase Relic" "Seal Relic" "Coffer Relic" "Tapestry Relic" "Incense Relic" "Sanctified Relic"
+Show
+    Class "Relic"
+    Rarity <= Rare
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 40
+    PlayEffect White
+
+#碎片
+#通关地图碎片-谒王之约等
+#"Ancient Crisis Fragment" "Faded Crisis Fragment" "Weathered Crisis Fragment"
+Show
+    BaseType "An Audience With The King" " Fragment"
+    SetTextColor 255 255 255
+    SetBackgroundColor 255 40 0 220
+    SetBorderColor 255 40 0 220
+    CustomAlertSound "AlertSound_03.wav" 300
+    SetFontSize 50
+    PlayEffect Red
+
+#显示 探险日志 默认字红框
+Show
+    BaseType "Expedition Logbook"
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Red Square
+    PlayEffect Green
+
+#新增 地图碎片 默认字红框
+Show
+    BaseType "Breachstone" "Simulacrum" "Cowardly Fate" "Deadly Fate" "Victorious Fate"
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Red Square
+    PlayEffect Green
+
+#新增 地图碎片 绿字绿框绿光束 待按价值分类
+Show
+    BaseType "Breach Splinter" "Simulacrum Splinter"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#显示 地图碎片 绿字绿框绿光束
+Show
+    Class "Map Fragments"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    CustomAlertSound "AlertSound_07.wav" 200
+    SetFontSize 40
+    MinimapIcon 2 Green Square 
+    PlayEffect Green
+
+#新增 高阶 升华试炼物品、厕所门票 默认字红框
+Show
+    BaseType "Inscribed Ultimatum" "Djinn Barya"
+    ItemLevel >= 75
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Red Square
+    PlayEffect Green
+
+#新增 中|后期不显示 低阶 升华试炼物品、厕所门票 默认字红框 
+Hide
+    BaseType "Inscribed Ultimatum" "Djinn Barya"
+    ItemLevel < 75
+    SetBorderColor 210 0 0
+    #CustomAlertSound "AlertSound_08.wav" 250
+    #SetFontSize 40
+    #MinimapIcon 0 White Square
+    #PlayEffect Green
+
+#换界石=地图
+#显示 地图红 11-16 默认字红框
+Show
+    Class "Waystones"
+    BaseType "Waystone (Tier 11)" "Waystone (Tier 12)" "Waystone (Tier 13)" "Waystone (Tier 14)" "Waystone (Tier 15)" "Waystone (Tier 16)"
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Red Square
+    PlayEffect Green
+
+#显示 地图黄 6-10 默认字红框
+Show
+    Class "Waystones"
+    BaseType "Waystone (Tier 6)" "Waystone (Tier 7)" "Waystone (Tier 8)" "Waystone (Tier 9)" "Waystone (Tier 10)"
+    SetBorderColor 210 0 0
+    CustomAlertSound "AlertSound_08.wav" 250
+    SetFontSize 45
+    MinimapIcon 0 Yellow Square
+    PlayEffect Green
+
+#显示 地图白 1-5 默认字红框
+Hide
+    Class "Waystones"
+    BaseType "Waystone (Tier 1)" "Waystone (Tier 2)" "Waystone (Tier 3)" "Waystone (Tier 4)" "Waystone (Tier 5)"
+    SetBorderColor 210 0 0
+    SetFontSize 45
+    #CustomAlertSound "AlertSound_08.wav" 250
+    #MinimapIcon 0 White Square
+    #PlayEffect Green
+
+#显示 地图 默认字红框
+Hide
+    Class "Waystones"
+    SetBorderColor 210 0 0
+    SetFontSize 45
+    #CustomAlertSound "AlertSound_08.wav" 250
+    #MinimapIcon 0 White Square
+    #PlayEffect Green
+
+#显示 传奇物品 传奇字传奇框
+Show
+    Rarity = Unique
+    SetBorderColor 175 96 37
+    CustomAlertSound "AlertSound_04.wav" 200
+    SetFontSize 35
+    PlayEffect Red
+
+#===================试炼钥匙=====================
+#钥匙类 白银 黄金 青铜
+Show #红字 红框
+    BaseType "Bronze Key" "Silver Key" "Gold Key" 
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    SetFontSize 50
+    PlayEffect Red
+
+#新增 任务物品 绿字绿框绿光束
+Show
+    Class "Quest Items"
+    SetTextColor 74 230 58
+    SetBorderColor 74 230 58
+    SetFontSize 40
+    PlayEffect Green
+
+#===================珠宝=====================
+#显示 绿框 白钻石 白光速
+Show
+    Class "Jewel"
+    Rarity = Rare
+    SetBorderColor 74 230 58
+    SetFontSize 40
+    MinimapIcon 0 White Diamond
+    PlayEffect White
+
+Hide
+    Class "Jewel"
+
+#===================高价值机会石底子=====================
+#机会石底子 贪欲之记、赌神
+Show
+    BaseType "Gold Ring"
+    Rarity = Normal
+	Mirrored False
+	Corrupted False
+    SetBorderColor 175 96 37
+    SetFontSize 30
+
+#机会石底子 全属链
+Show
+    BaseType "Stellar Amulet"
+    Rarity = Normal
+	Mirrored False
+	Corrupted False
+    SetBorderColor 175 96 37
+    SetFontSize 30
+
+#机会石底子 梦语之痕
+#Show
+    #BaseType "Sapphire Ring"
+    #Rarity = Normal
+	#Mirrored False
+	#Corrupted False
+    #SetBorderColor 175 96 37
+    #SetFontSize 30
+
+#机会石底子 猎首
+#Show
+    #BaseType "Heavy Belt"
+    #Rarity = Normal
+	#Mirrored False
+	#Corrupted False
+    #SetBorderColor 175 96 37
+    #SetFontSize 30
+
+#===================有孔+品质装备=====================
+#显示默认字体黄框
+#Show
+    #Sockets > 0
+    #Quality >= 1
+    #SetBorderColor 255 255 119
+    #SetFontSize 30
+
+#===================有孔装备=====================
+####3孔装备，被腐化
+#显示默认字体黄框
+#Show
+    #Class "Claws" "Daggers" "Wands" "One Hand Swords" "One Hand Axes" "One Hand Maces" "Sceptres" "Spears" "Flails" "Bows" "Staves" "Two Hand Swords" "Two Hand Axes" "Two Hand Maces" "Quarterstaves" "Crossbows" "Traps" "Quivers" "Shields" "Foci" "Gloves" "Boots" "Body Armours" "Helmets" "Quarterstaves" "Talismans"
+    #Sockets 3
+    #SetBorderColor 255 255 119
+    #SetFontSize 30
+
+####2孔装备
+#显示默认字体绿框
+#Show
+    #Class "Claws" "Daggers" "Wands" "One Hand Swords" "One Hand Axes" "One Hand Maces" "Sceptres" "Spears" "Flails" "Bows" "Staves" "Two Hand Swords" "Two Hand Axes" "Two Hand Maces" "Quarterstaves" "Crossbows" "Traps" "Quivers" "Shields" "Foci" "Gloves" "Boots" "Body Armours" "Helmets" "Quarterstaves" "Talismans"
+    #Sockets 2
+    #SetBorderColor 74 230 58
+    #SetFontSize 30
+
+####1孔装备
+#显示默认字体白框
+#Show
+    #Class "Claws" "Daggers" "Wands" "One Hand Swords" "One Hand Axes" "One Hand Maces" "Sceptres" "Spears" "Flails" "Bows" "Staves" "Two Hand Swords" "Two Hand Axes" "Two Hand Maces" "Quarterstaves" "Crossbows" "Traps" "Quivers" "Shields" "Foci" "Gloves" "Boots" "Body Armours" "Helmets" "Quarterstaves" "Talismans"
+    #Sockets 1
+    #SetBorderColor 255 255 255
+    #SetFontSize 30
+
+#===================品质武器换磨刀石=====================
+#配方，显示默认字体绿框
+#Show
+    #Class "Claws" "Daggers" "Wands" "One Hand Swords" "One Hand Axes" "One Hand Maces" "Sceptres" "Spears" "Flails" "Bows" "Staves" "Two Hand Swords" "Two Hand Axes" "Two Hand Maces" "Quarterstaves" "Crossbows" "Traps" "Quarterstaves" "Talismans"
+    #Quality >= 1
+    #SetBorderColor 255 255 255
+    #SetFontSize 30
+
+#===================品质护甲换护甲石=====================
+#配方，显示默认字体绿框
+#Show
+    #Class "Gloves" "Boots" "Body Armours" "Helmets" "Shields" "Foci"
+    #Quality >= 1
+    #SetBorderColor 74 230 58
+    #SetFontSize 30
+
+#===================已鉴定含高价值词缀装备=====================
+#移速跑鞋35%
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Boots"
+	HasExplicitMod >=1 "Hellion's"
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#项链 投射物等级、精魂
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Amulets"
+	HasExplicitMod >=1 "of the Sharpshooter" "Countess'"
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#法杖 长杖 
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Staves" "Wands"
+	HasExplicitMod >=1 "of Armageddon" "of Grief" "Runic" "of the Wizard" "of Inferno" "of Frostbite" "of Thunder" 
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#权杖
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Sceptres"
+	HasExplicitMod >=1 "Empowering" "King's" "of the Slavedriver"
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#弓、十字弓
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Bows" "Crossbows"
+	HasExplicitMod >=1 "of Many" "Merciless" "of the Sniper"
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#长矛
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Spears"
+	HasExplicitMod >=1 "Amazon's" "of the Sniper" "Merciless" "Flaring"
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#节杖、魔符、双手锤
+Show
+	Identified True
+	Mirrored False
+	Corrupted False
+	Rarity <= Rare
+	Class "Talismans" "Quarterstaves" "Two Hand Maces"
+	HasExplicitMod >=1 "Merciless" "of War"
+	SetFontSize 40
+	SetTextColor 74 230 58 255
+	SetBackgroundColor 47 0 74 255
+	SetBorderColor 74 230 58 255
+    DisableDropSound
+    CustomAlertSound "AlertSound_07.wav" 200
+	PlayEffect Green
+	MinimapIcon 0 Green Diamond
+
+#===================未鉴定词缀等级高的装备=====================
+#词缀等级 >= 5 稀有 后期屏蔽
+#Show
+	#UnidentifiedItemTier >= 5
+	#Rarity Rare
+	#Class "Body Armours" "Boots" "Bows" "Bucklers" "Crossbows" "Foci" "Gloves" "Helmets" "One Hand Maces" "Quarterstaves" "Quivers" "Sceptres" "Shields" "Spears" "Staves" "Talismans" "Two Hand Maces" "Wands"
+	#AreaLevel >= 65
+	#SetFontSize 40
+	#SetTextColor 74 230 58 255
+	#SetBackgroundColor 47 0 74 255
+	#SetBorderColor 74 230 58 255
+    #DisableDropSound
+    #CustomAlertSound "AlertSound_07.wav" 200
+	#PlayEffect Green
+	#MinimapIcon 0 Green Diamond
+
+#词缀等级 >= 4 稀有 后期屏蔽 中期显示
+#Show
+	#UnidentifiedItemTier >= 4
+	#Rarity Rare
+	#Class "Body Armours" "Boots" "Bows" "Bucklers" "Crossbows" "Foci" "Gloves" "Helmets" "One Hand Maces" "Quarterstaves" "Quivers" "Sceptres" "Shields" "Spears" "Staves" "Talismans" "Two Hand Maces" "Wands"
+	#AreaLevel >= 65
+	#SetFontSize 40
+	#SetTextColor 74 230 58 255
+	#SetBackgroundColor 47 0 74 255
+	#SetBorderColor 74 230 58 255
+    #DisableDropSound
+    #CustomAlertSound "AlertSound_07.wav" 200
+	#PlayEffect Green
+	#MinimapIcon 0 Green Diamond
+
+#词缀等级 >= 4 魔法 中期后期屏蔽 普通、剧情显示
+#Show
+	#UnidentifiedItemTier >= 4
+	#Rarity Magic
+	#Class "Body Armours" "Boots" "Bows" "Bucklers" "Crossbows" "Foci" "Gloves" "Helmets" "One Hand Maces" "Quarterstaves" "Quivers" "Sceptres" "Shields" "Spears" "Staves" "Talismans" "Two Hand Maces" "Wands"
+	#AreaLevel >= 65
+	#SetFontSize 40
+	#SetBorderColor 74 230 58 255
+
+#===================有价值底子装备【未腐化未复制白装】，物等可自定义【此处自定义添加自己需要的底子】=====================
+#显示物品等级>=82【头盔】底子 抗性
+Show
+    BaseType "Golden Visage" "Paragon Greathelm" "Trapper Hood" "Kamasan Tiara"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【胸甲】底子
+Show
+    BaseType "Golden Mantle" "Swiftstalker Coat" "Slipstrike Vest" "Wyrmscale Coat" "Vile Robe" "Flowing Raiment" "Sacramental Robe" "Sleek Jacket" "Rambler Jacket" "Falconer's Jacket" "Conjurer Mantle"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【手套】底子
+Show
+    BaseType "Golden Bracers" "Vaal Mitts" "Barbed Bracers" "Vaal Gloves"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【鞋子】底子
+Show
+    BaseType "Golden Caligae" "Vaal Greaves" "Dragonscale Boots" "Sandsworn Sandals"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【戒指】抗性
+Show
+    BaseType "Ruby Ring" "Sapphire Ring" "Topaz Ring" "Amethyst Ring" "Prismatic Ring" "Pearl Ring" "Gold Ring" "Breach Ring" "Dusk Ring" "Gloam Ring" "Penumbra Ring" "Tenebrous Ring"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【项链】精魂、血量、全能力、护盾
+Show
+    BaseType "Solar Amulet" "Bloodstone Amulet" "Stellar Amulet" "Lunar Amulet" "Dusk Amulet" "Gloam Amulet" "Penumbra Amulet" "Tenebrous Amulet"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【腰带】
+Show
+    BaseType "Utility Belt" "Golden Obi" "Mail Belt" "Wide Belt"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【权杖】
+Show
+    BaseType "Hallowed Sceptre" "Omen Sceptre"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【法器/盾】
+Show
+    BaseType "Sacred Focus" "Golden Flame" "Ancient Buckler"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【弓、十字弩】+1箭矢
+Show
+    BaseType "Gemini Bow" "Siege Crossbow"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#显示物品等级>=82【箭袋】暴击率、穿透、攻速
+Show
+    BaseType "Visceral Quiver" "Penetrating Quiver" "Primed Quiver"
+    ItemLevel >= 82
+    Rarity < Magic
+	Mirrored False
+	Corrupted False
+    SetBorderColor 255 255 255
+    SetFontSize 30
+
+#================技能石==================
+#5孔6连宝石
+#显示默认字体红框
+Show
+    Sockets 5
+    Class "Skill Gems"
+    SetTextColor 210 0 0
+    SetBorderColor 210 0 0
+    SetBackgroundColor 255 255 255
+    DisableDropSound True
+    CustomAlertSound "AlertSound_05.wav" 200
+    SetFontSize 60
+    MinimapIcon 0 Red Hexagon
+    PlayEffect Red
+
+#4孔5连宝石
+#显示默认字体红框
+Show
+    Class "Skill Gems"
+    Sockets 4
+    SetBorderColor 210 0 0
+    DisableDropSound True
+    CustomAlertSound "AlertSound_05.wav" 200
+    SetFontSize 50
+    MinimapIcon 1 Red Hexagon
+    PlayEffect Red
+
+#3孔4连宝石
+#显示默认字体绿框
+#Show
+    #Class "Skill Gems"
+    #Sockets 3
+    #SetBorderColor 74 230 58
+    #DisableDropSound True
+    #CustomAlertSound "AlertSound_05.wav" 200
+    #SetFontSize 40
+    #MinimapIcon 2 Red Hexagon
+    #PlayEffect Red
+
+#可能不生效，显示, 物品种类技能宝石 质量大于1
+#Show
+    #Quality >= 1
+    #Class "Skill Gems"
+    #SetBorderColor 136 136 255
+    #CustomAlertSound "AlertSound_05.wav" 200
+
+#显示技能石
+#Show 
+    #Class "Gems" "Skill Gems" "Support Gems"
+    #DisableDropSound True
+    #SetBorderColor 136 136 255
+
+#显示族裔辅助宝石
+Show 
+    BaseType "Atalui's Bloodletting" "Einhar's Beastrite" "Vilenta's Propulsion" "Ahn's Citadel" "Brutus' Brain" "Tecrod's Revenge" "Uruk's Smelting" "Paquate's Pact" "Ailith's Chimes" "Doedre's Undoing" "Ratha's Assault" "Arjun's Medal" "Kaom's Madness" "Sione's Temper" "Romira's Requital" "Tawhoa's Tending" "Dominus' Grasp" "Dialla's Desire" "Kalisa's Crescendo" "Xoph's Pyre" "Esh's Radiance" "Tul's Stillness" "Uul-Netol's Embrace" "Rakiata's Flow" "Rigwald's Ferocity" "Uhtred's Exodus" "Uhtred's Omen" "Uhtred's Augury" "Daresso's Passion" "Atziri's Allure" "Tacati's Ire" "Zarokh's Refrain" "Garukhan's Resolve" "Kurgal's Leash" "Kulemak's Dominion" "Amanamu's Tithe" "Varashta's Blessing" "Arbiter's Ignition" "Arakaali's Lust" "Ixchel's Torment"
+    SetBorderColor 136 136 255
+    SetTextColor 136 136 255
+    DisableDropSound True
+    CustomAlertSound "AlertSound_05.wav" 300
+    MinimapIcon 0 Blue Hexagon
+    PlayEffect Blue
+
+#显示未切割的技能宝石LV19+
+Show 
+    BaseType "Uncut Skill Gem (Level 19)" "Uncut Skill Gem (Level 20)"
+    SetBorderColor 136 136 255
+    SetTextColor 136 136 255
+    DisableDropSound True
+    CustomAlertSound "AlertSound_05.wav" 300
+    MinimapIcon 1 Blue Hexagon
+    PlayEffect Blue
+
+#显示未切割的精神宝石LV19+
+Show 
+    BaseType "Uncut Spirit Gem (Level 19)" "Uncut Spirit Gem (Level 20)"
+    SetBorderColor 136 136 255
+    SetTextColor 136 136 255
+    DisableDropSound True
+    CustomAlertSound "AlertSound_05.wav" 300
+    MinimapIcon 1 Blue Hexagon
+    PlayEffect Blue
+
+#显示未切割的辅助宝石L4+
+Show 
+    BaseType "Uncut Support Gem (Level 4)" "Uncut Support Gem (Level 5)"
+    SetBorderColor 136 136 255
+    SetTextColor 136 136 255
+    DisableDropSound True
+    CustomAlertSound "AlertSound_05.wav" 300
+    MinimapIcon 2 Blue Hexagon
+    PlayEffect Blue
+
+#屏蔽特定等级未切割技能石
+Hide
+    BaseType "Uncut Skill Gem " "Uncut Spirit Gem " "Uncut Support Gem "
+
+#=====================鱼竿===================
+#显示 未实装
+Show
+    Class "Fishing Rods"
+    SetBorderColor 175 96 37
+    SetTextColor 255 255 255
+    SetBackgroundColor 255 40 0 220
+    SetFontSize 50
+    DisableDropSound True
+    CustomAlertSound "AlertSound_09.wav" 300
+    MinimapIcon 0 Orange UpsideDownHouse
+    PlayEffect Orange
+
+#=====================药剂相关===================
+#显示, 物品种类药剂
+#白色边框
+#Show
+    #Quality >= 5
+    #Class "Flasks" "Life Flasks" "Mana Flasks" "Charms"
+    #SetBorderColor 255 255 255
+    #SetFontSize 30
+
+#Show
+    #Class "Charms"
+    #SetFontSize 30
+
+#Show
+    #BaseType "Ultimate Life Flask" "Ultimate Mana Flask"
+    #Rarity >= Magic
+    #SetFontSize 30
+
+#=========================全域隐藏=========================
+#单手武器
+Hide
+    Class "Claws" "Daggers" "Wands" "One Hand Swords" "One Hand Axes" "One Hand Maces" "Sceptres" "Spears" "Flails"
+    Rarity <= Rare
+
+#双手武器
+#"Fishing Rods"
+Hide
+    Class "Bows" "Staves" "Two Hand Swords" "Two Hand Axes" "Two Hand Maces" "Quarterstaves" "Crossbows" "Traps" "Quarterstaves" "Talismans"
+    Rarity <= Rare
+
+#副手（盾牌、箭袋）
+Hide
+    Class "Quivers" "Shields" "Foci" "Bucklers"
+    Rarity <= Rare
+
+#胸甲、头盔、手部、鞋子
+Hide
+    Class "Gloves" "Boots" "Body Armours" "Helmets"
+    Rarity <= Rare
+
+#饰品（戒指、项链、腰带、护符）
+Hide
+    Class "Rings" "Amulets" "Belts"
+    Rarity <= Rare
+
+#药剂
+Hide
+    Class "Flasks" "Life Flasks" "Mana Flasks" "Charms"
+    Rarity <= Magic        
+#宝石
+#"Meta Skill Gem" "Spirit Gems"
+Hide
+    Class "Gems" "Skill Gems" "Support Gems"
+
+#=========================end===================

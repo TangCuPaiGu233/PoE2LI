@@ -139,6 +139,22 @@ services:
       redis:
         condition: service_healthy
 
+  celery_beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: poe2li-celery-beat
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://poe2li:poe2li_secret@postgres:5432/poe2li
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend

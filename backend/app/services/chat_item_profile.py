@@ -46,10 +46,13 @@ _CLASS_START_MOD = re.compile(r"可以从(.+?)的起点配置")
 _CLASS_START_MOD_LOOSE = re.compile(r"(?:从|自)(.+?)的起点")
 
 
-def variant_label_from_mods(mods: list[str] | None) -> str | None:
+def variant_label_from_mods(mods: list | None) -> str | None:
     """Parse PoE2 class-start jewel mod → e.g. 佣兵起点."""
     for mod in mods or []:
-        m = _CLASS_START_MOD.search(mod or "")
+        # Trade API may return mods as strings or dicts with "text"/"name" keys
+        if isinstance(mod, dict):
+            mod = mod.get("text") or mod.get("name") or ""
+        m = _CLASS_START_MOD.search(str(mod) if mod else "")
         if m:
             return f"{m.group(1).strip()}起点"
     return None
