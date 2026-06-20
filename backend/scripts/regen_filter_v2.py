@@ -28,13 +28,15 @@ def main():
         print(f"  {cat:30s} {count:4d}")
 
     # 2. Count items at different thresholds
-    threshold_1d = _get_default_hide_threshold()
-    print(f"\n=== Hide counts at different thresholds (1D = {threshold_1d:.1f}c) ===")
-    for threshold in [1.0, threshold_1d, threshold_1d * 2, threshold_1d * 5]:
+    threshold_1c = _get_default_hide_threshold()
+    print(f"\n=== Hide counts at different thresholds (default = {threshold_1c:.1f}c) ===")
+    for threshold in [0.04, 0.5, threshold_1c, threshold_1c * 8.5]:
         count = sum(1 for p in prices if p["chaos_price"] and 0 < p["chaos_price"] < threshold)
-        label = f"{threshold:.1f}c"
-        if abs(threshold - threshold_1d) < 0.1:
-            label += " (1D)"
+        label = f"{threshold:.2f}c".rstrip('0').rstrip('.')
+        if abs(threshold - threshold_1c) < 0.01:
+            label += " (1c)"
+        elif abs(threshold - threshold_1c * 8.5) < 0.5:
+            label += " (≈1D)"
         print(f"  <{label}: {count} items")
 
     # 3. Generate filter
@@ -55,7 +57,7 @@ def main():
     result = generate_filter_with_prices(
         template_path=template_path,
         price_snapshots=snapshots,
-        hide_threshold_chaos=threshold_1d,
+        hide_threshold_chaos=threshold_1c,
         item_level_min=82,
         output_path=OUTPUT_PATH,
     )
