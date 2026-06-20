@@ -21,7 +21,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1228m
+          memory: 1536m
 
   frontend:
     ports:

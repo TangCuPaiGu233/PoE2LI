@@ -199,7 +199,7 @@ def main() -> int:
         _mem_limits = {
             "poe2li-postgres": "512m",
             "poe2li-redis": "128m",
-            "poe2li-backend": "1228m",
+            "poe2li-backend": "1536m",
             "poe2li-frontend": "384m",
         }
         for _ctr, _mem in _mem_limits.items():
