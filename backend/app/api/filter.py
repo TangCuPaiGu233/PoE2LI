@@ -191,7 +191,7 @@ async def list_bases(
 
 @router.post("/api/filter/generate")
 async def generate_filter(req: GenerateRequest):
-    """Generate a .filter file from latest scan data."""
+    """Generate a .filter file from latest scan data (admin-triggered)."""
     from app.services.filter_generator import generate_from_latest_scan
 
     result = generate_from_latest_scan(
@@ -215,17 +215,37 @@ async def download_filter():
 
     filters = [
         f for f in os.listdir(_USER_FILTER_DIR)
-        if f.endswith(".filter") and "AI高价值底材" in f
+        if f.endswith(".filter") and any(kw in f for kw in (
+            "AI高价值底材", "AI价格过滤器", "AI_tier", "AI词缀阶级过滤",
+            "流放漓_",
+        ))
     ]
     if not filters:
         raise HTTPException(status_code=404, detail="没有已生成的过滤器，请先调用 /api/filter/generate")
 
-    latest = sorted(filters)[-1]
+    # Return the most recently modified file
+    latest = max(filters, key=lambda f: os.path.getmtime(os.path.join(_USER_FILTER_DIR, f)))
     path = os.path.join(_USER_FILTER_DIR, latest)
-    return FileResponse(
-        path,
+
+    from fastapi.responses import StreamingResponse
+    import urllib.parse
+
+    def _iter_file():
+        with open(path, "rb") as fh:
+            while chunk := fh.read(8192):
+                yield chunk
+
+    encoded_name = urllib.parse.quote(latest)
+    # filename= must be ASCII/latin-1; Chinese goes in filename*= only
+    ascii_fallback = "liufangli_filter.filter"
+    return StreamingResponse(
+        _iter_file(),
         media_type="application/octet-stream",
-        filename=latest,
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{ascii_fallback}\"; filename*=utf-8''{encoded_name}",
+            "X-Filter-Filename": encoded_name,  # URL-encoded for safe HTTP header transport
+            "Access-Control-Expose-Headers": "X-Filter-Filename, Content-Disposition",
+        },
     )
 
 

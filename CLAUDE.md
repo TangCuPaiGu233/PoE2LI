@@ -19,6 +19,7 @@ API Gateway (FastAPI)
     ├── Builds API        — PoB decode, homework, CRUD
     ├── Chat API          — POST /api/chat (SSE, multi-turn)
     ├── Trade API         — server-side Trade API proxy
+    ├── Filter API        — loot filter generation, base scanning, download
     ├── Knowledge API     — /api/knowledge/ask, /recommend
     ├── Entities API      — mentions, tooltip, icon-image
     └── Admin / collectors
@@ -202,6 +203,8 @@ Empirically validated (2026-06-05):
 - **`knowledge_chunks`**: RAG vectors; always filter `league` + `game_version`
 - **`kb_entities` / `kb_edges`**: Knowledge graph
 - **`game_data`**: Raw GGPK game data, 24 tables × 3 languages (EN/TC/SC), 242K+ rows
+- **`base_price_snapshots`**: White base Trade API scan results (857 bases per batch, `scan_batch`, `cheapest_price_chaos`, `median_price_chaos`, `is_high_value`)
+- **`item_price_snapshots`**: Multi-category price scan results (currency, uniques, gems, etc.)
 - **`jobs`**: Async task tracking
 
 ## Compliance (Non-negotiable)
@@ -257,7 +260,7 @@ The system has three layers, each with a distinct role:
 
 **腾讯云注意**: backend `mem_limit: 1228m`（GameGraph 加载 566MB poe2_data 需 ~1.1GB，768m 会 OOM）。poe2_data 不在 git 里，须从 NAS 手动传（tar → SFTP → 解压到 `/opt/PoE2LI/data/poe2_data/`）。trade 数据 JSON 也须手动同步。
 
-Chat test URLs: NAS `http://192.168.110.26:3000/chat` · API `http://192.168.110.26:8000/health`.
+Chat test URLs: NAS `http://192.168.110.26:3000/chat` · Filter `http://192.168.110.26:3000/filter` · API `http://192.168.110.26:8000/health`.
 
 ## Knowledge Base (2026-06)
 
@@ -398,6 +401,56 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 
 `trade_concepts.py` — curated CN→stat_id mappings. `trade_items_index` — base `type` filter from CN name in query.
 
+## Loot Filter (AI 智能筛选器)
+
+Admin-triggered pipeline that generates a PoE2 `.filter` file combining Trade API base prices, poe.ninja live currency data, and the asmco template.
+
+### Data flow
+
+```
+Admin triggers scan (POST /api/filter/scan)
+  → base_scanner.scan_all_bases() — 857 white bases via Trade API
+  → base_price_snapshots table (latest batch)
+
+Admin triggers generation (POST /api/filter/generate)
+  → get_latest_high_value_bases()    — is_high_value=True (≥3 listings, ≥50c)
+  → get_priced_bases_above_threshold(≥8E ≈ 0.35c) — all priced bases
+  → merge + dedup by name_en
+  → generate_filter_with_prices()
+       → generate_tier_based_white_rules()   ← AI rules injected before template
+       → _generate_cheap_currency_hide()     ← poe.ninja live fetch (14 categories)
+       → template (asmco_4_endgame.filter)   ← existing rules preserved
+  → write to /app/data/generated_filters/
+
+Users download (GET /api/filter/download)
+  → returns the latest pre-generated .filter file (no regeneration)
+```
+
+### Filter rule layers (first-match-wins)
+
+| Priority | Rule | Condition | Style |
+|----------|------|-----------|-------|
+| 1 | High-value bases | BaseType match (≥8E scanned) | Gold border, red star, alert sound |
+| 2 | Tier 5+ white | `UnidentifiedItemTier >= 5`, `Rarity = Normal` | Green text, cyan border, sound + beam |
+| 3 | Special bases | `BaseType "Heavy Belt"` etc. | Yellow border, yellow circle (ilvl-independent) |
+| 4 | ilvl≥82 white | `ItemLevel >= 82`, `Rarity = Normal` | White border (subtle) |
+| 5 | Low-tier white | `UnidentifiedItemTier < 5`, `Rarity = Normal` | Hide |
+| 6 | Cheap currency | BaseType (poe.ninja < 1c, 14 categories) | Hide |
+| — | Template rules | Tier 5 Rare/Magic, identified mods, etc. | Template's own styles |
+
+### Key design decisions
+
+- **Admin-only generation**: Users only download; no per-user regeneration. Scan → generate → download are separate steps.
+- **Heavy Belt / chance-crafting bases**: Value is independent of ilvl (e.g. Heavy Belt → Orb of Chance → Hunter belt). These get a dedicated always-Show rule.
+- **8E threshold**: PoE2 economy: 1E ≈ 0.04c, 1D ≈ 10c. 8E ≈ 0.34c catches ~43 bases including single-listing outliers.
+- **poe.ninja live data**: `_generate_cheap_currency_hide()` calls `fetch_all_economy_prices()` at generation time (14 economy types). `_NEVER_HIDE_CURRENCIES` protects Chaos Orb, Exalted Orb, GCP, Vaal Orb, Mirror, Hinekora's Lock.
+- **Scanner limitation**: `base_scanner.py` doesn't filter by `item_level`, so prices are averaged across all ilvls (low-ilvl junk drags down median). Future improvement: add `ilvl >= 82` to Trade API query.
+- **Template**: `asmco_4_endgame.filter` (四后期). AI rules injected before template's first Show rule. Template's tier 5 Rare (yellow border) and Magic (blue border) rules are preserved.
+
+### Frontend
+
+`/filter` page (`frontend/src/app/filter/page.tsx`) — rule descriptions, download button, usage tutorial. No generation triggered by users.
+
 ## Concept Links
 
 `concept_links.py` at ingest: entity names, ~60 concept hooks, chunk_type self-links. Stored in `knowledge_chunks.links`. Expansion during retrieval via `expand_concepts()`.
@@ -413,6 +466,11 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 7. **CHAT_RUNTIME**: Default is `legacy` ReAct; orchestrator is opt-in via env.
 8. **Bare item name**: `扭曲项链` alone = encyclopedia (RAG), not trade search — agent must not return 10K generic amulet hits.
 9. **Entity chips**: Never chip inside `英文名：` value columns or `NAME（alias）` parentheses.
+10. **Filter template path**: Must be in `data/filter_templates/` (volume mount), not `backend/data/filter_templates/`. Container only sees `/app/data/`.
+11. **Filter Chinese filenames**: `docker cp` garbles CJK filenames — use ASCII names for generated filters (e.g. `AI_tier.filter`).
+12. **Base scanner ilvl**: `base_scanner.py` doesn't add `item_level` to Trade queries, so Heavy Belt price (0.41c) is dragged down by low-ilvl junk.
+13. **Celery Beat override**: Automated daily scan (06:00) creates a newer batch that overrides manual scan data (`get_latest_high_value_bases()` uses `scanned_at DESC`).
+14. **PoE2 filter limits**: Cannot display custom text on items — only colors, borders, icons, sounds, beams.
 
 ## Key Files Reference
 
@@ -463,6 +521,16 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 | `backend/app/services/trade_items_index.py` | Base type match + `type` filter |
 | `backend/app/services/pob_service.py` | PoB decode + parse |
 
+### Filter & base scanner
+| File | Purpose |
+|------|---------|
+| `backend/app/api/filter.py` | `/api/filter/*` endpoints (scan, generate, download) |
+| `backend/app/services/filter_generator.py` | Filter rule generation (tier-based, poe.ninja currency hide) |
+| `backend/app/services/base_scanner.py` | 857 white base Trade API scanner |
+| `backend/app/services/poe_ninja_service.py` | poe.ninja currency + economy price fetcher |
+| `backend/data/filter_templates/asmco_4_endgame.filter` | Base filter template (四后期) |
+| `frontend/src/app/filter/page.tsx` | Filter page UI (rules, download, tutorial) |
+
 ### Skills (prompts)
 | File | Purpose |
 |------|---------|
@@ -472,7 +540,10 @@ Pipeline: `trade_agent.py` — `parse_intent` → `resolve_concepts` → `build_
 ### Frontend
 | File | Purpose |
 |------|---------|
+| `frontend/src/app/page.tsx` | Home — PoB build analyzer |
 | `frontend/src/app/chat/page.tsx` | Chat UI |
+| `frontend/src/app/filter/page.tsx` | Filter page — rules, download, tutorial |
+| `frontend/src/components/SiteNav.tsx` | Top nav — LINKS array for route tabs |
 | `frontend/src/components/chat/ChatMarkdown.tsx` | Markdown + entity chips |
 | `frontend/src/components/chat/PoeEntityChip.tsx` | Chip + tooltip hover |
 

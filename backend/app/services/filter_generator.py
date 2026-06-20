@@ -35,6 +35,7 @@ _GENERATED_HEADER = "#======[AI 自动更新] 高价值白装底材 ======#"
 _GENERATED_PRICE_HEADER = "#======[AI 价格分级] 多品类价格 ======#"
 _GENERATED_FALLBACK_HEADER = "#======[AI 保底高亮] 白底兜底 ======#"
 _GENERATED_HIDE_HEADER = "#======[AI 智能隐藏] 确认低价物品 ======#"
+_GENERATED_TIER_HEADER = "#======[AI 词缀阶级] 白装阶级过滤 ======#"
 
 # Hide threshold: items cheaper than 1 Chaos Orb are hidden.
 # PoE2 economy: Chaos Orb = 1c (base unit).
@@ -334,6 +335,205 @@ Show
 """
 
 
+def _generate_cheap_currency_hide(
+    hide_threshold_chaos: float = _HIDE_PRICE_CHAOS_THRESHOLD,
+) -> str:
+    """Fetch live economy prices from poe.ninja and generate Hide blocks for cheap items.
+
+    Returns empty string if poe.ninja is unreachable or no items are below threshold.
+    Items in _NEVER_HIDE_CURRENCIES are always excluded.
+    """
+    try:
+        from app.services.poe_ninja_service import fetch_all_economy_prices
+    except ImportError:
+        logger.warning("poe_ninja_service not available, skipping cheap currency hide")
+        return ""
+
+    try:
+        all_prices = fetch_all_economy_prices()
+    except Exception as e:
+        logger.warning(f"Failed to fetch economy prices from poe.ninja: {e}")
+        return ""
+
+    if not all_prices:
+        return ""
+
+    # Filter cheap items (price > 0 and < threshold), exclude protected currencies
+    cheap = [
+        p for p in all_prices
+        if (p.get("chaos_price") or 0) > 0
+        and (p.get("chaos_price") or 0) < hide_threshold_chaos
+        and p.get("name_en", "") not in _NEVER_HIDE_CURRENCIES
+    ]
+
+    if not cheap:
+        return ""
+
+    # Group by category for organized output
+    groups: dict[str, list[dict]] = {}
+    for p in cheap:
+        cat = p.get("category", "unknown")
+        groups.setdefault(cat, []).append(p)
+
+    _CAT_LABELS = {
+        "currency_orb": "通货",
+        "currency_fragment": "碎片",
+        "currency_abyssal_bone": "深渊骸骨",
+        "currency_uncut_gem": "未切割宝石",
+        "currency_lineage_gem": "传承宝石",
+        "currency_essence": "精华",
+        "currency_soul_core": "灵魂核心",
+        "currency_idol": "神像",
+        "currency_rune": "符文",
+        "currency_omen": "预兆",
+        "currency_expedition": "远征",
+        "currency_liquid_emotion": "蒸馏情绪",
+        "currency_catalyst": "催化剂",
+        "currency_verisium": "矿合金",
+    }
+
+    lines: list[str] = []
+    total = len(cheap)
+    lines.append(f"#── 低价通货 · poe.ninja实时 (<{hide_threshold_chaos:g}c, {total}个) ──")
+
+    for cat_key in sorted(groups.keys()):
+        items = groups[cat_key]
+        items.sort(key=lambda x: x.get("chaos_price") or 0)
+        label = _CAT_LABELS.get(cat_key, cat_key.replace("currency_", ""))
+
+        names = " ".join(f'"{it["name_en"]}"' for it in items)
+        cn_parts = [
+            f'{it.get("name_cn") or it["name_en"]}({it.get("chaos_price") or 0:.2f}c)'
+            for it in items
+        ]
+        lines.append(f"#  {label}: {', '.join(cn_parts)}")
+        lines.append(f"""Hide
+    BaseType {names}
+""")
+
+    return "\n".join(lines) + "\n"
+
+
+# ═══════════════════════════════════════════════════════════
+#  Tier-based white base rules (UnidentifiedItemTier)
+# ═══════════════════════════════════════════════════════════
+
+# Equipment classes for tier-based rules (includes Talismans for PoE2 amulets)
+_TIER_EQUIPMENT_CLASSES = (
+    '"Body Armours" "Boots" "Gloves" "Helmets" '
+    '"Shields" "Bucklers" "Foci" "Quivers" '
+    '"Rings" "Amulets" "Belts" "Talismans" '
+    '"Claws" "Daggers" "Wands" "One Hand Swords" "One Hand Axes" "One Hand Maces" '
+    '"Sceptres" "Spears" "Flails" '
+    '"Bows" "Staves" "Two Hand Swords" "Two Hand Axes" "Two Hand Maces" '
+    '"Quarterstaves" "Crossbows"'
+)
+
+
+def generate_tier_based_white_rules(
+    high_value_bases: list[dict] | None = None,
+    hide_threshold_chaos: float = _HIDE_PRICE_CHAOS_THRESHOLD,
+) -> str:
+    """Generate tier-based Show/Hide rules for white equipment + cheap currency hide.
+
+    Three rule blocks, in priority order (first-match-wins):
+    1. High-value scanned bases → force-Show by BaseType, prominent styling
+    2. Normal + UnidentifiedItemTier >= 5 → Show with bright tier styling
+    3. ALL Normal equipment → Show with subtle white style (every white base
+       is a potential crafting base — chance/alchemy/etc., no ilvl/tier gate)
+    4. Cheap economy items from poe.ninja → Hide (live prices, < threshold)
+
+    Args:
+        high_value_bases: list of dicts from base scanner with keys:
+            name_en, name_cn, cheapest_chaos (or chaos_price)
+        hide_threshold_chaos: economy items below this price (in chaos) are hidden
+    """
+    scan_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    blocks: list[str] = [f"\n{_GENERATED_TIER_HEADER}"]
+    blocks.append(f"#扫描时间: {scan_date}")
+    blocks.append("#策略: 高价底材强制显示 + 五阶白装高亮 + 所有白装保底显示 + 低价通货隐藏\n")
+
+    # ── 1. High-value bases: force Show by BaseType ──
+    if high_value_bases:
+        bases_sorted = sorted(
+            high_value_bases,
+            key=lambda b: b.get("cheapest_chaos") or b.get("chaos_price") or 0,
+            reverse=True,
+        )
+        base_type_str = " ".join(f'"{b["name_en"]}"' for b in bases_sorted)
+        cn_parts = [
+            f'{b.get("name_cn") or b["name_en"]}({b.get("cheapest_chaos") or b.get("chaos_price") or 0:.0f}c)'
+            for b in bases_sorted
+        ]
+        blocks.append(f"#── 高价底材 · 强制显示 ({len(bases_sorted)}个, 无视阶级) ──")
+        blocks.append(f"# {', '.join(cn_parts)}")
+        blocks.append(f"""Show
+    BaseType {base_type_str}
+    Rarity < Magic
+    SetTextColor 212 145 63
+    SetBorderColor 212 145 63
+    SetFontSize 50
+    CustomAlertSound "AlertSound_09.wav" 300
+    MinimapIcon 0 Red Star
+    PlayEffect Red
+    DisableDropSound
+""")
+
+    # ── 2. Tier 5+ Normal: Show ──
+    blocks.append("#── 五阶及以上白装 · 显示 ──")
+    blocks.append(f"""Show
+    Rarity = Normal
+    UnidentifiedItemTier >= 5
+    Class {_TIER_EQUIPMENT_CLASSES}
+    SetTextColor 74 230 58
+    SetBorderColor 0 200 200 255
+    SetFontSize 40
+    CustomAlertSound "AlertSound_07.wav" 200
+    MinimapIcon 2 Cyan Triangle
+    PlayEffect Cyan
+""")
+
+    # ── 2b. Special crafting bases: always Show (chance-crafting, ilvl无关) ──
+    _ALWAYS_SHOW_BASES = ["Heavy Belt"]
+    if _ALWAYS_SHOW_BASES:
+        always_str = " ".join(f'"{b}"' for b in _ALWAYS_SHOW_BASES)
+        blocks.append(f"#── 特殊做装底材 · 强制显示 ({', '.join(_ALWAYS_SHOW_BASES)}, 不限ilvl) ──")
+        blocks.append(f"""Show
+    BaseType {always_str}
+    Rarity < Magic
+    SetBorderColor 255 200 50
+    SetFontSize 40
+    MinimapIcon 2 Yellow Circle
+""")
+
+    # ── 2c. ilvl>=82 white equipment: Show (endgame crafting base fallback) ──
+    blocks.append("#── ilvl>=82 白装 · 保底显示 ──")
+    blocks.append(f"""Show
+    Rarity = Normal
+    ItemLevel >= 82
+    Class {_TIER_EQUIPMENT_CLASSES}
+    SetBorderColor 200 200 200
+    SetFontSize 35
+""")
+
+    # ── 3. Below tier 5 + ilvl<82 Normal: Hide ──
+    blocks.append("#── 低阶低等级白装 · 隐藏 ──")
+    blocks.append(f"""Hide
+    Rarity = Normal
+    UnidentifiedItemTier < 5
+    Class {_TIER_EQUIPMENT_CLASSES}
+""")
+
+    # ── 4. Cheap economy items: Hide (live from poe.ninja) ──
+    cheap_currency_block = _generate_cheap_currency_hide(hide_threshold_chaos)
+    if cheap_currency_block:
+        blocks.append(cheap_currency_block)
+
+    blocks.append(_GENERATED_TIER_HEADER)
+    blocks.append("")
+    return "\n".join(blocks)
+
+
 def generate_cheap_hide_blocks(
     snapshots: list[dict],
     hide_threshold_chaos: float = _HIDE_PRICE_CHAOS_THRESHOLD,
@@ -534,6 +734,11 @@ def _remove_previous_generated_block(content: str) -> str:
     # Remove cheap-hide block
     content = re.sub(
         rf"\n?{re.escape(_GENERATED_HIDE_HEADER)}.*?{re.escape(_GENERATED_HIDE_HEADER)}\s*\n",
+        "\n", content, flags=re.DOTALL,
+    )
+    # Remove tier-based white base block
+    content = re.sub(
+        rf"\n?{re.escape(_GENERATED_TIER_HEADER)}.*?{re.escape(_GENERATED_TIER_HEADER)}\s*\n",
         "\n", content, flags=re.DOTALL,
     )
     # Remove junk-hide block
@@ -876,61 +1081,121 @@ def generate_filter_with_prices(
     hide_threshold_chaos: float = _HIDE_PRICE_CHAOS_THRESHOLD,
     item_level_min: int = 82,
     output_path: str | None = None,
+    high_value_bases: list[dict] | None = None,
 ) -> str:
-    """Generate a complete filter using inverted logic: show-everything, hide-cheap.
+    """Generate a complete filter with tier-based white base rules.
 
-    Instead of explicitly showing valuable items (old approach), this function
-    only generates Hide rules for items confirmed cheap (price < threshold).
-    The template's own Show rules provide visual styling for known valuable
-    items.  Items not matched by any rule follow PoE2 filter default behavior.
+    Strategy (replaces old price-based hiding):
+    1. High-value scanned bases → force-Show by BaseType (regardless of tier)
+    2. Normal (white) equipment with UnidentifiedItemTier >= 5 → Show
+    3. Normal (white) equipment with UnidentifiedItemTier < 5 → Hide
 
-    Benefits:
-    - No risk of accidentally hiding valuable items
-    - No BaseType parsing errors for unique equipment (no unique-specific rules)
-    - Template's generic unique catch-all (Rarity = Unique) handles all uniques
+    Price snapshots are still accepted for backward compatibility but are
+    no longer used for hiding.  The template's own Show rules handle
+    currency, uniques, gems, etc.
     """
     content = _load_filter_template(template_path)
     content = _remove_previous_generated_block(content)
 
     lines = content.split("\n")
 
-    # Generate Hide blocks for confirmed-cheap items (< threshold)
-    cheap_hide_block = generate_cheap_hide_blocks(
-        price_snapshots, hide_threshold_chaos, item_level_min,
+    # Generate tier-based rules for white bases + cheap currency hide
+    tier_block = generate_tier_based_white_rules(
+        high_value_bases=high_value_bases,
+        hide_threshold_chaos=hide_threshold_chaos,
     )
 
-    # Insert cheap-hide blocks BEFORE the template's first Show rule for
-    # currency/uniques/gems.  First-match-wins: cheap items are caught by
-    # these Hide blocks before the template's Show rules can match them.
-    # Valuable items (not in any Hide block) pass through to template Show
-    # rules below and get their styled highlighting.
-    if cheap_hide_block.strip():
+    # Insert tier rules BEFORE the template's first Show rule.
+    # First-match-wins: high-value bases and tier 5+ shows catch their
+    # targets first; below-tier-5 hide catches low-tier whites; everything
+    # else falls through to the template's existing rules.
+    if tier_block.strip():
         inject_idx = _find_price_inject_point(lines)
-        hide_lines = cheap_hide_block.split("\n")
-        lines = lines[:inject_idx] + hide_lines + lines[inject_idx:]
+        tier_lines = tier_block.split("\n")
+        lines = lines[:inject_idx] + tier_lines + lines[inject_idx:]
 
     result = "\n".join(lines)
 
     # Append targeted junk-hide rules at the very end (safety net for
-    # shards/scrolls not covered by price scan)
+    # shards/scrolls not covered by tier rules)
     result += _generate_junk_hide_section()
-
-    if not cheap_hide_block.strip():
-        logger.info("No cheap items found, returning template with junk-hide only")
-        result = content + _generate_junk_hide_section()
-        if output_path:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(result)
-        return result
 
     if output_path:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(result)
-        logger.info(f"Generated inverted filter (hide-cheap) written to: {output_path}")
+        hv_count = len(high_value_bases) if high_value_bases else 0
+        logger.info(
+            f"Generated tier-based filter written to: {output_path} "
+            f"({hv_count} high-value bases)"
+        )
 
     return result
+
+
+def get_priced_bases_above_threshold(
+    min_chaos: float = 0.35,
+    market: str = "cn",
+    league: str | None = None,
+    min_results: int = 3,
+) -> list[dict]:
+    """Fetch all bases from the latest scan batch priced above min_chaos.
+
+    Unlike get_latest_high_value_bases() which requires is_high_value=True
+    (min_results>=3 AND min_price>=50c), this returns ALL bases above the
+    price threshold with at least min_results listings.  Useful for showing
+    bases priced above 8E (≈0.34c) while filtering out single-listing outliers.
+
+    Args:
+        min_chaos: minimum cheapest_price_chaos to include (default 0.35 ≈ 8E)
+        market: "cn" or "global"
+        league: league name or None for default
+        min_results: minimum total_results (listings) to include (default 3)
+
+    Returns:
+        List of dicts: {name_en, name_cn, cheapest_chaos, item_category}
+    """
+    from app.models.base_price import BasePriceSnapshot
+    from app.services.trade_realm import resolve_league
+
+    resolved_league = resolve_league(market, league)
+    db = SessionLocal()
+    try:
+        latest = (
+            db.query(BasePriceSnapshot)
+            .filter(
+                BasePriceSnapshot.market == market,
+                BasePriceSnapshot.league == resolved_league,
+            )
+            .order_by(BasePriceSnapshot.scanned_at.desc())
+            .first()
+        )
+        if not latest:
+            return []
+
+        batch_id = latest.scan_batch
+        rows = (
+            db.query(BasePriceSnapshot)
+            .filter(
+                BasePriceSnapshot.scan_batch == batch_id,
+                BasePriceSnapshot.cheapest_price_chaos >= min_chaos,
+                BasePriceSnapshot.total_results >= min_results,
+            )
+            .order_by(BasePriceSnapshot.cheapest_price_chaos.desc())
+            .all()
+        )
+
+        return [
+            {
+                "name_en": r.base_name_en,
+                "name_cn": r.base_name_cn,
+                "cheapest_chaos": r.cheapest_price_chaos,
+                "item_category": r.item_category,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
 
 
 def generate_from_latest_prices(
@@ -943,14 +1208,18 @@ def generate_from_latest_prices(
 ) -> dict:
     """Convenience: generate filter from the latest multi-category price scan in DB.
 
+    Also fetches high-value bases from base_price_snapshots to generate
+    force-Show rules (regardless of UnidentifiedItemTier).
+
     Returns:
-        {output_path, total_count, category_counts, template}
+        {output_path, total_count, category_counts, high_value_count, template}
     """
     from app.models.item_price_snapshot import ItemPriceSnapshot
+    from app.services.base_scanner import get_latest_high_value_bases
 
     db = SessionLocal()
     try:
-        # Find latest batch
+        # Find latest multi-category batch
         latest = (
             db.query(ItemPriceSnapshot)
             .filter(
@@ -986,6 +1255,23 @@ def generate_from_latest_prices(
     if not snapshots:
         return {"error": "该批次无数据", "output_path": None}
 
+    # Fetch high-value bases for force-Show rules
+    high_value_bases = get_latest_high_value_bases(market=market, league=league)
+
+    # Also fetch all bases priced >= 8E (≈0.35c) regardless of listing count
+    priced_bases = get_priced_bases_above_threshold(min_chaos=0.35, market=market, league=league)
+
+    # Merge: combine high-value + priced bases, dedup by name_en
+    seen_names: set[str] = set()
+    merged_bases: list[dict] = []
+    for base in (high_value_bases or []) + priced_bases:
+        name = base.get("name_en", "")
+        if name and name not in seen_names:
+            seen_names.add(name)
+            merged_bases.append(base)
+    merged_bases.sort(key=lambda b: b.get("cheapest_chaos") or b.get("chaos_price") or 0, reverse=True)
+    hv_count = len(merged_bases)
+
     if not template_path:
         template_path = _find_default_template()
     if not output_dir:
@@ -1000,6 +1286,7 @@ def generate_from_latest_prices(
         hide_threshold_chaos=hide_threshold_chaos,
         item_level_min=item_level_min,
         output_path=output_path,
+        high_value_bases=merged_bases,
     )
 
     # Compute summary
@@ -1011,6 +1298,7 @@ def generate_from_latest_prices(
         "output_path": output_path,
         "total_count": len(snapshots),
         "category_counts": cat_counts,
+        "high_value_count": hv_count,
         "template": template_path,
         "content_lines": len(result.split("\n")),
     }
@@ -1083,37 +1371,62 @@ def generate_from_latest_scan(
     item_level_min: int = 82,
     output_dir: str | None = None,
 ) -> dict:
-    """Convenience: generate filter from the latest scan results in DB.
+    """Convenience: generate tier-based filter from the latest scan results in DB.
+
+    Fetches both high-value bases (is_high_value=True) and all bases priced
+    >= 8E, merges them, and generates a filter with tier-based rules.
 
     Returns:
-        {output_path, high_value_count, deprecated_count, template}
+        {output_path, high_value_count, deprecated_count, template, content_lines}
     """
     from app.services.base_scanner import get_latest_high_value_bases
 
-    bases = get_latest_high_value_bases(market=market, league=league)
-    if not bases:
+    # Fetch high-value bases + all bases >= 8E
+    hv_bases = get_latest_high_value_bases(market=market, league=league)
+    priced_bases = get_priced_bases_above_threshold(min_chaos=0.35, market=market, league=league)
+
+    # Merge and dedup
+    seen: set[str] = set()
+    merged: list[dict] = []
+    for b in (hv_bases or []) + priced_bases:
+        name = b.get("name_en", "")
+        if name and name not in seen:
+            seen.add(name)
+            merged.append(b)
+    merged.sort(key=lambda b: b.get("cheapest_chaos") or b.get("chaos_price") or 0, reverse=True)
+
+    if not merged:
         return {"error": "没有可用的扫描数据，请先运行底材扫描", "output_path": None}
 
     # Determine template path
     if not template_path:
         template_path = _find_default_template()
 
-    # Determine output path
+    # Determine output path with branded filename: 流放漓_MMDD_N.filter
     if not output_dir:
         output_dir = _USER_FILTER_DIR
-    template_name = os.path.splitext(os.path.basename(template_path))[0]
-    output_path = os.path.join(output_dir, f"{template_name}_AI高价值底材.filter")
+    today = datetime.now(timezone.utc).strftime("%m%d")
+    # Auto-increment version for same-day regenerations
+    existing = [
+        f for f in (os.listdir(output_dir) if os.path.isdir(output_dir) else [])
+        if f.startswith(f"流放漓_{today}_") and f.endswith(".filter")
+    ]
+    version = len(existing) + 1
+    output_filename = f"流放漓_{today}_{version}.filter"
+    output_path = os.path.join(output_dir, output_filename)
 
-    result = generate_filter(
+    result = generate_filter_with_prices(
         template_path=template_path,
-        high_value_bases=bases,
-        item_level_min=item_level_min,
+        price_snapshots=[],
         output_path=output_path,
+        high_value_bases=merged,
+        hide_threshold_chaos=_HIDE_PRICE_CHAOS_THRESHOLD,
+        item_level_min=item_level_min,
     )
 
     return {
         "output_path": output_path,
-        "high_value_count": len(bases),
+        "high_value_count": len(merged),
         "deprecated_count": 0,
         "template": template_path,
         "content_lines": len(result.split("\n")),
