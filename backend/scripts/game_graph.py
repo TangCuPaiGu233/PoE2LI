@@ -30,34 +30,40 @@ class GameGraph:
             locale: preferred display locale for names (default "sc")
         """
         self.locale = locale
-        
+
         # Load relations
         with open(relations_path, "r", encoding="utf-8") as f:
             rel_data = json.load(f)
-        
-        self.edges = rel_data["edges"]
+
         self.fk_definitions = rel_data.get("fk_definitions", {})
         self.tables = rel_data["meta"]["tables"]
-        
+
         # Build adjacency lists (bidirectional)
         self.forward = defaultdict(list)   # (table, key) -> [(relation, dst_table, dst_key)]
         self.backward = defaultdict(list)  # (table, key) -> [(relation, src_table, src_key)]
-        
-        for e in self.edges:
+
+        edge_count = len(rel_data["edges"])
+        for e in rel_data["edges"]:
             src = (e["src_table"], e["src_key"])
             dst = (e["dst_table"], e["dst_key"])
             self.forward[src].append((e["relation"], dst[0], dst[1]))
             self.backward[dst].append((e["relation"], src[0], src[1]))
-        
+        # Raw edges no longer needed — adjacency lists contain all info
+        del rel_data
+
         # Build entity index for search
-        self.entity_index = {}  # (table, key) -> {name_en, name_tc, name_sc, data}
+        self.entity_index = {}  # (table, key) -> {name_en, name_tc, name_sc}
         self._name_lookup = defaultdict(list)  # lowercase_name -> [(table, key)]
-        
+
+        # Store data_dir for lazy row loading (get_entity_row)
+        self._data_dir = data_dir
+        self._table_cache = {}  # (locale, table_name) -> {key: row} for lazy access
+
         if data_dir:
             self._load_data(data_dir, locale)
-        
+
         print(f"Graph loaded: {len(self.forward)} source nodes, "
-              f"{len(self.backward)} target nodes, {len(self.edges)} edges")
+              f"{len(self.backward)} target nodes, {edge_count} edges")
     
     def _load_data(self, data_dir, locale):
         """Load raw table data for name lookups.
@@ -96,33 +102,35 @@ class GameGraph:
                             key = str(val)
                     else:
                         key = str(i)
-                    
+
                     node_key = (tname, key)
                     name = self._extract_name(row, tname, locale=loc)
-                    
+
                     if node_key not in self.entity_index:
                         self.entity_index[node_key] = {
                             "name_en": None, "name_tc": None, "name_sc": None,
-                            "row": row,
                         }
-                    
+
                     # Store locale-specific name
                     name_field = f"name_{loc}"
                     if name:
                         self.entity_index[node_key][name_field] = name
-                    
+
                     # For backward compat, "name" = primary locale or first available
                     info = self.entity_index[node_key]
                     if not info.get("name"):
                         info["name"] = name
-                    
+
                     # Index all locale names for search
                     if name:
                         self._name_lookup[name.lower()].append(node_key)
-                    
+
                     # Also index the key itself (only once)
                     if loc == locales_to_load[0][0]:
                         self._name_lookup[key.lower()].append(node_key)
+
+                # Free the parsed JSON immediately — names are already extracted
+                del records
     
     def _get_key_field(self, table_name):
         # Import shared registry (lazy, cached)
@@ -156,7 +164,7 @@ class GameGraph:
                         "tc": ["name_tc", "name_sc", "name_en"],
                         "en": ["name_en", "name_tc", "name_sc"]}
         order = locale_order.get(self.locale, ["name_en", "name_tc", "name_sc"])
-        
+
         names = []
         for field in order:
             n = info.get(field)
@@ -165,6 +173,54 @@ class GameGraph:
         if not names:
             return node_key[1]  # fallback to key
         return " / ".join(names)
+
+    def get_entity_row(self, table: str, key: str, locale: str = None) -> dict | None:
+        """Lazy-load a single entity's full row data from disk.
+
+        The row data is NOT stored in entity_index during init (saves ~1 GB).
+        Use this method when you need the complete original row fields
+        (e.g. mod stats, skill details). Results are cached per table+locale.
+
+        Args:
+            table: table name (e.g. "Mods", "ActiveSkills")
+            key: entity key (row_key as stored in entity_index)
+            locale: locale to read from (default: self.locale)
+
+        Returns:
+            The full row dict, or None if not found / data_dir unavailable.
+        """
+        if not self._data_dir:
+            return None
+
+        loc = locale or self.locale
+        cache_key = (loc, table)
+
+        if cache_key not in self._table_cache:
+            loc_dir = os.path.join(self._data_dir, loc)
+            path = os.path.join(loc_dir, f"{table}.json")
+            if not os.path.exists(path):
+                return None
+
+            with open(path, "r", encoding="utf-8") as f:
+                records = json.load(f)
+
+            # Build key→row lookup for this table
+            key_field = self._get_key_field(table)
+            lookup = {}
+            for i, row in enumerate(records):
+                if key_field and key_field in row and row[key_field] is not None:
+                    val = row[key_field]
+                    if isinstance(val, list):
+                        k = f"{i}_{','.join(str(v) for v in val[:3])}"
+                    else:
+                        k = str(val)
+                else:
+                    k = str(i)
+                lookup[k] = row
+
+            self._table_cache[cache_key] = lookup
+
+        return self._table_cache[cache_key].get(key)
     
     def find_entity(self, query, table_filter=None):
         """Find entities matching a query string.
