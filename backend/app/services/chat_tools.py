@@ -78,7 +78,7 @@ def _query_jaccard(a: str, b: str) -> float:
 
 
 _RAG_DEDUP_THRESHOLD = 0.50
-RAG_SOFT_LIMIT = 3  # allow one batch + one targeted follow-up search
+RAG_SOFT_LIMIT = 6  # total RAG search budget per turn
 SEARCH_GAME_MAX_PER_TURN = 5  # max search_game calls per turn
 
 
@@ -935,7 +935,7 @@ async def execute_tool(
         # Rich single-call batch: on first call, internally run batch retrieval for broader coverage.
         # Subsequent calls fall through to normal single-query path.
         if ctx.rag_search_calls == 0:
-            ctx.rag_search_calls = max(1, RAG_SOFT_LIMIT - 1)  # leave 1 slot for targeted follow-up
+            ctx.rag_search_calls = 2  # batch consumes 2 slots
             ctx.rag_queries.append(query)
             # Convert to batch: use the LLM's query as primary, add auto expansions
             batch_args = {
@@ -950,7 +950,7 @@ async def execute_tool(
             batch_args["subqueries"] = batch_args["subqueries"][:3]
             return await run_sync_with_timeout(_run_plan_and_search, batch_args, ctx, timeout=timeout)
 
-        # Soft limit: allow up to 5 single calls, but batch consumed them all
+        # Soft limit: block when budget exhausted
         if ctx.rag_search_calls >= RAG_SOFT_LIMIT:
             logger.info("[CHAT] tool rag_search LIMIT reached (%d)", ctx.rag_search_calls)
             return ToolRunResult(
@@ -966,7 +966,14 @@ async def execute_tool(
 
         ctx.rag_search_calls += 1
         ctx.rag_queries.append(query)
-        return await run_sync_with_timeout(_run_rag_search, args, ctx, timeout=timeout)
+        result = await run_sync_with_timeout(_run_rag_search, args, ctx, timeout=timeout)
+
+        # Countdown hint from 3rd search onward
+        remaining = RAG_SOFT_LIMIT - ctx.rag_search_calls
+        if ctx.rag_search_calls >= 3 and remaining > 0:
+            result.content += f"\n\n[检索预算还剩 {remaining}/{RAG_SOFT_LIMIT} 次]"
+
+        return result
     if name == "decode_pob":
         return await run_sync_with_timeout(_run_decode_pob, args, ctx, timeout=timeout)
     if name == "resolve_trade_stat":
