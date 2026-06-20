@@ -15,7 +15,7 @@ Usage:
 import json
 import os
 import sys
-from collections import defaultdict, deque
+from collections import OrderedDict, defaultdict, deque
 
 
 class GameGraph:
@@ -57,7 +57,8 @@ class GameGraph:
 
         # Store data_dir for lazy row loading (get_entity_row)
         self._data_dir = data_dir
-        self._table_cache = {}  # (locale, table_name) -> {key: row} for lazy access
+        self._table_cache = OrderedDict()  # (locale, table_name) -> {key: row}, LRU eviction
+        self._TABLE_CACHE_MAX = 16  # max tables cached in memory
 
         if data_dir:
             self._load_data(data_dir, locale)
@@ -179,7 +180,8 @@ class GameGraph:
 
         The row data is NOT stored in entity_index during init (saves ~1 GB).
         Use this method when you need the complete original row fields
-        (e.g. mod stats, skill details). Results are cached per table+locale.
+        (e.g. mod stats, skill details). Results are cached per table+locale
+        with LRU eviction (max 16 tables) to bound memory growth.
 
         Args:
             table: table name (e.g. "Mods", "ActiveSkills")
@@ -195,32 +197,41 @@ class GameGraph:
         loc = locale or self.locale
         cache_key = (loc, table)
 
-        if cache_key not in self._table_cache:
-            loc_dir = os.path.join(self._data_dir, loc)
-            path = os.path.join(loc_dir, f"{table}.json")
-            if not os.path.exists(path):
-                return None
+        if cache_key in self._table_cache:
+            # Cache hit — move to end (most recently used)
+            self._table_cache.move_to_end(cache_key)
+            return self._table_cache[cache_key].get(key)
 
-            with open(path, "r", encoding="utf-8") as f:
-                records = json.load(f)
+        # Cache miss — load from disk
+        loc_dir = os.path.join(self._data_dir, loc)
+        path = os.path.join(loc_dir, f"{table}.json")
+        if not os.path.exists(path):
+            return None
 
-            # Build key→row lookup for this table
-            key_field = self._get_key_field(table)
-            lookup = {}
-            for i, row in enumerate(records):
-                if key_field and key_field in row and row[key_field] is not None:
-                    val = row[key_field]
-                    if isinstance(val, list):
-                        k = f"{i}_{','.join(str(v) for v in val[:3])}"
-                    else:
-                        k = str(val)
+        with open(path, "r", encoding="utf-8") as f:
+            records = json.load(f)
+
+        # Build key→row lookup for this table
+        key_field = self._get_key_field(table)
+        lookup = {}
+        for i, row in enumerate(records):
+            if key_field and key_field in row and row[key_field] is not None:
+                val = row[key_field]
+                if isinstance(val, list):
+                    k = f"{i}_{','.join(str(v) for v in val[:3])}"
                 else:
-                    k = str(i)
-                lookup[k] = row
+                    k = str(val)
+            else:
+                k = str(i)
+            lookup[k] = row
 
-            self._table_cache[cache_key] = lookup
+        # Evict oldest if at capacity
+        while len(self._table_cache) >= self._TABLE_CACHE_MAX:
+            evicted_key, _ = self._table_cache.popitem(last=False)
+            print(f"GameGraph: evicted table cache {evicted_key}")
 
-        return self._table_cache[cache_key].get(key)
+        self._table_cache[cache_key] = lookup
+        return lookup.get(key)
     
     def find_entity(self, query, table_filter=None):
         """Find entities matching a query string.
