@@ -74,7 +74,14 @@ function renderChips(children: React.ReactNode, iconByLabel: Map<string, string>
 }
 
 function normalizeContent(content: string): string {
-  return content.replace(/\[资料\]/g, "`资料`").replace(/\[推测\]/g, "**[推测]**");
+  return content
+    .replace(/\[\[poe:([^|\]]+)\|([^\]]+)\]\]/g, "$2") // [[poe:X|Y]] → Y
+    .replace(/\[\[poe:([^\]]+)\]\]/g, "$1")              // [[poe:X]] → X
+    .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2")       // [[X|Y]] → Y
+    .replace(/\[poe:([^\]|\n]+?)(?:\|[^\]|\n]+?)?\]/g, "$1") // [poe:X] or [poe:X|Y] → X
+    .replace(/\[poe:([^|\n\]]+)/g, "$1")                  // unclosed [poe:X fragments
+    .replace(/\[资料\]/g, "`资料`")
+    .replace(/\[推测\]/g, "**[推测]**");
 }
 
 interface ChatMarkdownProps {
