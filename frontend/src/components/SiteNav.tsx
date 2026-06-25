@@ -16,7 +16,7 @@ export default function SiteNav() {
       <nav className="ninja-nav">
         <Link href="/" className="ninja-nav-brand">
           <span className="ninja-nav-icon" aria-hidden>漓</span>
-          <span className="ninja-nav-brand-text">流放漓</span>
+          <span className="ninja-nav-brand-text font-rune" style={{ fontSize: "0.95rem" }}>流放漓</span>
         </Link>
 
         <div className="ninja-nav-tabs" role="tablist" aria-label="主导航">

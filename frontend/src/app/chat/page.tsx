@@ -58,12 +58,12 @@ function TradeMatchCard({
       }
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="text-xs text-[var(--ninja-accent)] min-w-0">{match.label}</div>
+        <div className="text-xs text-[var(--poe-gold)] min-w-0">{match.label}</div>
         <span
           className={
             match.empty
-              ? "shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ninja-bg-elevated)] text-[var(--ninja-text-dim)]"
-              : "shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ninja-bg-elevated)] text-[var(--ninja-text-muted)]"
+              ? "shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--poe-surface-2)] text-[var(--ninja-text-dim)]"
+              : "shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[var(--poe-surface-2)] text-[var(--poe-text-dim)]"
           }
         >
           {tradeCountBadge(match)}
@@ -407,17 +407,17 @@ export default function ChatPage() {
   const canSend = !streaming && (input.trim().length > 0 || readyImages.length > 0) && !pendingImages.some(p => p.isLoading);
 
   return (
-    <div className="text-[var(--ninja-text)] antialiased">
+    <div className="text-[var(--poe-text-primary)] antialiased">
       <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col min-h-[calc(100vh-3rem)]">
         {/* header */}
-        <header className="shrink-0 flex items-center justify-between pb-3 border-b border-[var(--ninja-border)]">
+        <header className="shrink-0 flex items-center justify-between pb-3 border-b border-[var(--poe-border-strong)]">
           <div className="flex items-baseline gap-3">
-            <a href="/" className="text-xs text-[var(--ninja-text-muted)] hover:text-[var(--ninja-text)] transition-colors">首页</a>
-            <h1 className="text-sm font-medium text-[var(--ninja-text)]">流放知识库</h1>
+            <a href="/" className="text-xs text-[var(--poe-text-dim)] hover:text-[var(--poe-text-primary)] transition-colors">首页</a>
+            <h1 className="text-sm font-medium text-[var(--poe-text-primary)]">流放知识库</h1>
           </div>
           <div className="flex items-center gap-2">
             {streaming && skill !== "idle" && (
-              <span className="ninja-badge border-[rgba(30,203,139,0.35)] text-[var(--ninja-accent)] bg-[rgba(30,203,139,0.08)]">
+              <span className="ninja-badge border-[rgba(30,203,139,0.35)] text-[var(--poe-gold)] bg-[rgba(30,203,139,0.08)]">
                 {SKILL_LABELS[skill] || skill}
               </span>
             )}
@@ -429,9 +429,9 @@ export default function ChatPage() {
           {showWelcome && messages.length === 0 && (
             <div className="pt-12 pb-8">
               <p className="ninja-section-title mb-1">Ask anything</p>
-              <p className="text-2xl text-[var(--ninja-text)] font-semibold mb-2 leading-snug">
+              <p className="text-2xl text-[var(--poe-text-primary)] font-semibold mb-2 leading-snug">
                 PoE2 知识助手<br />
-                <span className="text-[var(--ninja-text-muted)] text-base font-normal">BD 设计 · 装备搜索 · 机制百科</span>
+                <span className="text-[var(--poe-text-dim)] text-base font-normal">BD 设计 · 装备搜索 · 机制百科</span>
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {CHIPS.map((c, i) => (
@@ -448,7 +448,7 @@ export default function ChatPage() {
             <article key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
               style={{ animation: `msgIn 0.3s ease-out ${i * 0.02}s both` }}>
               <div className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-xs font-medium mt-0.5 ${
-                m.role === "user" ? "bg-[var(--ninja-bg-elevated)] text-[var(--ninja-text-muted)] border border-[var(--ninja-border)]" : "bg-[rgba(30,203,139,0.12)] text-[var(--ninja-accent)] border border-[rgba(30,203,139,0.3)]"
+                m.role === "user" ? "ninja-avatar-user" : "ninja-avatar-ai"
               }`}>
                 {m.role === "user" ? "你" : "AI"}
               </div>
@@ -469,8 +469,8 @@ export default function ChatPage() {
                 {(m.role === "user" || m.content.trim() || (m.images && m.images.length > 0) || (m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 || (m.sources && m.sources.length > 0)) && (
                 <div className={`text-base leading-7 rounded-xl px-4 py-3 ${
                   m.role === "user"
-                    ? "bg-[rgba(30,203,139,0.08)] border border-[rgba(30,203,139,0.2)] text-[var(--ninja-text)]"
-                    : "ninja-panel text-[var(--ninja-text-body)]"
+                    ? "ninja-msg-user text-right"
+                    : "ninja-msg-assistant ninja-msg-assistant-accent text-[var(--poe-text-body)]"
                 }`}>
                   <div className="msg-content">
                   {m.role === "user" ? (
@@ -498,7 +498,7 @@ export default function ChatPage() {
                 </div>
 
                   {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-[var(--ninja-border)]">
+                    <div className="mt-3 pt-3 border-t border-[var(--poe-border)]">
                       <p className="ninja-section-title mb-2">交易结果</p>
                       {(m.trades?.length ? m.trades : m.trade ? [m.trade] : []).map((tr, ti) => (
                         <div key={ti} className="mb-2">
@@ -523,10 +523,10 @@ export default function ChatPage() {
                   )}
 
                   {m.sources && m.sources.length > 0 && (
-                    <details className="mt-3 pt-2 border-t border-[var(--ninja-border)]">
-                      <summary className="text-xs text-[var(--ninja-text-dim)] cursor-pointer hover:text-[var(--ninja-text-muted)] transition-colors">来源 ({m.sources.length})</summary>
+                    <details className="mt-3 pt-2 border-t border-[var(--poe-border)]">
+                      <summary className="text-xs text-[var(--poe-text-dim)] cursor-pointer hover:text-[var(--poe-text-dim)] transition-colors">来源 ({m.sources.length})</summary>
                       <div className="mt-2 space-y-1">
-                        {m.sources.map((s, j) => <div key={j} className="text-xs text-[var(--ninja-text-dim)] bg-[var(--ninja-bg-elevated)] rounded px-2 py-1"><span className="text-[var(--ninja-text-muted)]">[{s.type}]</span> {s.preview}</div>)}
+                        {m.sources.map((s, j) => <div key={j} className="text-xs text-[var(--ninja-text-dim)] bg-[var(--poe-surface-2)] rounded px-2 py-1"><span className="text-[var(--poe-text-dim)]">[{s.type}]</span> {s.preview}</div>)}
                       </div>
                     </details>
                   )}
@@ -542,7 +542,7 @@ export default function ChatPage() {
 
         {/* follow-up suggestions */}
         {!streaming && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && (messages[messages.length - 1]?.followUps?.length ?? 0) > 0 && (
-          <div className="shrink-0 pb-3 border-b border-[var(--ninja-border)]">
+          <div className="shrink-0 pb-3 border-b border-[var(--poe-border)]">
             <p className="ninja-section-title mb-2">你可能还想问</p>
             <div className="flex flex-col gap-1.5">
               {messages[messages.length - 1].followUps!.map((q, i) => (
@@ -560,12 +560,12 @@ export default function ChatPage() {
         )}
 
         {/* input — paste / drag-drop images (goose ChatInput pattern) */}
-        <footer className="shrink-0 pt-3 border-t border-[var(--ninja-border)]">
+        <footer className="shrink-0 pt-3 border-t border-[var(--poe-border)]">
           <div
             className={`rounded-xl border transition-colors ${
               isDragOver
                 ? "border-[rgba(30,203,139,0.55)] bg-[rgba(30,203,139,0.06)]"
-                : "border-[var(--ninja-border)] bg-[var(--ninja-bg-elevated)]/40"
+                : "border-[var(--poe-border)] bg-[var(--poe-surface-2)]/40"
             }`}
             onDrop={onDrop}
             onDragOver={onDragOver}
@@ -576,7 +576,7 @@ export default function ChatPage() {
                 {pendingImages.map(img => (
                   <div key={img.id} className="relative">
                     {img.isLoading ? (
-                      <div className="h-16 w-16 rounded-md border border-[var(--ninja-border)] bg-[var(--ninja-bg-elevated)] animate-pulse" />
+                      <div className="h-16 w-16 rounded-md border border-[var(--poe-border)] bg-[var(--poe-surface-2)] animate-pulse" />
                     ) : img.error ? (
                       <div className="h-16 w-24 rounded-md border border-red-500/40 px-1 text-[10px] text-red-400 flex items-center justify-center text-center">
                         {img.error}
@@ -587,7 +587,7 @@ export default function ChatPage() {
                         alt={img.name || "附件"}
                         fileName={img.name || "pasted-image.jpg"}
                         thumb
-                        className="h-16 w-16 object-cover rounded-md border border-[var(--ninja-border)]"
+                        className="h-16 w-16 object-cover rounded-md border border-[var(--poe-border)]"
                       />
                     )}
                     {!img.isLoading && (
@@ -595,7 +595,7 @@ export default function ChatPage() {
                         type="button"
                         aria-label="移除图片"
                         onClick={() => setPendingImages(p => p.filter(x => x.id !== img.id))}
-                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--ninja-bg-elevated)] border border-[var(--ninja-border)] text-[10px] text-[var(--ninja-text-muted)] hover:text-[var(--ninja-text)]"
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--poe-surface-2)] border border-[var(--poe-border)] text-[10px] text-[var(--poe-text-dim)] hover:text-[var(--poe-text-primary)]"
                       >
                         ×
                       </button>
@@ -630,7 +630,7 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-[var(--ninja-text-dim)] mt-1.5 px-1">
+          <p className="text-[10px] text-[var(--poe-text-dim)] mt-1.5 px-1">
             Enter 发送 · Shift+Enter 换行 · 支持截图粘贴与拖放（最多 {MAX_IMAGES} 张）
           </p>
         </footer>
@@ -638,21 +638,21 @@ export default function ChatPage() {
 
       <style>{`
         @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .msg-content { font-size: 1rem; line-height: 1.75; color: var(--ninja-text-body); }
-        .msg-content .md-p { margin-bottom: 0.65rem; color: var(--ninja-text-body); }
+        .msg-content { font-size: 1rem; line-height: 1.75; color: var(--poe-text-body); }
+        .msg-content .md-p { margin-bottom: 0.65rem; color: var(--poe-text-body); }
         .msg-content .md-p:last-child { margin-bottom: 0; }
-        .msg-content .md-h1 { font-size: 1.2rem; font-weight: 600; color: var(--ninja-text); margin-top: 1rem; margin-bottom: 0.45rem; line-height: 1.4; }
-        .msg-content .md-h2 { font-size: 1.1rem; font-weight: 600; color: var(--ninja-text); margin-top: 0.85rem; margin-bottom: 0.35rem; line-height: 1.4; }
-        .msg-content .md-h3 { font-size: 1.02rem; font-weight: 600; color: var(--ninja-text); margin-top: 0.7rem; margin-bottom: 0.3rem; line-height: 1.4; }
-        .msg-content .md-h4 { font-size: 0.98rem; font-weight: 600; color: var(--ninja-text); margin-top: 0.55rem; margin-bottom: 0.25rem; line-height: 1.4; }
+        .msg-content .md-h1 { font-size: 1.2rem; font-weight: 600; color: var(--poe-text-primary); margin-top: 1rem; margin-bottom: 0.45rem; line-height: 1.4; }
+        .msg-content .md-h2 { font-size: 1.1rem; font-weight: 600; color: var(--poe-text-primary); margin-top: 0.85rem; margin-bottom: 0.35rem; line-height: 1.4; }
+        .msg-content .md-h3 { font-size: 1.02rem; font-weight: 600; color: var(--poe-text-primary); margin-top: 0.7rem; margin-bottom: 0.3rem; line-height: 1.4; }
+        .msg-content .md-h4 { font-size: 0.98rem; font-weight: 600; color: var(--poe-text-primary); margin-top: 0.55rem; margin-bottom: 0.25rem; line-height: 1.4; }
         .msg-content .md-bold { color: #3eeaa8; font-weight: 600; }
-        .msg-content .md-em { font-style: italic; color: var(--ninja-text-muted); }
-        .msg-content .md-li { display: list-item; margin-left: 1.35rem; list-style: disc; color: var(--ninja-text-body); margin-bottom: 0.35rem; line-height: 1.7; }
-        .msg-content .md-li-ol { display: list-item; margin-left: 1.35rem; list-style: decimal; color: var(--ninja-text-body); margin-bottom: 0.35rem; line-height: 1.7; }
+        .msg-content .md-em { font-style: italic; color: var(--poe-text-dim); }
+        .msg-content .md-li { display: list-item; margin-left: 1.35rem; list-style: disc; color: var(--poe-text-body); margin-bottom: 0.35rem; line-height: 1.7; }
+        .msg-content .md-li-ol { display: list-item; margin-left: 1.35rem; list-style: decimal; color: var(--poe-text-body); margin-bottom: 0.35rem; line-height: 1.7; }
         .msg-content .md-code { font-size: 0.9em; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: #5dffc0; font-family: ui-monospace, monospace; }
         .msg-content .md-link { color: #3eeaa8; text-decoration: underline; text-underline-offset: 2px; }
         .msg-content .md-link:hover { color: #6ff0c4; }
-        .msg-content .md-quote { border-left: 3px solid rgba(30,203,139,0.4); padding-left: 0.85rem; margin: 0.65rem 0; color: var(--ninja-text-muted); font-style: italic; }
+        .msg-content .md-quote { border-left: 3px solid rgba(30,203,139,0.4); padding-left: 0.85rem; margin: 0.65rem 0; color: var(--poe-text-dim); font-style: italic; }
         .msg-content .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 0.6rem 0; }
         .msg-content .md-tag { font-size: 0.65rem; color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); padding: 0 2px; border-radius: 2px; margin: 0 1px; }
         .msg-content .md-tag-guess { color: rgba(30,203,139,0.32); background: rgba(30,203,139,0.04); }
@@ -662,7 +662,7 @@ export default function ChatPage() {
         .msg-content .md-thead { background: rgba(255,255,255,0.04); }
         .msg-content .md-th, .msg-content .md-td { padding: 0.45rem 0.65rem; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; vertical-align: top; }
         .msg-content .md-th { color: rgba(30,203,139,0.75); font-weight: 600; }
-        .msg-content .md-td { color: var(--ninja-text-body); }
+        .msg-content .md-td { color: var(--poe-text-body); }
         .msg-content .md-tr:last-child .md-td { border-bottom: none; }
       `}</style>
     </div>

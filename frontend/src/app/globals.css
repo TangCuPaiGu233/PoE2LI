@@ -1,360 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&family=Noto+Serif+SC:wght@400;600;700;900&display=swap');
+
 @import "tailwindcss";
 
 :root {
-  --ninja-bg: #06080a;
-  --ninja-bg-elevated: #0c0f12;
-  --ninja-panel: #111418;
-  --ninja-panel-hover: #161b22;
-  --ninja-border: #1e2630;
-  --ninja-border-strong: #2a3441;
-  --ninja-accent: #1ecb8b;
-  --ninja-accent-dim: #17a873;
-  --ninja-accent-glow: rgba(30, 203, 139, 0.25);
-  --ninja-text: #eef1f4;
-  --ninja-text-muted: #b4c0cc;
-  --ninja-text-dim: #8494a3;
-  --ninja-text-body: #d8dee6;
+  /* Legacy ninja palette - keep for backward compatibility */
+  --ninja-bg: #0a0b0e;
+  --ninja-bg-elevated: #100e14;
+  --ninja-panel: #14161a;
+  --ninja-panel-hover: #1a1c22;
+  --ninja-border: #2c2434;
+  --ninja-border-strong: #3e3248;
+  --ninja-accent: #e0b95e;
+  --ninja-accent-dim: #b08d3a;
+  --ninja-accent-glow: rgba(224, 185, 94, 0.32);
+  --ninja-text: #ece5db;
+  --ninja-text-muted: #c7bfae;
+  --ninja-text-dim: #968c7a;
+  --ninja-text-body: #e2d8ca;
   --ninja-danger: #ef4444;
   --ninja-warning: #f59e0b;
-  --background: var(--ninja-bg);
-  --foreground: var(--ninja-text);
+
+  /* PoE2 dark-fantasy palette */
+  --poe-void: #1e1229;
+  --poe-void-deep: #0f0916;
+  --poe-void-glow: rgba(74, 45, 117, 0.35);
+  --poe-corruption: #7a1f1f;
+  --poe-corruption-glow: rgba(154, 38, 38, 0.35);
+  --poe-bronze: #5a4a2a;
+  --poe-bronze-light: #8a7343;
+  --poe-gold: #d4a94b;
+  --poe-gold-bright: #f3cc6e;
+  --poe-gold-glow: rgba(212, 169, 75, 0.45);
+  --poe-rune: #c9a96e;
+  --poe-rune-dim: rgba(201, 169, 110, 0.25);
+  --poe-text-primary: #ede6d6;
+  --poe-text-secondary: #bfb59f;
+  --poe-text-dim: #7a7060;
+  --poe-verdigris: #3d5a54;
+  --poe-verdigris-glow: rgba(61, 90, 84, 0.35);
+
+  /* Chat & border tokens */
+  --poe-text-body: #d4c8b8;
+  --poe-border: #2c2434;
+  --poe-border-strong: #3e3248;
+
+  /* Semantic mappings */
+  --background: var(--poe-void-deep);
+  --foreground: var(--poe-text-primary);
+
+  /* Derived surfaces */
+  --poe-surface-1: #12101a;
+  --poe-surface-2: #18151f;
+  --poe-surface-3: #1e1a26;
+  --poe-surface-elevated: #23202b;
 }
 
 @theme inline {
+  /* Existing ninja theme tokens - preserved */
   --color-ninja-bg: var(--ninja-bg);
   --color-ninja-panel: var(--ninja-panel);
   --color-ninja-border: var(--ninja-border);
   --color-ninja-accent: var(--ninja-accent);
   --color-ninja-text: var(--ninja-text);
   --color-ninja-muted: var(--ninja-text-muted);
+
+  /* PoE2 theme tokens */
+  --color-poe-void: var(--poe-void);
+  --color-poe-void-deep: var(--poe-void-deep);
+  --color-poe-corruption: var(--poe-corruption);
+  --color-poe-bronze: var(--poe-bronze);
+  --color-poe-gold: var(--poe-gold);
+  --color-poe-gold-bright: var(--poe-gold-bright);
+  --color-poe-rune: var(--poe-rune);
+  --color-poe-text-primary: var(--poe-text-primary);
+  --color-poe-text-secondary: var(--poe-text-secondary);
+  --color-poe-text-dim: var(--poe-text-dim);
+  --color-poe-surface-1: var(--poe-surface-1);
+  --color-poe-surface-2: var(--poe-surface-2);
+  --color-poe-surface-3: var(--poe-surface-3);
+  --color-poe-surface-elevated: var(--poe-surface-elevated);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  min-height: 100vh;
 }
 
 body {
-  background: var(--ninja-bg);
-  color: var(--ninja-text);
-  font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC",
+  background: var(--poe-void-deep);
+  color: var(--poe-text-primary);
+  font-family: "Noto Serif SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC",
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
-  line-height: 1.65;
+  line-height: 1.75;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Atmospheric background like poe.ninja */
+/* Cinzel fantasy font for English headings / decorative labels */
+.font-rune {
+  font-family: "Cinzel", "Noto Serif SC", serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* PoE2 Dark Atmosphere */
 .ninja-page {
   min-height: 100vh;
-  background-color: var(--ninja-bg);
+  background-color: var(--poe-void-deep);
   background-image:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30, 203, 139, 0.06), transparent 50%),
-    radial-gradient(ellipse 80% 50% at 100% 50%, rgba(30, 60, 80, 0.15), transparent 45%),
-    linear-gradient(180deg, rgba(6, 8, 10, 0.92) 0%, rgba(6, 8, 10, 0.98) 100%);
+    radial-gradient(ellipse 140% 60% at 50% -5%, rgba(120, 85, 160, 0.10), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 90% 40%, rgba(90, 40, 40, 0.14), transparent 48%),
+    radial-gradient(ellipse 80% 45% at 10% 60%, rgba(61, 90, 84, 0.10), transparent 50%),
+    radial-gradient(ellipse 120% 80% at 50% 120%, rgba(20, 10, 30, 0.85), transparent 60%);
+  position: relative;
 }
 
-.ninja-nav {
+/* Atmospheric floating orbs */
+.ninja-page::before,
+.ninja-page::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(80px);
+}
+
+.ninja-page::before {
+  width: 520px;
+  height: 520px;
+  top: -120px;
+  left: -80px;
+  background: radial-gradient(circle, rgba(120, 80, 170, 0.18), transparent 70%);
+  animation: poe-orb-drift-a 18s ease-in-out infinite;
+}
+
+.ninja-page::after {
+  width: 420px;
+  height: 420px;
+  bottom: -60px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(154, 60, 60, 0.14), transparent 70%);
+  animation: poe-orb-drift-b 22s ease-in-out infinite;
+}
+
+@keyframes poe-orb-drift-a {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(60px, 40px); }
+}
+
+@keyframes poe-orb-drift-b {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-50px, -30px); }
+}
+
+/* Rune-like borders */
+.ninja-border {
+  border: 1px solid rgba(74, 60, 90, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(201, 169, 110, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ninja-border-accent {
+  border: 1px solid rgba(212, 169, 75, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(212, 169, 75, 0.14),
+    0 0 32px rgba(212, 169, 75, 0.18),
+    0 0 80px rgba(120, 80, 170, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Rune decorative divider */
+.ninja-rune-divider {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem 1.25rem;
-  background: rgba(0, 0, 0, 0.55);
-  border-bottom: 1px solid var(--ninja-border);
-  backdrop-filter: blur(8px);
-}
-
-.ninja-nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--ninja-text);
-  letter-spacing: -0.02em;
-  text-decoration: none;
-}
-
-.ninja-nav-brand:hover {
-  color: #fff;
-}
-
-.ninja-nav-icon {
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 0.35rem;
-  background: linear-gradient(135deg, var(--ninja-accent) 0%, var(--ninja-accent-dim) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #041510;
-  box-shadow: 0 0 12px var(--ninja-accent-glow);
-}
-
-.ninja-nav-links {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.ninja-nav-link {
-  padding: 0.4rem 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--ninja-text-muted);
-  text-decoration: none;
-  border-radius: 0.35rem;
-  transition: color 0.15s, background 0.15s;
-}
-
-.ninja-nav-link:hover {
-  color: var(--ninja-text);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.ninja-nav-link.active {
-  color: var(--ninja-accent);
-  background: rgba(30, 203, 139, 0.08);
-}
-
-.ninja-badge {
-  font-size: 0.6875rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 0.25rem;
-  border: 1px solid var(--ninja-border-strong);
-  color: var(--ninja-text-muted);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.ninja-panel {
-  background: var(--ninja-panel);
-  border: 1px solid var(--ninja-border);
-  border-radius: 0.5rem;
-}
-
-.ninja-panel-accent {
-  background: var(--ninja-panel);
-  border: 1px solid var(--ninja-border);
-  border-left: 3px solid var(--ninja-accent);
-  border-radius: 0.5rem;
-}
-
-.ninja-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #041510;
-  background: var(--ninja-accent);
-  border: none;
-  border-radius: 0.35rem;
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
-}
-
-.ninja-btn:hover:not(:disabled) {
-  background: #24d997;
-  box-shadow: 0 0 16px var(--ninja-accent-glow);
-}
-
-.ninja-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.ninja-btn-outline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.45rem 0.85rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--ninja-accent);
-  background: transparent;
-  border: 1px solid var(--ninja-accent);
-  border-radius: 0.35rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.ninja-btn-outline:hover:not(:disabled) {
-  background: rgba(30, 203, 139, 0.1);
-  color: #24d997;
-}
-
-.ninja-btn-ghost {
-  padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
-  color: var(--ninja-text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--ninja-border);
-  border-radius: 0.35rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.ninja-btn-ghost:hover {
-  color: var(--ninja-text);
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.ninja-input,
-.ninja-textarea {
+  gap: 0.75rem;
   width: 100%;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--ninja-text);
-  background: var(--ninja-bg-elevated);
-  border: 1px solid var(--ninja-border);
-  border-radius: 0.5rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  max-width: 42rem;
+  margin: 1.1rem auto;
+  color: var(--poe-rune-dim);
+}
+.ninja-rune-divider::before,
+.ninja-rune-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 169, 110, 0.35), transparent);
+}
+.ninja-rune-divider span {
+  font-family: "Cinzel", serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.35em;
+  color: rgba(201, 169, 110, 0.55);
 }
 
-.ninja-input:focus,
-.ninja-textarea:focus {
-  outline: none;
-  border-color: rgba(30, 203, 139, 0.45);
-  box-shadow: 0 0 0 2px rgba(30, 203, 139, 0.12);
-}
-
-.ninja-input::placeholder,
-.ninja-textarea::placeholder {
-  color: var(--ninja-text-dim);
-}
-
-.ninja-stat {
-  padding: 0.55rem 0.65rem;
-  background: var(--ninja-bg-elevated);
-  border: 1px solid var(--ninja-border);
-  border-radius: 0.35rem;
-}
-
-.ninja-stat-label {
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ninja-text-dim);
-  margin-bottom: 0.15rem;
-}
-
-.ninja-stat-value {
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-.ninja-chip {
-  font-size: 0.875rem;
-  line-height: 1.45;
-  padding: 0.45rem 0.85rem;
-  border-radius: 9999px;
-  border: 1px solid var(--ninja-border);
-  color: var(--ninja-text-body);
-  background: rgba(255, 255, 255, 0.03);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.ninja-follow-chip {
-  display: flex;
-  align-items: flex-start;
-  width: 100%;
-  text-align: left;
-  font-size: 0.9375rem;
-  line-height: 1.55;
-  padding: 0.65rem 0.9rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--ninja-border-strong);
-  color: var(--ninja-text-body);
-  background: var(--ninja-bg-elevated);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.ninja-follow-chip:hover {
-  border-color: rgba(30, 203, 139, 0.45);
-  color: var(--ninja-text);
-  background: rgba(30, 203, 139, 0.06);
-}
-
-.ninja-chip:hover:not(:disabled) {
-  border-color: rgba(30, 203, 139, 0.4);
-  color: var(--ninja-accent);
-  background: rgba(30, 203, 139, 0.06);
-}
-
-.ninja-chip:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.ninja-section-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ninja-text-muted);
-}
-
-.ninja-link {
-  color: var(--ninja-accent);
-  text-decoration: none;
-}
-
-.ninja-link:hover {
-  color: #24d997;
-  text-decoration: underline;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--ninja-border-strong);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3d4a58;
-}
-
-@keyframes pulse-glow {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes msgIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-
+/* Nav wrapper — sticky top bar */
 .ninja-nav-wrap {
-  border-bottom: 1px solid var(--ninja-border);
-  background: rgba(0, 0, 0, 0.72);
+  border-bottom: 1px solid rgba(74, 60, 90, 0.55);
+  background: rgba(8, 6, 10, 0.85);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
@@ -362,127 +211,568 @@ body {
 }
 
 .ninja-nav {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  max-width: 72rem;
+  max-width: 78rem;
   margin: 0 auto;
-  padding: 0.85rem 1.5rem;
+  padding: 0.65rem 1.25rem;
+}
+
+.ninja-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--poe-gold);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-shadow: 0 0 18px rgba(200, 164, 97, 0.35);
+}
+
+.ninja-nav-brand:hover {
+  color: #fff;
+  text-shadow: 0 0 22px rgba(200, 164, 97, 0.55);
 }
 
 .ninja-nav-brand-text {
-  font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
-.ninja-nav-right {
+.ninja-nav-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(160deg, rgba(212, 169, 75, 0.95), rgba(150, 115, 45, 0.95));
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #1a1210;
+  box-shadow: 0 0 18px rgba(200, 164, 97, 0.45);
 }
 
-.ninja-nav-tabs {
+/* Nav wrapper — sticky top bar */
+.ninja-nav-wrap {
+  border-bottom: 1px solid rgba(74, 60, 90, 0.55);
+  background: rgba(8, 6, 10, 0.85);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.ninja-nav {
   display: flex;
-  gap: 0.35rem;
-  padding: 0.3rem;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--ninja-border-strong);
-  border-radius: 0.625rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 0.65rem 1.25rem;
 }
 
+.ninja-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--poe-gold);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-shadow: 0 0 18px rgba(200, 164, 97, 0.35);
+}
+
+.ninja-nav-brand:hover {
+  color: #fff;
+  text-shadow: 0 0 22px rgba(200, 164, 97, 0.55);
+}
+
+.ninja-nav-brand-text {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.ninja-nav-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(160deg, rgba(212, 169, 75, 0.95), rgba(150, 115, 45, 0.95));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #1a1210;
+  box-shadow: 0 0 18px rgba(200, 164, 97, 0.45);
+}
+
+/* Nav tab variants used by SiteNav */
 .ninja-nav-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.1rem;
-  min-width: 6.5rem;
-  padding: 0.5rem 1.1rem;
-  border-radius: 0.45rem;
+  gap: 0.15rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.4rem;
+  color: var(--poe-text-secondary);
   text-decoration: none;
-  color: var(--ninja-text-muted);
   border: 1px solid transparent;
-  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .ninja-nav-tab:hover {
-  color: var(--ninja-text);
+  color: var(--poe-text-primary);
   background: rgba(255, 255, 255, 0.04);
-  border-color: var(--ninja-border);
+  border-color: rgba(201, 169, 110, 0.18);
+  box-shadow: 0 0 18px rgba(120, 80, 170, 0.10);
 }
 
 .ninja-nav-tab.active {
-  color: #041510;
-  background: linear-gradient(180deg, #24d997 0%, var(--ninja-accent) 100%);
-  border-color: rgba(30, 203, 139, 0.6);
-  box-shadow: 0 0 24px var(--ninja-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  color: #1a1210;
+  background: linear-gradient(180deg, rgba(255, 240, 210, 0.96), rgba(200, 164, 97, 0.96));
+  border-color: rgba(200, 164, 97, 0.55);
+  box-shadow:
+    0 0 26px rgba(200, 164, 97, 0.45),
+    0 0 70px rgba(120, 80, 170, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .ninja-nav-tab-label {
-  font-size: 0.9375rem;
   font-weight: 700;
-  line-height: 1.2;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
 }
 
 .ninja-nav-tab-desc {
-  font-size: 0.625rem;
-  font-weight: 500;
+  font-size: 0.7rem;
+  color: inherit;
   opacity: 0.75;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.05em;
 }
 
-.ninja-nav-tab.active .ninja-nav-tab-desc {
-  opacity: 0.85;
+.ninja-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
+.ninja-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Panel */
+.ninja-panel {
+  background: linear-gradient(180deg, var(--poe-surface-2), var(--poe-surface-1));
+  border: 1px solid rgba(74, 60, 90, 0.55);
+  border-radius: 0.95rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.ninja-panel-accent {
+  border: 1px solid rgba(212, 169, 75, 0.32);
+  box-shadow:
+    0 0 28px rgba(212, 169, 75, 0.18),
+    0 0 80px rgba(120, 80, 170, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* Buttons */
+.ninja-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.05rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1a1210;
+  background: linear-gradient(180deg, rgba(255, 240, 210, 0.96), rgba(200, 164, 97, 0.96));
+  border: 1px solid rgba(200, 164, 97, 0.55);
+  border-radius: 0.5rem;
+  box-shadow:
+    0 0 26px rgba(200, 164, 97, 0.35),
+    0 0 70px rgba(120, 80, 170, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.25s ease;
+}
+
+.ninja-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 34px rgba(200, 164, 97, 0.5),
+    0 0 90px rgba(120, 80, 170, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.ninja-btn:active {
+  transform: translateY(0);
+}
+
+.ninja-btn-ghost {
+  color: var(--poe-gold);
+  background: rgba(212, 169, 75, 0.08);
+  border: 1px solid rgba(212, 169, 75, 0.35);
+  box-shadow: none;
+}
+
+.ninja-btn-ghost:hover {
+  background: rgba(212, 169, 75, 0.16);
+  box-shadow: 0 0 24px rgba(200, 164, 97, 0.28);
+}
+
+/* Inputs */
+.ninja-input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--poe-text-primary);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(74, 60, 90, 0.65);
+  border-radius: 0.6rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ninja-input::placeholder {
+  color: var(--poe-text-dim);
+}
+
+.ninja-input:focus {
+  border-color: rgba(212, 169, 75, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(212, 169, 75, 0.12),
+    0 0 28px rgba(212, 169, 75, 0.14),
+    0 0 70px rgba(120, 80, 170, 0.08);
+}
+
+.ninja-textarea {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  font-size: 0.9rem;
+  color: var(--poe-text-primary);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(74, 60, 90, 0.65);
+  border-radius: 0.65rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ninja-textarea::placeholder {
+  color: var(--poe-text-dim);
+}
+
+.ninja-textarea:focus {
+  border-color: rgba(212, 169, 75, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(212, 169, 75, 0.10),
+    0 0 28px rgba(212, 169, 75, 0.12),
+    0 0 70px rgba(120, 80, 170, 0.08);
+}
+
+/* Text */
+.ninja-title {
+  font-family: "Noto Serif SC", "Cinzel", serif;
+  font-size: clamp(1.6rem, 3.8vw, 2.2rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--poe-text-primary);
+  line-height: 1.25;
+  text-shadow: 0 0 22px rgba(212, 169, 75, 0.15);
+}
+
+.ninja-subtitle {
+  margin-top: 0.75rem;
+  font-size: 0.94rem;
+  color: var(--poe-text-secondary);
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.7;
+}
+
+.ninja-section-title {
+  font-family: "Cinzel", "Noto Serif SC", serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--poe-gold);
+  text-transform: uppercase;
+}
+
+.ninja-stat {
+  padding: 0.7rem 0.8rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(74, 60, 90, 0.55);
+  border-radius: 0.7rem;
+}
+
+.ninja-stat-label {
+  font-family: "Cinzel", "Noto Serif SC", serif;
+  font-size: 0.68rem;
+  color: var(--poe-text-dim);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.ninja-stat-value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-top: 0.2rem;
+  color: var(--poe-text-primary);
+  text-shadow: 0 0 14px rgba(212, 169, 75, 0.22);
+}
+
+.ninja-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.7rem;
+  font-family: "Cinzel", "Noto Serif SC", serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--poe-gold);
+  background: rgba(212, 169, 75, 0.10);
+  border: 1px solid rgba(212, 169, 75, 0.35);
+  border-radius: 999px;
+  box-shadow: 0 0 20px rgba(200, 164, 97, 0.18);
+  letter-spacing: 0.12em;
+}
+
+.ninja-link {
+  color: var(--poe-gold);
+  text-decoration: none;
+  opacity: 0.92;
+  transition: opacity 0.2s ease, text-shadow 0.2s ease;
+}
+
+.ninja-link:hover {
+  opacity: 1;
+  text-shadow: 0 0 22px rgba(212, 169, 75, 0.45);
+}
+
+/* Misc */
+.text-accent {
+  color: var(--poe-gold);
+}
+
+.border-accent-soft {
+  border-color: rgba(201, 169, 110, 0.28);
+}
+
+/* Hero */
 .ninja-hero {
   text-align: center;
-  padding: 2.5rem 1rem 2rem;
-  margin-bottom: 0.5rem;
+  padding: 2.6rem 1rem 2rem;
+  margin-bottom: 0.6rem;
 }
 
 .ninja-hero-title {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--ninja-text);
-  line-height: 1.15;
+  font-family: "Noto Serif SC", "Cinzel", serif;
+  font-size: clamp(1.8rem, 4.2vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--poe-text-primary);
+  line-height: 1.2;
+  text-shadow:
+    0 0 18px rgba(212, 169, 75, 0.18),
+    0 0 60px rgba(120, 80, 170, 0.12);
 }
 
 .ninja-hero-sub {
-  margin-top: 0.75rem;
-  font-size: 0.9375rem;
-  color: var(--ninja-text-muted);
-  max-width: 32rem;
+  margin-top: 0.9rem;
+  font-size: 0.96rem;
+  color: var(--poe-text-secondary);
+  max-width: 38rem;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
-.ninja-shell {
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 0 1.5rem 3rem;
+.ninja-hero-sigil {
+  display: inline-block;
+  width: 64px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(201, 169, 110, 0.7), transparent);
+  margin: 0.9rem auto 0;
+  box-shadow: 0 0 14px rgba(212, 169, 75, 0.25);
 }
 
-@media (max-width: 768px) {
-  .ninja-nav {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
-    padding: 0.75rem 1rem;
-  }
-  .ninja-nav-right { display: none; }
-  .ninja-nav-tab { min-width: 5.5rem; padding: 0.45rem 0.75rem; }
-  .ninja-nav-tab-desc { display: none; }
-}
-
-/* Chat uploaded images — allow native drag / right-click copy */
+/* Chat image */
 .chat-message-image__img {
   pointer-events: auto;
   user-select: auto;
   -webkit-user-drag: element;
   -webkit-touch-callout: default;
   cursor: context-menu;
+}
+
+/* Shell */
+.ninja-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--poe-void-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(120, 90, 150, 0.55), rgba(74, 60, 90, 0.65));
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(140, 110, 170, 0.7), rgba(90, 75, 110, 0.7));
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .ninja-page::before,
+  .ninja-page::after {
+    animation: none;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Chat chips & follow-up chips */
+.ninja-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--poe-text-secondary);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(74, 60, 90, 0.55);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.ninja-chip:hover:not(:disabled) {
+  color: var(--poe-text-primary);
+  background: rgba(212, 169, 75, 0.10);
+  border-color: rgba(212, 169, 75, 0.35);
+  box-shadow: 0 0 22px rgba(200, 164, 97, 0.18);
+}
+
+.ninja-follow-chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--poe-text-secondary);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(74, 60, 90, 0.50);
+  border-radius: 0.55rem;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ninja-follow-chip:hover {
+  color: var(--poe-text-primary);
+  background: rgba(212, 169, 75, 0.08);
+  border-color: rgba(212, 169, 75, 0.32);
+  box-shadow: 0 0 20px rgba(200, 164, 97, 0.14);
+}
+
+/* Chat message bubbles */
+.ninja-msg-user {
+  background:
+    linear-gradient(180deg, rgba(45, 18, 70, 0.92), rgba(28, 10, 48, 0.94));
+  border: 1px solid rgba(120, 75, 165, 0.38);
+  border-radius: 0.9rem;
+  box-shadow:
+    0 0 22px rgba(120, 75, 165, 0.18),
+    0 0 60px rgba(120, 75, 165, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.ninja-msg-assistant {
+  background: linear-gradient(180deg, var(--poe-surface-2), var(--poe-surface-1));
+  border: 1px solid rgba(74, 60, 90, 0.55);
+  border-radius: 0.95rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.ninja-msg-assistant-accent {
+  border: 1px solid rgba(212, 169, 75, 0.32);
+  box-shadow:
+    0 0 28px rgba(212, 169, 75, 0.18),
+    0 0 80px rgba(120, 80, 170, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* Drag/drop zone glow */
+.ninja-drop-zone {
+  border: 1px solid rgba(74, 60, 90, 0.55);
+  border-radius: 0.8rem;
+  background: rgba(0, 0, 0, 0.22);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ninja-drop-zone-active {
+  border-color: rgba(212, 169, 75, 0.55);
+  background: rgba(212, 169, 75, 0.06);
+  box-shadow:
+    0 0 0 3px rgba(212, 169, 75, 0.10),
+    0 0 28px rgba(212, 169, 75, 0.14),
+    0 0 70px rgba(120, 80, 170, 0.08);
+}
+
+/* Chat avatars */
+.ninja-avatar-user {
+  background: rgba(16, 11, 28, 0.9);
+  color: var(--poe-text-muted);
+  border: 1px solid rgba(90, 70, 120, 0.55);
+  box-shadow: 0 0 18px rgba(120, 80, 170, 0.12);
+}
+
+.ninja-avatar-ai {
+  background: rgba(212, 169, 75, 0.10);
+  color: var(--poe-gold);
+  border: 1px solid rgba(212, 169, 75, 0.40);
+  box-shadow:
+    0 0 22px rgba(200, 164, 97, 0.22),
+    0 0 60px rgba(120, 80, 170, 0.08);
+}
+
+/* Animations */
+@keyframes ninja-glow-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.ninja-glow-pulse {
+  animation: ninja-glow-pulse 2.6s ease-in-out infinite;
 }

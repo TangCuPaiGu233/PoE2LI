@@ -200,10 +200,11 @@ export default function Home() {
   const gems = result?.skillSets?.flatMap((s) => s.gems?.filter((g) => g.nameSpec) || []) || [];
 
   return (
-    <div className="ninja-shell text-[var(--ninja-text)]">
+    <div>
         <header className="ninja-hero">
-          <p className="ninja-section-title mb-3">Build Analyzer</p>
+          <p className="ninja-section-title mb-3 font-rune">Build Analyzer</p>
           <h1 className="ninja-hero-title">PoB 构建分析</h1>
+          <div className="ninja-hero-sigil" />
           <p className="ninja-hero-sub">
             粘贴 PoB 分享码或 poe.ninja 角色链接，自动解析装备并生成中文攻略
           </p>
@@ -235,18 +236,18 @@ export default function Home() {
 
               {/* Validation feedback */}
               {pobValid === false && pobCode.length > 10 && (
-                <p className="mt-2 text-xs text-[var(--ninja-danger)]">
+                <p className="mt-2 text-xs text-[var(--poe-corruption)]">
                   支持 PoB 分享码 (eN 开头) 或 https://pobb.in/ 或 https://poe.ninja/ 链接
                 </p>
               )}
               {pobValid === true && (
-                <p className="mt-2 text-xs text-[var(--ninja-accent)]">✓ 格式正确</p>
+                <p className="mt-2 text-xs text-[var(--poe-gold)]">✓ 格式正确</p>
               )}
 
               <button
                 type="submit"
                 disabled={loading || !pobValid}
-                className="ninja-btn mt-3 w-full py-3"
+                className={`ninja-btn mt-3 w-full py-3 ${!loading && pobValid ? 'ninja-glow-pulse' : ''}`}
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -283,7 +284,7 @@ export default function Home() {
                 {/* Build Info Card */}
                 <div className="ninja-panel-accent p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-[var(--ninja-accent)]">
+                    <h2 className="text-lg font-bold font-rune text-[var(--poe-gold-bright)]">
                       {result.build.className} / {result.build.ascendClassName}
                     </h2>
                     <span className="ninja-badge">Lv.{result.build.level}</span>
@@ -313,10 +314,11 @@ export default function Home() {
                       {gems.map((g, i) => (
                         <span
                           key={i}
-                          className="px-2.5 py-1 bg-[var(--ninja-bg-elevated)] border border-[var(--ninja-border)] rounded text-xs text-[var(--ninja-text-muted)]"
+                          className="px-2.5 py-1 bg-[rgba(201,169,110,0.08)] border border-[rgba(201,169,110,0.35)] rounded text-xs text-[var(--poe-rune)]"
+                          style={{ boxShadow: 'inset 0 0 12px rgba(212,169,75,0.08)' }}
                         >
                           {g.nameSpec}
-                          <span className="text-[var(--ninja-text-dim)] ml-1">Lv{g.level}</span>
+                          <span className="text-[var(--poe-text-dim)] ml-1">Lv{g.level}</span>
                         </span>
                       ))}
                     </div>
@@ -382,10 +384,10 @@ export default function Home() {
                       <button
                         key={b.id}
                         onClick={() => loadBuild(b.id)}
-                        className={`w-full p-3 rounded-lg text-left text-xs transition-colors ${
+                        className={`w-full p-3 rounded-lg text-left text-xs transition-all ${
                           result?.id === b.id
-                            ? "bg-[rgba(30,203,139,0.08)] border-[rgba(30,203,139,0.35)]"
-                            : "bg-[var(--ninja-bg-elevated)] border-[var(--ninja-border)] hover:border-[var(--ninja-border-strong)]"
+                            ? "bg-[rgba(212,169,75,0.12)] border-[rgba(212,169,75,0.4)] shadow-[0_0_18px_rgba(212,169,75,0.18)]"
+                            : "bg-[var(--poe-surface-2)] border-[var(--ninja-border)] hover:border-[rgba(201,169,110,0.45)] hover:shadow-[0_0_18px_rgba(212,169,75,0.12)]"
                         }`}
                       >
                         <div className="font-medium text-[var(--ninja-text)]">
@@ -420,17 +422,17 @@ function CollapsibleBlock({ title, content, defaultOpen = false }: { title: stri
   if (!content) return null;
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-[var(--ninja-border)] rounded overflow-hidden">
+    <div className="ninja-border rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-3 text-left hover:bg-[var(--ninja-panel-hover)] transition-colors"
+        className="w-full flex items-center justify-between p-3 text-left hover:bg-[rgba(201,169,110,0.06)] transition-colors"
       >
-        <span className="text-xs font-semibold text-[var(--ninja-text-muted)]">{title}</span>
-        <span className="text-[var(--ninja-text-dim)] text-xs">{open ? "▲" : "▼"}</span>
+        <span className="text-xs font-semibold text-[var(--poe-gold)]">{title}</span>
+        <span className="text-[var(--poe-text-dim)] text-xs">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <div className="px-3 pb-3">
-          <p className="text-sm text-[var(--ninja-text-muted)] leading-relaxed whitespace-pre-line pt-2">{content}</p>
+          <p className="text-sm text-[var(--poe-text-secondary)] leading-relaxed whitespace-pre-line pt-2">{content}</p>
         </div>
       )}
     </div>

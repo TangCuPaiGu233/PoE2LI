@@ -135,35 +135,37 @@ export default function FilterPage() {
   }
 
   return (
-    <main className="ninja-shell">
+    <main>
       {/* Hero */}
       <header className="ninja-hero">
+        <p className="ninja-section-title mb-3 font-rune">Item Filter</p>
         <h1 className="ninja-hero-title">AI 智能筛选器</h1>
+        <div className="ninja-hero-sigil" />
         <p className="ninja-hero-sub">
           基于 Trade API 实时扫描 + poe.ninja 通货数据，自动生成 PoE2 物品过滤器
         </p>
       </header>
 
       {/* Download Section */}
-      <section className="ninja-panel p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <section className="ninja-panel-accent p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="flex-1">
-          <h2 className="text-lg font-semibold mb-1">下载最新过滤器</h2>
-          <p className="text-sm text-[var(--ninja-text-muted)]">
+          <h2 className="text-lg font-semibold mb-1 text-[var(--poe-text-primary)]">下载最新过滤器</h2>
+          <p className="text-sm text-[var(--poe-text-secondary)]">
             基于 857 个白装底材 Trade API 扫描 + poe.ninja 实时通货数据，管理员定期更新。
           </p>
           {dlResult && (
-            <p className="text-xs text-[var(--ninja-accent)] mt-2">
+            <p className="text-xs text-[var(--poe-gold)] mt-2">
               已下载 {dlResult.filename} ({(dlResult.size / 1024).toFixed(0)} KB)
             </p>
           )}
           {error && (
-            <p className="text-xs text-[var(--ninja-danger)] mt-2">
+            <p className="text-xs text-[var(--poe-corruption)] mt-2">
               {error}
             </p>
           )}
         </div>
         <button
-          className="ninja-btn whitespace-nowrap"
+          className="ninja-btn whitespace-nowrap text-base py-3 px-6"
           disabled={downloading}
           onClick={handleDownload}
         >
@@ -178,22 +180,25 @@ export default function FilterPage() {
           {RULES.map((rule) => (
             <div
               key={rule.id}
-              className="ninja-panel p-4"
-              style={{ borderLeft: `3px solid ${rule.color}` }}
+              className="ninja-panel p-4 relative overflow-hidden"
             >
+              <div
+                className="absolute left-0 top-0 bottom-0 w-[3px]"
+                style={{ background: `linear-gradient(180deg, ${rule.color}, transparent)` }}
+              />
               <div className="flex items-center gap-2 mb-1.5">
                 <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: rule.color }}
+                  className="inline-block w-2.5 h-2.5 rounded-full"
+                  style={{ background: rule.color, boxShadow: `0 0 8px ${rule.color}55` }}
                 />
-                <span className="font-semibold text-sm">
+                <span className="font-semibold text-sm text-[var(--poe-text-primary)]">
                   {rule.id}. {rule.title}
                 </span>
               </div>
-              <p className="text-sm text-[var(--ninja-text-body)] leading-relaxed">
+              <p className="text-sm text-[var(--poe-text-secondary)] leading-relaxed">
                 {rule.desc}
               </p>
-              <p className="text-xs text-[var(--ninja-text-dim)] mt-1.5">
+              <p className="text-xs text-[var(--poe-text-dim)] mt-1.5">
                 例: {rule.example}
               </p>
             </div>
@@ -207,12 +212,12 @@ export default function FilterPage() {
         <div className="grid gap-3">
           {STEPS.map(({ step, title, desc }) => (
             <div key={step} className="ninja-panel-accent p-4 flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--ninja-accent)] text-[#041510] font-bold text-sm flex items-center justify-center">
+              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--poe-gold)] text-[var(--poe-void-deep)] font-bold text-sm flex items-center justify-center shadow-[0_0_14px_rgba(212,169,75,0.35)]">
                 {step}
               </span>
               <div>
-                <h3 className="font-semibold text-sm mb-1">{title}</h3>
-                <p className="text-sm text-[var(--ninja-text-body)]">{desc}</p>
+                <h3 className="font-semibold text-sm mb-1 text-[var(--poe-text-primary)]">{title}</h3>
+                <p className="text-sm text-[var(--poe-text-secondary)]">{desc}</p>
               </div>
             </div>
           ))}
@@ -222,25 +227,25 @@ export default function FilterPage() {
       {/* Technical Details */}
       <section className="mb-10">
         <h2 className="ninja-section-title mb-4">技术细节</h2>
-        <div className="ninja-panel p-5 text-sm text-[var(--ninja-text-body)] space-y-3">
+        <div className="ninja-panel-accent p-5 text-sm text-[var(--poe-text-secondary)] space-y-3">
           <p>
-            <strong className="text-[var(--ninja-text)]">数据来源</strong>
+            <strong className="text-[var(--poe-gold)]">数据来源</strong>
             ：白装底材价格来自 PoE2 官方 Trade API（CN 服务器），通货价格来自 poe.ninja 实时数据。
           </p>
           <p>
-            <strong className="text-[var(--ninja-text)]">更新频率</strong>
+            <strong className="text-[var(--poe-gold)]">更新频率</strong>
             ：底材每日 06:00 自动扫描（857 个素体），通货价格每次生成时实时拉取。也可手动触发重新生成。
           </p>
           <p>
-            <strong className="text-[var(--ninja-text)]">模板基础</strong>
+            <strong className="text-[var(--poe-gold)]">模板基础</strong>
             ：基于 asmco 四后期过滤器模板，保留原有的五阶黄/蓝装规则、已鉴定词缀规则等。AI 规则注入在模板规则之前，利用 first-match-wins 机制优先生效。
           </p>
           <p>
-            <strong className="text-[var(--ninja-text)]">防操纵机制</strong>
+            <strong className="text-[var(--poe-gold)]">防操纵机制</strong>
             ：高价底材要求至少 3 条在售listing，取中位价而非最低价，防止单条异常挂单影响判断。
           </p>
           <p>
-            <strong className="text-[var(--ninja-text)]">注意事项</strong>
+            <strong className="text-[var(--poe-gold)]">注意事项</strong>
             ：过滤器无法修改物品名称或显示自定义文字（PoE2 限制），只能通过颜色、图标、音效来区分价值等级。
           </p>
         </div>
@@ -248,14 +253,14 @@ export default function FilterPage() {
 
       {/* File path hint */}
       <section className="mb-8">
-        <div className="ninja-panel p-4 text-xs text-[var(--ninja-text-dim)]">
+        <div className="ninja-panel p-4 text-xs text-[var(--poe-text-dim)]">
           <p>
             过滤器文件路径:{" "}
-            <code className="text-[var(--ninja-accent)]">
+            <code className="text-[var(--poe-gold)]">
               C:\Users\&lt;用户名&gt;\Documents\My Games\Path of Exile 2\
             </code>
           </p>
-          <p className="mt-1">
+          <p className="mt-1 text-[var(--poe-text-secondary)]">
             游戏内设置路径: 设置 → 界面 → 物品过滤器 → 选择文件
           </p>
         </div>
