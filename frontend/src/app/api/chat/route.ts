@@ -1,9 +1,10 @@
 ﻿import { NextRequest } from "next/server";
+import { apiUrl } from "@/lib/apiUrl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BACKEND = (process.env.API_PROXY_TARGET || "http://127.0.0.1:8000").replace(/\/$/, "");
+const BACKEND = apiUrl();
 
 /** Stream SSE from FastAPI without Next.js rewrite buffering. */
 export async function POST(req: NextRequest) {
