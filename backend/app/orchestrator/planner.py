@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.orchestrator.llm_planner import llm_plan_dispatch
 from app.orchestrator.schemas import DispatchPlan
-from app.services.session_context import SessionContext, build_session_context
+from app.orchestrator.session_context import SessionContext, build_session_context
 
 
 def plan_dispatch(

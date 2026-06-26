@@ -1,6 +1,6 @@
 """Tests for session context and trade anchor resolution."""
 
-from app.services.session_context import build_session_context
+from app.orchestrator.session_context import build_session_context
 
 
 def _msgs(*pairs: tuple[str, str]) -> list[dict]:
