@@ -73,90 +73,46 @@ idle → connecting → streaming → (断开?) → reconnecting → streaming
 
 ## 3. 实现方案
 
-### 3.1 将 SSE 逻辑抽为 `useSSEStream` hook
+### 3.1 在 `send()` 内直接加重连循环
 
-**原因**：
-- `send()` 当前 160 行，已包含消息构建、流解析、事件处理
-- 抽离后可独立测试重连逻辑
-- 保持 `send()` 只负责"发起请求"
-
-**Hook 接口**：
-```ts
-function useSSEStream(options: {
-  onThinking: (text: string) => void;
-  onToolUse: (tc: ToolCallInfo) => void;
-  onToolResult: (result: { name: string; ok: boolean; preview: string }) => void;
-  onAnswer: (chunk: string) => void;
-  onTradeResult: (result: TradeResult) => void;
-  onSources: (sources: { type: string; preview: string }[]) => void;
-  onFollowUps: (questions: string[]) => void;
-  onDone: () => void;
-}): {
-  send: (history: ApiMsg[], images?: string[]) => Promise<void>;
-  abort: () => void;
-  reconnectAttempt: number;
-  networkError: string | null;
-}
-```
-
-### 3.2 重连状态管理
-
-在 `ChatPage` 中：
+保持 `send()` 结构，新增：
 ```ts
 const [reconnectAttempt, setReconnectAttempt] = useState(0);
 const [networkError, setNetworkError] = useState<string | null>(null);
-```
+const reconnectRef = useRef(0);
 
-在 `useSSEStream` 内部：
-```ts
-const reconnectAttemptRef = useRef(0);
+// 将原有 try/catch 内的 SSE 逻辑抽为 connect()
+async function connect() { ... }
+
+// 重连循环
+let retry = 0;
 const maxRetries = 4;
-
-async function connectWithRetry(history: ApiMsg[], signal: AbortSignal) {
-  while (reconnectAttemptRef.current < maxRetries) {
-    try {
-      await connect(history, signal); // 原有 SSE 逻辑
-      reconnectAttemptRef.current = 0; // 成功则重置
-      setNetworkError(null);
+while (retry < maxRetries) {
+  try {
+    await connect();
+    setReconnectAttempt(0);
+    setNetworkError(null);
+    break;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    retry += 1;
+    if (retry >= maxRetries) {
+      setNetworkError("网络异常，请重发");
       return;
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") throw e;
-      if (reconnectAttemptRef.current >= maxRetries - 1) {
-        setNetworkError("网络异常，请重发");
-        throw e;
-      }
-      const delay = 2 ** reconnectAttemptRef.current * 1000;
-      await new Promise(r => setTimeout(r, delay));
-      reconnectAttemptRef.current += 1;
-      setReconnectAttempt(reconnectAttemptRef.current);
     }
+    setReconnectAttempt(retry);
+    await new Promise(r => setTimeout(r, 2 ** (retry - 1) * 1000));
   }
 }
 ```
 
-### 3.3 取消机制
+### 3.2 UI 反馈
 
-- `abortRef` 已在组件卸载时调用 `abort()`
-- 重连循环检查 `signal.aborted`，若被取消则立即退出
-- 组件卸载时 `useEffect` cleanup 调用 `abort()`
-
-### 3.4 UI 反馈
-
-在 Chat 输入区上方增加重连提示：
+在输入区上方增加：
 ```tsx
-{networkError && (
-  <div className="text-xs text-red-400 mb-2">
-    ⚠ {networkError}
-  </div>
-)}
-```
-
-重连中显示轻量 loading：
-```tsx
+{networkError && <div className="text-xs text-red-400">⚠ {networkError}</div>}
 {reconnectAttempt > 0 && streaming && (
-  <div className="text-xs text-[var(--ninja-text-dim)]">
-    正在重连... ({reconnectAttempt}/4)
-  </div>
+  <div className="text-xs text-dim">正在重连... ({reconnectAttempt}/4)</div>
 )}
 ```
 
@@ -170,17 +126,15 @@ async function connectWithRetry(history: ApiMsg[], signal: AbortSignal) {
 | 后端应用层 | 5xx、LLM 超时、重试 | 归鸿 R-03/R-04 |
 | 前端业务层 | 4xx、字段错误 | 保持现状 |
 
-前端重连只处理**传输层**断开，不处理后端返回的业务错误码。
-
 ---
 
 ## 5. 实施步骤
 
-1. **抽离 `useSSEStream` hook**：将 `send()` 内的 SSE 读取逻辑移入 hook
-2. **增加重连状态**：`reconnectAttempt`、`networkError`
-3. **实现指数退避重连**：`connectWithRetry` 循环
-4. **增加 UI 提示**：重连中/失败提示
-5. **验证**：Dev 模式模拟断网，确认重连行为
+1. 在 `ChatPage` 增加 `reconnectAttempt`/`networkError` 状态
+2. 将 `send()` 内 SSE 逻辑抽为 `connect()`
+3. 增加 `while (retry < maxRetries)` 重连循环
+4. 增加 UI 提示
+5. `npm run build` + 手动断网验证
 
 ---
 
@@ -194,4 +148,4 @@ async function connectWithRetry(history: ApiMsg[], signal: AbortSignal) {
 
 ---
 
-*方案结束，等待 review 后编码。*
+*方案结束，approved 后编码。*
