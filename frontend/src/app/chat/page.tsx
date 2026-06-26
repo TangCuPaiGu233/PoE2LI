@@ -138,6 +138,8 @@ export default function ChatPage() {
   const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
   const [skill, setSkill] = useState("idle");
   const [showWelcome, setShowWelcome] = useState(true);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [networkError, setNetworkError] = useState<string | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -204,7 +206,7 @@ export default function ChatPage() {
     let reasonLog = "";
     let toolCallsArr: ToolCallInfo[] = [];
 
-    try {
+    async function connect() {
       const resp = await fetch(`${apiUrl()}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history, stream: true }), signal: controller.signal });
       const reader = resp.body?.getReader();
       if (!reader) {
@@ -258,7 +260,6 @@ export default function ChatPage() {
               const toolLine = argsHint ? `工具调用 · ${label} (${argsHint})` : `工具调用 · ${label}`;
               thinkLog.push(toolLine);
               setThinking([...thinkLog]);
-              // Build structured tool call for card UI
               const tc: ToolCallInfo = {
                 id: `tc_${Date.now()}_${toolCallsArr.length}`,
                 name,
@@ -278,13 +279,8 @@ export default function ChatPage() {
               const prefix = c.ok === false ? "工具失败" : "工具完成";
               thinkLog.push(`${prefix} · ${label}: ${preview}`);
               setThinking([...thinkLog]);
-              // Update structured tool call status (immutable update)
               const newStatus = c.ok === false ? "error" : "success";
-              toolCallsArr = toolCallsArr.map(t =>
-                t.name === name && t.status === "pending"
-                  ? { ...t, status: newStatus as ToolCallInfo["status"], resultPreview: preview }
-                  : t
-              );
+              toolCallsArr = toolCallsArr.map(t => t.name === name && t.status === "pending" ? { ...t, status: newStatus as ToolCallInfo["status"], resultPreview: preview } : t);
               setToolCalls([...toolCallsArr]);
             } else if (ev.type === "reasoning") { reasonLog += ev.content; setReasoning(reasonLog); }
             else if (ev.type === "answer") { acc += ev.content; setMessages(p => { const l = p[p.length - 1]; return l?.role === "assistant" ? [...p.slice(0, -1), { ...l, content: acc }] : [...p, { role: "assistant", content: acc }]; }); }
@@ -320,19 +316,32 @@ export default function ChatPage() {
           } catch { /* skip malformed */ }
         }
       }
-    } catch (e) {
-      // User-initiated abort (new message / navigation) — not a real error
-      if (e instanceof DOMException && e.name === "AbortError") {
-        setStreaming(false); setSkill("idle"); setThinking([]); setReasoning(""); setToolCalls([]);
-        return;
-      }
-      setMessages(p => {
-        const l = p[p.length - 1];
-        return l?.role === "assistant"
-          ? [...p.slice(0, -1), { ...l, content: `网络错误: ${e}` }]
-          : [...p, { role: "assistant", content: `网络错误: ${e}` }];
-      });
     }
+
+    let retry = 0;
+    const maxRetries = 4;
+    while (retry < maxRetries) {
+      try {
+        await connect();
+        setReconnectAttempt(0);
+        setNetworkError(null);
+        break;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") {
+          setStreaming(false); setSkill("idle"); setThinking([]); setReasoning(""); setToolCalls([]);
+          return;
+        }
+        retry += 1;
+        if (retry >= maxRetries) {
+          setNetworkError("网络异常，请重发");
+          setStreaming(false); setSkill("idle"); setToolCalls([]);
+          return;
+        }
+        setReconnectAttempt(retry);
+        await new Promise((resolve) => setTimeout(resolve, 2 ** (retry - 1) * 1000));
+      }
+    }
+
     setStreaming(false); setSkill("idle"); setToolCalls([]);
   }, [messages, streaming]);
 
@@ -606,6 +615,14 @@ export default function ChatPage() {
             )}
             {imageError && (
               <p className="text-xs text-red-400/90 px-3 pt-2">{imageError}</p>
+            )}
+            {networkError && (
+              <p className="text-xs text-red-400 px-3 pt-2">⚠ {networkError}</p>
+            )}
+            {reconnectAttempt > 0 && streaming && (
+              <p className="text-xs text-[var(--ninja-text-dim)] px-3 pt-2">
+                正在重连... ({reconnectAttempt}/4)
+              </p>
             )}
             <div className="flex gap-2 items-end p-2">
               <textarea
