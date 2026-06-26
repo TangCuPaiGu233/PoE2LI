@@ -5,6 +5,26 @@
 > 日期：2026-06-26  
 > 关联：Phase 1 MVP 已合入 main（f48a195），本文件为 Phase 2 方向设计，不直接修改生产代码。
 
+## 执行摘要
+
+**核心结论**：
+- 知识图谱入库采用三路线并行：A. `game_relations.json` 自动化进 pipeline；B. `game_data` 关键表生成 `knowledge_chunks`；C. 统一 `GameGraph` 查询入口
+- 技术栈保持 `GameGraph` 内存方案 + PostgreSQL `kb_entities/kb_edges`，Phase 2 不引入图数据库
+- 实施顺序：Week 1 路线 A，Week 2-3 路线 B，Week 4 路线 C
+
+**分工边界**：
+- 守夜：GGPK 导出侧（`export_en_tc.py`、`extract_sc.py`、TC 补齐）
+- 松烟：入库/知识图谱/pipeline 编排（`import_game_data.py`、`game_relations.json` 解析、`kb_entities/kb_edges` 入库）
+
+**待决策项**：
+- `game_relations.json` 是否双写 PostgreSQL？（建议先保持 JSON）
+- `KbEntity` 是否需要 `game_version` 字段？（建议需要）
+- 路线 B 是否依赖 TC 数据补齐？（建议不阻塞，EN fallback 启动）
+
+**协作对齐**：
+- 已与守夜对齐分工边界：守夜负责 GGPK 导出侧，松烟负责入库/知识图谱/pipeline 编排
+- 守夜已产出 `docs/phase2-alignment-draft.md`，松烟已 review 无异议
+
 ---
 
 ## 1. 知识图谱入库方向
