@@ -4,6 +4,7 @@ Usage:
     python scripts/import_game_data.py --data-dir /app/poe2_data
     python scripts/import_game_data.py --data-dir /app/poe2_data --dry-run
     python scripts/import_game_data.py --data-dir /app/poe2_data --tables ActiveSkills Mods
+    python scripts/import_game_data.py --data-dir /app/poe2_data --validate
 """
 import os
 import sys
@@ -38,6 +39,15 @@ _NAME_OVERRIDES = {
     # Words locale overrides
     "Words_sc": "Text2", "Words_tc": "Text2",
 }
+
+# Tables where TC coverage is critical for user-facing features.
+# Missing or very sparse TC data should emit an explicit warning.
+_TC_CRITICAL_TABLES = {
+    "Mods", "Stats", "PassiveSkills", "BaseItemTypes",
+    "GrantedEffects", "GrantedEffectsPerLevel", "ItemVisualIdentity",
+    "ActiveSkills", "SkillGems", "MonsterVarieties",
+}
+_TC_CRITICAL_MIN_RATIO = 0.2
 
 TABLE_CONFIG = {}
 for _t in _REG_TABLES:
@@ -99,6 +109,21 @@ def build_key_index(records, config):
 
 def import_table(session, table_name, en_records, tc_records, sc_records, config, game_version, dry_run=False):
     """Import a single table, merging EN/TC/SC by row_key."""
+    # TC critical-table coverage guard
+    en_count = len(en_records) if en_records else 0
+    tc_count = len(tc_records) if tc_records else 0
+    tc_is_missing = tc_records is None
+    if table_name in _TC_CRITICAL_TABLES and not dry_run:
+        if tc_is_missing:
+            print(f"  FAIL  {table_name}: TC data missing; export required")
+            print(f"        python backend/scripts/ggpk/export_en_tc.py --tables {table_name}")
+        else:
+            ratio = tc_count / en_count if en_count else 0.0
+            if ratio < _TC_CRITICAL_MIN_RATIO:
+                print(f"  WARN  {table_name}: TC coverage low ({tc_count}/{en_count} = {ratio:.2f})")
+            else:
+                print(f"  TC OK {table_name}: {tc_count}/{en_count} = {ratio:.2f}")
+
     # Use EN as the base, build key indexes for TC and SC
     en_key_idx = build_key_index(en_records, config) if en_records else {}
     tc_key_idx = build_key_index(tc_records, config) if tc_records else {}
@@ -172,6 +197,141 @@ def import_table(session, table_name, en_records, tc_records, sc_records, config
     return inserted
 
 
+def validate_data_dir(data_dir, tables=None):
+    """Validate EN/TC/SC JSON completeness for a data directory.
+
+    Returns a structured report without touching the database.
+    """
+    en_dir = os.path.join(data_dir, "en")
+    tc_dir = os.path.join(data_dir, "tc")
+    sc_dir = os.path.join(data_dir, "sc")
+
+    tables = tables or list(TABLE_CONFIG.keys())
+    report = {
+        "data_dir": data_dir,
+        "en_dir": en_dir,
+        "tc_dir": tc_dir,
+        "sc_dir": sc_dir,
+        "tables_checked": 0,
+        "tables_ok": 0,
+        "tables_missing": [],
+        "tables_incomplete": [],
+        "tables_missing_tc": [],
+        "tables_with_tc": [],
+        "locale_stats": {"en": 0, "tc": 0, "sc": 0},
+        "critical_warnings": [],
+    }
+
+    en_exists = os.path.isdir(en_dir)
+    tc_exists = os.path.isdir(tc_dir)
+    sc_exists = os.path.isdir(sc_dir)
+
+    report["en_exists"] = en_exists
+    report["tc_exists"] = tc_exists
+    report["sc_exists"] = sc_exists
+
+    if not en_exists:
+        report["tables_missing"].append("EN directory missing")
+        return report
+
+    for table_name in tables:
+        if table_name not in TABLE_CONFIG:
+            continue
+
+        jn = f"{table_name}.json"
+        en_path = os.path.join(en_dir, jn)
+        en = load_json(en_path)
+        if en is None:
+            report["tables_missing"].append(table_name)
+            continue
+
+        report["tables_checked"] += 1
+        report["locale_stats"]["en"] += len(en)
+
+        tc = load_json(os.path.join(tc_dir, jn)) if tc_exists else None
+        sc = load_json(os.path.join(sc_dir, jn)) if sc_exists else None
+
+        if tc:
+            report["locale_stats"]["tc"] += len(tc)
+        if sc:
+            report["locale_stats"]["sc"] += len(sc)
+
+        has_tc = bool(tc)
+        if has_tc:
+            report["tables_with_tc"].append(table_name)
+        else:
+            report["tables_missing_tc"].append(table_name)
+
+        en_count = len(en)
+        tc_count = len(tc) if tc else 0
+        sc_count = len(sc) if sc else 0
+
+        if en_count and tc_count and tc_count < en_count:
+            report["tables_incomplete"].append({
+                "table": table_name,
+                "en_count": en_count,
+                "tc_count": tc_count,
+                "sc_count": sc_count,
+            })
+
+        if table_name in _TC_CRITICAL_TABLES and not has_tc:
+            report["critical_warnings"].append({
+                "table": table_name,
+                "reason": "TC missing for user-facing table",
+            })
+    report["tables_ok"] = (
+        report["tables_checked"]
+        - len(report["tables_missing"])
+        - len(report["tables_incomplete"])
+    )
+    return report
+
+
+def print_validation_report(report):
+    """Pretty-print validation report to stdout."""
+    print("Validation Report")
+    print(f"  data_dir : {report['data_dir']}")
+    print(f"  EN       : {report['en_dir']} ({'OK' if report['en_exists'] else 'MISSING'})")
+    print(f"  TC       : {report['tc_dir']} ({'OK' if report['tc_exists'] else 'MISSING'})")
+    print(f"  SC       : {report['sc_dir']} ({'OK' if report['sc_exists'] else 'MISSING'})")
+    print()
+    print(f"tables_checked       : {report['tables_checked']}")
+    print(f"tables_ok            : {report['tables_ok']}")
+    print(f"tables_missing_tc    : {len(report['tables_missing_tc'])}")
+    print(f"locale rows          : EN={report['locale_stats']['en']:,} TC={report['locale_stats']['tc']:,} SC={report['locale_stats']['sc']:,}")
+    print()
+
+    if report["tables_missing"]:
+        print("Missing tables/files:")
+        for item in report["tables_missing"]:
+            print(f"  - {item}")
+        print()
+
+    if report["tables_missing_tc"]:
+        print("Tables missing TC data:")
+        for item in report["tables_missing_tc"]:
+            print(f"  - {item}")
+        print()
+
+    if report["tables_incomplete"]:
+        print("Tables with incomplete TC coverage:")
+        for item in report["tables_incomplete"]:
+            print(f"  - {item['table']}: EN={item['en_count']:,} TC={item['tc_count']:,} SC={item['sc_count']:,}")
+        print()
+
+    if report["critical_warnings"]:
+        print("Critical warnings:")
+        for item in report["critical_warnings"]:
+            print(f"  - {item['table']}: {item['reason']}")
+        print()
+
+
+def write_validation_report(report, path):
+    """Write validation report as JSON."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Import GGPK game data (EN/TC/SC)")
     parser.add_argument("--data-dir", required=True,
@@ -179,7 +339,20 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--tables", nargs="*", help="Specific tables (default: all)")
     parser.add_argument("--game-version", default="0.2.0")
+    parser.add_argument("--validate", action="store_true",
+                        help="Validate data completeness without importing")
+    parser.add_argument("--validate-report", default=None,
+                        help="Path to write validation report JSON")
     args = parser.parse_args()
+
+    # Validation mode: report only, no DB writes
+    if args.validate:
+        report = validate_data_dir(args.data_dir, args.tables)
+        print_validation_report(report)
+        if args.validate_report:
+            write_validation_report(report, args.validate_report)
+            print(f"Report written to: {args.validate_report}")
+        sys.exit(0)
 
     en_dir = os.path.join(args.data_dir, "en")
     tc_dir = os.path.join(args.data_dir, "tc")

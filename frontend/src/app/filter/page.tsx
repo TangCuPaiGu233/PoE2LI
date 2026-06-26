@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-function getApiUrl(): string {
-  if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
-  }
-  return "http://localhost:8000";
-}
+import { apiUrl } from "@/lib/apiUrl";
 
 /* ── Filter rule definitions ── */
 const RULES = [
@@ -91,7 +85,7 @@ export default function FilterPage() {
   const [dlResult, setDlResult] = useState<{ filename: string; size: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const apiBase = getApiUrl();
+  const apiBase = apiUrl();
 
   async function handleDownload() {
     setDownloading(true);

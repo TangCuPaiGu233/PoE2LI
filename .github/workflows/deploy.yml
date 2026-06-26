@@ -1,0 +1,39 @@
+name: Deploy
+
+# Stage 4 placeholder — 等待以下条件满足后再实现：
+# 1. 织墨 Step 0 完成：Docker 镜像可正常 build/pull
+# 2. 朝露配置好 GitHub Environments（dev/staging/prod）及对应 secrets
+# 3. 人间草木确认 prod required reviewers 与主机清单
+#
+# 部署策略（草案）：
+# - dev：main 合并自动部署到 NAS（192.168.110.26）
+# - staging：manual_dispatch，可复用腾讯云同机不同端口
+# - prod：manual_dispatch + required reviewers，部署到腾讯云（159.75.231.110）
+#
+# 回滚策略：
+# - 保留历史镜像 tag
+# - 部署失败自动回滚到上一 tag
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - name: TODO — 部署实现待 Docker 与 Environment 就绪
+        run: echo "Deploy pipeline pending build images and environment configuration"

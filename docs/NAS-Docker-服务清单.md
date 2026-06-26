@@ -18,7 +18,7 @@
 
 | 服务 | 目录 | 容器数 | 状态 | 端口映射 | 用途 |
 |------|------|--------|------|----------|------|
-| **PoE2LI** | `/volume1/docker/PoE2LI` | 5 | 运行中 | 3000, 5433, 6379, 8000 | 流放漓主项目 |
+| **PoE2LI** | `/volume1/docker/PoE2LI` | 7 | 运行中 | 3000, 5433, 6379, 8000, 8123/9000/9009 | 流放漓主项目 |
 | **mihomo** | `/volume1/docker/mihomo` | 1 | 运行中 | (内部代理) | 网络代理 (Clash Meta) |
 | **openclaw** | `/volume1/docker/openclaw` | 1 | 运行中 | 18789-18790 | 自托管 AI Agent 平台 |
 | **svn-server** | — | 1 | 运行中 | 3690 | SVN 版本控制 |
@@ -37,10 +37,17 @@
 | 容器名 | 镜像 | 端口 | 说明 |
 |--------|------|------|------|
 | `poe2li-backend` | poe2li-backend | 8000 | FastAPI 后端 API |
-| `poe2li-celery-worker` | poe2li-celery_worker | — | Celery 异步任务 Worker |
 | `poe2li-frontend` | poe2li-frontend | 3000 | Next.js 前端 |
 | `poe2li-postgres` | pgvector/pgvector:pg15 | **5433**:5432 | PostgreSQL + pgvector |
 | `poe2li-redis` | redis:7-alpine | 6379 | Redis (缓存 + 消息队列) |
+| `poe2li-celery-worker` | poe2li-celery_worker | — | Celery 异步任务 Worker |
+| `poe2li-celery-beat` | poe2li-celery_beat | — | Celery 定时任务 Beat |
+
+### 依赖/相关容器
+
+| 容器名 | 镜像 | 端口 | 说明 |
+|--------|------|------|------|
+| `poe2li-langfuse-clickhouse` | clickhouse/clickhouse-server:24 | 8123/9000/9009 | Langfuse/可观测性 ClickHouse |
 
 ### 数据卷
 
@@ -111,10 +118,10 @@
 | 6379 | PoE2LI Redis | Redis |
 | 7890 | mihomo (HTTP 代理) | HTTP Proxy |
 | 8000 | PoE2LI Backend API | HTTP |
-| 18789-18790 | OpenClaw Gateway | HTTP |
+| 8123/9000/9009 | PoE2LI Langfuse ClickHouse | HTTP/ClickHouse |
 
 **新增服务时，请避开以上端口。**
 
 ---
 
-*最后更新: 2026-06-07 by QoderWork*
+*最后更新: 2026-06-26 by 渡舟*

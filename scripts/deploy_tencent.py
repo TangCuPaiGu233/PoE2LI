@@ -19,12 +19,16 @@ PASS = os.getenv("TENCENT_SSH_PASS", "")
 ROOT = os.getenv("TENCENT_ROOT", "/opt/PoE2LI")
 BRANCH = os.getenv("TENCENT_BRANCH", "main")
 REPO = "https://github.com/TangCuPaiGu233/PoE2LI.git"
+MIRROR = os.getenv("TENCENT_GIT_MIRROR", "").strip()
 
 NAS_HOST = "192.168.110.26"
 NAS_PORT = 2212
 NAS_USER = "skc"
 NAS_PASS = "SKChaidao@123"
-NAS_ENV_PATH = "/volume1/docker/PoE2LI/.env"
+NAS_ROOT = "/volume1/docker/PoE2LI"
+NAS_ENV_PATH = f"{NAS_ROOT}/.env"
+NAS_BUNDLE_PATH = "/tmp/poe2li-tencent-bundle.bundle"
+TENCENT_BUNDLE_PATH = f"{ROOT}/poe2li-tencent-bundle.bundle"
 
 COMPOSE = "docker compose -f docker-compose.yml -f docker-compose.tencent.yml"
 PROXY_PREFIXES = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy")
@@ -105,8 +109,41 @@ def ensure_repo(client: paramiko.SSHClient) -> None:
     run(client, f"mkdir -p {ROOT}")
     code, _, _ = run(client, f"test -d {ROOT}/.git", check=False)
     if code != 0:
-        run(client, f"git clone {REPO} {ROOT}", timeout=600)
-    run(client, f"cd {ROOT}; git fetch origin; git checkout {BRANCH}; git pull origin {BRANCH}", timeout=300)
+        repo = MIRROR or REPO
+        run(client, f"git clone {repo} {ROOT}", timeout=600)
+    remote_repo = MIRROR or REPO
+    run(client, f"cd {ROOT}; git remote set-url origin {remote_repo}; git fetch origin; git checkout {BRANCH}; git pull origin {BRANCH}", timeout=300, check=False)
+
+
+def try_fetch_latest(nas: paramiko.SSHClient) -> bool:
+    print("Attempting to fetch latest NAS branch via git bundle fallback...")
+    try:
+        run(nas, f"cd {NAS_ROOT} && git bundle create {NAS_BUNDLE_PATH} {BRANCH}", timeout=120)
+    except Exception as exc:
+        print(f"Bundle creation failed: {exc}")
+        return False
+    return True
+
+
+def sync_bundle_to_tencent(tencent: paramiko.SSHClient) -> bool:
+    print("Syncing bundle to Tencent...")
+    try:
+        run(tencent, f"mkdir -p {ROOT}")
+        sftp = tencent.open_sftp()
+        try:
+            sftp.put(NAS_BUNDLE_PATH, TENCENT_BUNDLE_PATH)
+        finally:
+            sftp.close()
+    except Exception as exc:
+        print(f"Bundle upload failed: {exc}")
+        return False
+    return True
+
+
+def unbundle_and_checkout(client: paramiko.SSHClient) -> None:
+    run(client, f"cd {ROOT} && git bundle list-heads {TENCENT_BUNDLE_PATH}")
+    run(client, f"cd {ROOT} && git bundle unbundle {TENCENT_BUNDLE_PATH}")
+    run(client, f"cd {ROOT} && git checkout {BRANCH}")
 
 
 def sync_nas_data(tencent: paramiko.SSHClient) -> None:
@@ -186,6 +223,16 @@ def main() -> int:
         ensure_docker(client)
         ensure_repo(client)
         upload_env(client, env_content)
+
+        nas = connect(NAS_HOST, NAS_PORT, NAS_USER, NAS_PASS)
+        bundle_ok = try_fetch_latest(nas)
+        nas.close()
+
+        if bundle_ok:
+            sync_bundle_to_tencent(client)
+            unbundle_and_checkout(client)
+        else:
+            print("Bundle fallback unavailable; continuing with existing Tencent checkout.")
 
         run(client, f"cd {ROOT}; {COMPOSE} build backend frontend", timeout=3600)
         run(

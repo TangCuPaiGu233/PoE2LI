@@ -145,6 +145,13 @@ def main():
                     en_paths[bn] = p
 
     print(f"    EN paths: {len(en_paths)}, TC paths: {len(tc_paths)}")
+    missing_tc = set(en_paths.keys()) - set(tc_paths.keys())
+    if missing_tc:
+        print(f"    WARNING: {len(missing_tc)} tables missing in TC bundle")
+        for m in sorted(missing_tc)[:20]:
+            print(f"      MISSING TC: {m}")
+        if len(missing_tc) > 20:
+            print(f"      ... and {len(missing_tc) - 20} more")
 
     spec = load(version=spec_constants.VERSION.POE2)
 
