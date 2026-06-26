@@ -5,12 +5,15 @@ Workflow:
   1. validate   - check EN/TC/SC JSON completeness
   2. import     - load JSON into PostgreSQL via import_game_data.py
   3. relations  - resolve FK relations into game_relations.json
+  4. graph-import - import game_relations.json into kb_entities/kb_edges
+  5. chunks-generate - generate knowledge_chunks from game_data
+  6. chunks-verify - verify knowledge_chunks completeness
 
 Usage:
     python scripts/run_pipeline.py --data-dir data/poe2_data
     python scripts/run_pipeline.py --data-dir data/poe2_data --step validate
     python scripts/run_pipeline.py --data-dir data/poe2_data --step import
-    python scripts/run_pipeline.py --data-dir data/poe2_data --step relations
+    python scripts/run_pipeline.py --data-dir data/poe2_data --step relations graph-import
     python scripts/run_pipeline.py --data-dir data/poe2_data --game-version 0.2.0
     python scripts/run_pipeline.py --data-dir data/poe2_data --skip relations
 """
@@ -33,16 +36,16 @@ def main():
     parser.add_argument("--data-dir", required=True, help="Path to poe2_data dir")
     parser.add_argument("--game-version", default="0.2.0", help="Game version tag")
     parser.add_argument("--step", nargs="*", default=None,
-                        help="Run only specific steps: validate import relations")
+                        help="Run only specific steps: validate import relations graph-import chunks-generate chunks-verify report")
     parser.add_argument("--skip", nargs="*", default=None,
-                        help="Skip steps: validate import relations")
+                        help="Skip steps: validate import relations graph-import chunks-generate chunks-verify report")
     args = parser.parse_args()
 
     base = os.path.abspath(args.data_dir)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.abspath(os.path.join(script_dir, ".."))
 
-    all_steps = ["validate", "import", "relations"]
+    all_steps = ["validate", "import", "relations", "graph-import", "chunks-generate", "chunks-verify", "report"]
     steps = args.step or all_steps
     skip = set(args.skip or [])
     steps = [s for s in steps if s in all_steps and s not in skip]
@@ -118,6 +121,51 @@ def main():
         except subprocess.CalledProcessError as e:
             print(f"Relations failed with exit code {e.returncode}")
             failed.append("relations")
+
+    # Step 4: graph-import
+    if "graph-import" in steps:
+        print()
+        print("=" * 60)
+        print("STEP: graph-import")
+        print("=" * 60)
+        relations_path = os.path.join(base, "game_relations.json")
+        cmd = [
+            sys.executable, os.path.join(repo_root, "scripts", "backfill_game_data_relations.py"),
+            "--relations", relations_path,
+            "--game-version", args.game_version,
+        ]
+        try:
+            run(cmd, cwd=repo_root)
+            print("Graph import complete.")
+        except FileNotFoundError:
+            print("backfill_game_data_relations.py not available; skipping graph-import step.")
+        except subprocess.CalledProcessError as e:
+            print(f"Graph import failed with exit code {e.returncode}")
+            failed.append("graph-import")
+
+    # Step 5: chunks-generate
+    if "chunks-generate" in steps:
+        print()
+        print("=" * 60)
+        print("STEP: chunks-generate")
+        print("=" * 60)
+        print("chunks-generate not yet implemented; skipping.")
+
+    # Step 6: chunks-verify
+    if "chunks-verify" in steps:
+        print()
+        print("=" * 60)
+        print("STEP: chunks-verify")
+        print("=" * 60)
+        print("chunks-verify not yet implemented; skipping.")
+
+    # Step 7: report
+    if "report" in steps:
+        print()
+        print("=" * 60)
+        print("STEP: report")
+        print("=" * 60)
+        print("Report generation not yet implemented; skipping.")
 
     # Summary
     elapsed = time.time() - started

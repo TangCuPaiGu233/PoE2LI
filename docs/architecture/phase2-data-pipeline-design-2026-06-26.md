@@ -199,14 +199,22 @@ run_pipeline.py
 
 ### 3.3 新增 step 定义
 
-| Step | 命令 | 依赖 | 输出 |
+| Step | 脚本 | 依赖 | 输出 |
 |------|------|------|------|
-| `graph-import` | `scripts/backfill_game_data_relations.py --data-dir <dir>` | relations step 完成 | `kb_edges` / `kb_entities` 表更新 |
+| `graph-import` | `scripts/backfill_game_data_relations.py --relations <path> --game-version X` | relations step 完成 | `kb_edges` / `kb_entities` 表更新 |
 | `chunks-generate` | `scripts/backfill_game_data_chunks.py --tables Mods Stats ...` | import step 完成 | `knowledge_chunks` 表新增 |
 | `chunks-verify` | `scripts/verify_knowledge_chunks.py` | chunks-generate 完成 | 覆盖率/重复率报告 |
 | `report` | 内置汇总 | 所有 step 完成 | Markdown/JSON 报告 |
 
-### 3.4 调用示例
+### 3.4 Week 1 实现：graph-import step
+
+`scripts/backfill_game_data_relations.py` 已实现：
+- 读取 `game_relations.json`
+- 去重构建 `KbEntity`（带 `game_version`）
+- 批量写入 `kb_edges`（batch_size=500）
+- 支持 `--dry-run`
+
+### 3.5 调用示例
 
 ```bash
 # 全量 Phase 2 pipeline
