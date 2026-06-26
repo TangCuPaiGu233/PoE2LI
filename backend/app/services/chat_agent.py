@@ -18,6 +18,7 @@ from app.services.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
 
+from app.services.chat_guard import ToolLoopDedup, ToolFailureTracker, should_abort_on_failure
 from app.services.chat_response_guard import strip_ungrounded_price_claims
 from app.services.chat_tools import (
     RAG_SOFT_LIMIT,
@@ -444,6 +445,8 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
 
     session = build_session_context(messages)
     ctx = ChatToolContext(user_msg=session.effective_user_msg())
+    failure_tracker = ToolFailureTracker()
+    tool_dedup = ToolLoopDedup()
     client = _llm_client()
 
     agent_messages = build_agent_messages(messages, _build_system_message(user_msg))
