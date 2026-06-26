@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from app.orchestrator.planner import plan_dispatch
 from app.orchestrator.schemas import TaskSpec
-from app.orchestrator.session_context import build_session_context
+from app.services.session_context import build_session_context
 
 
 def _mock_plan(tasks: list[dict], *, note: str = "test"):
