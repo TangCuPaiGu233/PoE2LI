@@ -112,12 +112,17 @@ def import_table(session, table_name, en_records, tc_records, sc_records, config
     # TC critical-table coverage guard
     en_count = len(en_records) if en_records else 0
     tc_count = len(tc_records) if tc_records else 0
+    tc_is_missing = tc_records is None
     if table_name in _TC_CRITICAL_TABLES and not dry_run:
-        ratio = tc_count / en_count if en_count else 0.0
-        if ratio < _TC_CRITICAL_MIN_RATIO:
-            print(f"  WARN  {table_name}: TC coverage low ({tc_count}/{en_count} = {ratio:.2f})")
+        if tc_is_missing:
+            print(f"  FAIL  {table_name}: TC data missing; export required")
+            print(f"        python backend/scripts/ggpk/export_en_tc.py --tables {table_name}")
         else:
-            print(f"  TC OK {table_name}: {tc_count}/{en_count} = {ratio:.2f}")
+            ratio = tc_count / en_count if en_count else 0.0
+            if ratio < _TC_CRITICAL_MIN_RATIO:
+                print(f"  WARN  {table_name}: TC coverage low ({tc_count}/{en_count} = {ratio:.2f})")
+            else:
+                print(f"  TC OK {table_name}: {tc_count}/{en_count} = {ratio:.2f}")
 
     # Use EN as the base, build key indexes for TC and SC
     en_key_idx = build_key_index(en_records, config) if en_records else {}
@@ -269,6 +274,11 @@ def validate_data_dir(data_dir, tables=None):
                 "sc_count": sc_count,
             })
 
+        if table_name in _TC_CRITICAL_TABLES and not has_tc:
+            report["critical_warnings"].append({
+                "table": table_name,
+                "reason": "TC missing for user-facing table",
+            })
     report["tables_ok"] = (
         report["tables_checked"]
         - len(report["tables_missing"])
@@ -335,6 +345,7 @@ def main():
                         help="Path to write validation report JSON")
     args = parser.parse_args()
 
+    # Validation mode: report only, no DB writes
     if args.validate:
         report = validate_data_dir(args.data_dir, args.tables)
         print_validation_report(report)
