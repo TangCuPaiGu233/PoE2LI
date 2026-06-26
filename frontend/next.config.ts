@@ -7,10 +7,11 @@ const nextConfig: NextConfig = {
     return [{ source: "/trade", destination: "/chat", permanent: false }];
   },
   async rewrites() {
+    if (!apiProxy) return [];
     return [
       {
         source: "/api/:path*",
-        destination: `${apiProxy}/api/:path*`,
+        destination: `${apiProxy.replace(/\/$/, "")}/api/:path*`,
       },
     ];
   },
