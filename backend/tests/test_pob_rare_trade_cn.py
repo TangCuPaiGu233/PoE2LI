@@ -5,7 +5,10 @@ from app.services.pob_rare_trade import resolve_base_type_cn
 
 def test_resolve_base_type_cn_from_map():
     fake = {"Ruby Ring": "红玉戒指", "Gold Ring": "金戒指"}
-    with patch("app.services.pob_rare_trade._load_base_en_cn_map", return_value=fake):
+    with (
+        patch("app.services.pob_rare_trade._load_base_en_cn_map", return_value=fake),
+        patch("app.services.trade_items_index.resolve_base_type_cn", return_value=None),
+    ):
         assert resolve_base_type_cn("Ruby Ring") == "红玉戒指"
         assert resolve_base_type_cn("gold ring") == "金戒指"
 

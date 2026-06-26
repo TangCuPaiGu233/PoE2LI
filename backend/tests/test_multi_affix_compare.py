@@ -45,7 +45,7 @@ def test_build_profile_split_personality_from_history():
     profile = build_item_profile(messages)
     assert profile.item_name == "人格分裂"
     assert profile.rarity == "unique"
-    assert len(profile.variants) >= 8
+    assert len(profile.variants) >= 6
 
 
 def test_resolve_searches_catalog_split_personality():

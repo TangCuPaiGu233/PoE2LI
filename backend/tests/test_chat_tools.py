@@ -77,4 +77,5 @@ def test_tool_definitions_names():
         "resolve_trade_stat",
         "trade_search",
         "recommend",
+        "search_game",
     }

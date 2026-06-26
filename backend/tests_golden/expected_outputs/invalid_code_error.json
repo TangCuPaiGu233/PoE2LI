@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "reason": "invalid_prefix",
+  "error": "PoB 解码失败: 提取到的代码格式错误 (非 eN 开头)"
+}
