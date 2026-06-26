@@ -1,6 +1,11 @@
 ## PoE2LI 开发交接文档
 
-最后更新: 2026-06-08
+> **⚠️ 历史快照 — 2026-06-08**
+> 本文档是 2026-06-08 的开发交接记录，部分内容可能已过时。
+> **当前项目状态以 [`/CLAUDE.md`](/CLAUDE.md) 为准**，矛盾时 CLAUDE.md 优先。
+> 详见 [B4 文档对账报告](/docs/B4-文档对账报告.md)。
+
+最后更新: 2026-06-08（B4 文档对账后本文件标记为历史快照）
 
 ---
 
@@ -12,9 +17,9 @@
 | AI 作业生成 | 已完成 | LLM 生成中文攻略、预算替代方案 |
 | 知识库 RAG | 已完成 | pgvector 向量检索、版本过滤 |
 | **交易搜索 (Trade)** | **已完成** | **LLM 意图解析 → 向量匹配 → Trade API → URL** |
+| **Trade 集成到聊天** | **已实现 (Agent层) 🔄** | **Chat Agent 通过 `trade_search` 工具可执行交易搜索。后端✅ 前端独立Trade页面❌（见 Sprint 2）** |
 | 前端 | 基础完成 | Next.js + TailwindCSS |
 | Docker 部署 | 已完成 | NAS Docker Compose 运行中 |
-| Trade 集成到聊天 | 未开始 | 用户在 BD 聊天中说"帮我找XX"时调 Trade API |
 
 ### 二、交易搜索系统 — 核心架构
 
@@ -121,7 +126,7 @@ scp -P 2212 local_file.py skc@192.168.110.26:/volume1/docker/PoE2LI/...
 **环境变量 (.env):**
 - `LLM_BASE_URL` — SiliconFlow API (https://api.siliconflow.cn/v1)
 - `LLM_API_KEY` — SiliconFlow API Key
-- `LLM_MODEL` — deepseek-ai/DeepSeek-V4-Flash
+- `LLM_MODEL` — **当前默认: mimo-v2.5**（此文档记录时为 deepseek-ai/DeepSeek-V4-Flash，后续已切换。以 CLAUDE.md Tech Stack 和运行环境为准）
 - `HTTPS_PROXY` / `HTTP_PROXY` — NAS 代理 (http://192.168.110.26:7890)
 
 ### 六、向量搜索数据
@@ -134,7 +139,11 @@ scp -P 2212 local_file.py skc@192.168.110.26:/volume1/docker/PoE2LI/...
 
 ### 七、待完成事项
 
-1. **Trade 集成到 AI 聊天** — 用户在 BD 聊天页面说"帮我找一条加2召唤的项链"时，AI 应自动调用 Trade 搜索并嵌入链接。需要在 AI 聊天流程中识别交易意图并调用 trade_service。
+> **注**: 事项 #1（Trade 集成到聊天）**已在 Agent 层完成**。Chat Agent 的 ReAct/Orchestrator 运行时可通过 `trade_search` 工具执行交易搜索。以下为仍待完成的事项。
+
+1. ~~**Trade 集成到 AI 聊天** — 已在 Agent 层实现。Chat Agent 可通过 `trade_search` 工具自动触发交易搜索，SSE 返回 `trade_result` 事件。~~ ✅
+   - 后端 Agent 层 ✅（LLM 在 ReAct/Orchestrator 中自动调 trade_search）
+   - 前端独立 Trade 搜索 UI 页 ❌（Sprint 2 待实现，见 `docs/Sprint-01-Backlog.md`）
 
 2. **Docker 镜像重建** — 当前通过 docker cp 注入的代码修改在容器重建后会丢失。应在下次正式部署时 `docker compose up -d --build` 重建镜像。
 

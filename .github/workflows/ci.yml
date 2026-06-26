@@ -1,0 +1,100 @@
+# CI: Backend pytest
+# Sprint 1 — CI/CD v1.2（联调版本）
+# 起草: 织墨 (PM) | Review: 远岫 (Architect) | 审计: 半山居 (QA)
+# 触发条件: PR → main 自动执行
+#
+# 变更记录:
+# v1.0 (Day 1 11:00) — 织墨 初稿
+# v1.1 (Day 1 21:30) — 远岫 4点反馈落地 + Phase 1a 注释
+# v1.2 (Day 2 07:30) — Phase 1a 联调：切 tests/requirements-test.txt，
+#   移除 pytest fallback (半山居建议)，加 --cov-fail-under=50 (半山居建议)，
+#   清理 Phase 1a TODO 注释
+
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+
+    # ── Phase 1a: SQLite :memory: 模式，无需外部数据库 ──
+    # Phase 1b（集成测试）时打开以下 service 块
+    # services:
+    #   postgres:
+    #     image: pgvector/pgvector:pg15
+    #     env:
+    #       POSTGRES_USER: poe2li
+    #       POSTGRES_PASSWORD: poe2li_secret
+    #       POSTGRES_DB: poe2li
+    #     ports:
+    #       - 5433:5432
+    #     options: >-
+    #       --health-cmd pg_isready
+    #       --health-interval 10s
+    #       --health-timeout 5s
+    #       --health-retries 5
+    #   redis:
+    #     image: redis:7-alpine
+    #     ports:
+    #       - 6379:6379
+    #     options: >-
+    #       --health-cmd "redis-cli ping"
+    #       --health-interval 10s
+    #       --health-timeout 5s
+    #       --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r tests/requirements-test.txt
+
+      - name: Run pytest
+        working-directory: backend
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || '' }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY || '' }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL || 'mimo-v2.5' }}
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=50
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: |
+          pip install ruff
+
+      - name: Lint backend (ruff check)
+        working-directory: backend
+        run: |
+          ruff check . --output-format=github
+
+      - name: Check formatting (ruff format)
+        working-directory: backend
+        continue-on-error: true
+        run: |
+          ruff format --check .

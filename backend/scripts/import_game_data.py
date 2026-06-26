@@ -39,6 +39,15 @@ _NAME_OVERRIDES = {
     "Words_sc": "Text2", "Words_tc": "Text2",
 }
 
+# Tables where TC coverage is critical for user-facing features.
+# Missing or very sparse TC data should emit an explicit warning.
+_TC_CRITICAL_TABLES = {
+    "Mods", "Stats", "PassiveSkills", "BaseItemTypes",
+    "GrantedEffects", "GrantedEffectsPerLevel", "ItemVisualIdentity",
+    "ActiveSkills", "SkillGems", "MonsterVarieties",
+}
+_TC_CRITICAL_MIN_RATIO = 0.2
+
 TABLE_CONFIG = {}
 for _t in _REG_TABLES:
     _key = _REG_KEYS.get(_t)
@@ -99,6 +108,16 @@ def build_key_index(records, config):
 
 def import_table(session, table_name, en_records, tc_records, sc_records, config, game_version, dry_run=False):
     """Import a single table, merging EN/TC/SC by row_key."""
+    # TC critical-table coverage guard
+    en_count = len(en_records) if en_records else 0
+    tc_count = len(tc_records) if tc_records else 0
+    if table_name in _TC_CRITICAL_TABLES and not dry_run:
+        ratio = tc_count / en_count if en_count else 0.0
+        if ratio < _TC_CRITICAL_MIN_RATIO:
+            print(f"  WARN  {table_name}: TC coverage low ({tc_count}/{en_count} = {ratio:.2f})")
+        else:
+            print(f"  TC OK {table_name}: {tc_count}/{en_count} = {ratio:.2f}")
+
     # Use EN as the base, build key indexes for TC and SC
     en_key_idx = build_key_index(en_records, config) if en_records else {}
     tc_key_idx = build_key_index(tc_records, config) if tc_records else {}

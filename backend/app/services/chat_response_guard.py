@@ -22,8 +22,6 @@ def strip_ungrounded_price_claims(text: str, *, had_listing: bool) -> str:
         return text
     if not _PRICE_ASSERTION.search(text):
         return text
-    return (
-        text
-        + "\n\n*说明：本轮未能从市集读取在售标价，以上若含具体金额请忽略；"
-        "需要准确价格请使用下方市集链接或重新发起 trade 搜索。*"
-    )
+    # Hard-replace grounded price assertions with a placeholder to prevent
+    # the assistant from emitting unsupported specific prices.
+    return _PRICE_ASSERTION.sub("[价格需市集查询确认]", text)
