@@ -77,3 +77,23 @@ def _short_json(obj: Any, max_len: int = 8000) -> str:
     if len(text) > max_len:
         return text[: max_len - 3] + "..."
     return text
+
+class PlannerTaskEntry(BaseModel):
+    """LLM raw output for a single planner task."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent: str
+    query: str | None = None
+    detail_count: int | None = None
+    input: str | None = None
+    question: str | None = None
+
+
+class PlannerOutput(BaseModel):
+    """LLM raw output root structure for the planner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tasks: list[PlannerTaskEntry] = Field(default_factory=list)
+    reasoning: str | None = None
