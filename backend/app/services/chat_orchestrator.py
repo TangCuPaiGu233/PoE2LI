@@ -9,6 +9,7 @@ from typing import Any
 
 from app.core.game_context import POE2_SITE_RULE
 from app.orchestrator.dispatcher import dispatch_parallel
+from app.orchestrator.llm_planner import _prior_snippet_for_synthesis, _truncate_sub_agent_results
 from app.orchestrator.planner import plan_dispatch
 from app.orchestrator.schemas import SkillAgentResult
 from app.orchestrator.session_context import build_session_context
@@ -63,6 +64,9 @@ def _build_synthesis_messages(
     has_images: bool,
     prior_snippet: str = "",
 ) -> list[dict[str, Any]]:
+    # R-01 Level 2: truncate sub-agent outputs before building synthesis prompt
+    results = _truncate_sub_agent_results(results)
+
     blocks: list[str] = []
     for r in results:
         skill = get_skill(r.agent)
@@ -172,11 +176,14 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
 
     yield {"type": "thinking", "content": "正在综合子 Agent 结果生成回答…"}
 
+    # R-01 Level 1: use compact prior snippet for synthesis context
+    prior_snippet = _prior_snippet_for_synthesis(messages)
+
     synth_messages = _build_synthesis_messages(
         user_msg,
         results,
         has_images=has_images,
-        prior_snippet=session.prior_snippet,
+        prior_snippet=prior_snippet,
     )
     if has_images:
         synth_messages = build_agent_messages(messages, SYNTHESIS_SYSTEM)

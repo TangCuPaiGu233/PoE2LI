@@ -10,12 +10,85 @@ from typing import Any
 
 from app.core.llm_config import LLM_MODEL, llm_message_text
 from app.core.llm_client import get_llm_client
-from app.orchestrator.schemas import AgentName, DispatchPlan, TaskSpec
+from app.orchestrator.schemas import AgentName, DispatchPlan, SkillAgentResult, TaskSpec
 from app.orchestrator.session_context import SessionContext, build_session_context
 from app.services.chat_multimodal import extract_text, message_has_images
 from app.services.chat_tools import find_build_input
 
 logger = logging.getLogger(__name__)
+
+# ── R-01：三级截断策略 ──────────────────────────────────────────
+
+# Token budget thresholds
+_PLANNER_INPUT_BUDGET = 6000          # Planner 输入 token 预算
+_SYNTHESIS_TOKEN_BUDGET = 80000       # Synthesis token 预算
+_SUB_AGENT_RESULT_BUDGET = 4000       # 单个子 Agent 结果 token 预算
+_PLANNER_SNIPPET_CHARS = 1200         # 上下文摘要最大字符数
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate: ~1 token per 1.5 UTF-8 chars for CJK/EN mix."""
+    if not text:
+        return 0
+    return max(1, int(len(text) / 1.5))
+
+
+def _truncate_to_token_budget(text: str, max_tokens: int) -> str:
+    """Truncate text to fit within token budget, preserving complete lines."""
+    if not text or max_tokens <= 0:
+        return text or ""
+    tokens = _estimate_tokens(text)
+    if tokens <= max_tokens:
+        return text
+    # Binary search for optimal truncation point
+    lo, hi = 0, len(text)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if _estimate_tokens(text[:mid]) <= max_tokens:
+            lo = mid
+        else:
+            hi = mid - 1
+    truncated = text[:lo]
+    # Cut at last newline to avoid mid-line truncation
+    last_nl = truncated.rfind('\n')
+    if last_nl > 0:
+        truncated = truncated[:last_nl]
+    return truncated + "\n...[truncated]"
+
+
+def _truncate_sub_agent_results(results: list[SkillAgentResult]) -> list[SkillAgentResult]:
+    """R-01 Level 2: Truncate sub-agent result summaries to fit budget."""
+    truncated = []
+    for r in results:
+        if r.summary and _estimate_tokens(r.summary) > _SUB_AGENT_RESULT_BUDGET:
+            r.summary = _truncate_to_token_budget(r.summary, _SUB_AGENT_RESULT_BUDGET)
+        if r.facts:
+            facts_str = json.dumps(r.facts, ensure_ascii=False)
+            if _estimate_tokens(facts_str) > _SUB_AGENT_RESULT_BUDGET:
+                r.facts = {}  # Drop oversized facts to prevent context bloat
+        truncated.append(r)
+    return truncated
+
+
+def _prior_snippet_for_synthesis(messages: list[dict[str, Any]]) -> str:
+    """R-01 Level 1: Build compact prior snippet for synthesis context."""
+    if not messages:
+        return ""
+    # Take last 6 turns, heavily compressed
+    tail = messages[-6:]
+    parts: list[str] = []
+    for msg in tail:
+        role = msg.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        text = extract_text(msg).strip()
+        if not text:
+            continue
+        label = "用户" if role == "user" else "助手"
+        parts.append(f"{label}: {text[:200]}")
+    snippet = "\n".join(parts)
+    return _truncate_to_token_budget(snippet, _PLANNER_SNIPPET_CHARS)
+
 
 _VALID_AGENTS: set[str] = {
     "trade_search",
@@ -29,7 +102,7 @@ PLANNER_SYSTEM = """你是「流放漓」聊天编排器的规划模块。根据
 
 ## 子 Agent（你只做选择 + 写 query，不回答问题）
 
-| agent | 何时用 | payload 字段 |
+|| agent | 何时用 | payload 字段 |
 |-------|--------|--------------|
 | decode_pob | 本轮有可解析的 PoB 码/链接 | input |
 | trade_search | 查价、搜装备、市集 | query, detail_count(1-5) |
@@ -82,7 +155,8 @@ def _extract_json(text: str) -> dict[str, Any] | None:
     return None
 
 
-def _conversation_for_planner(messages: list[dict[str, Any]], *, max_turns: int = 8) -> str:
+def _conversation_for_planner_original(messages: list[dict[str, Any]], *, max_turns: int = 8) -> str:
+    """Original planner input formatter (kept for reference/tests)."""
     tail = messages[-max_turns:] if messages else []
     lines: list[str] = []
     for msg in tail:
@@ -97,6 +171,10 @@ def _conversation_for_planner(messages: list[dict[str, Any]], *, max_turns: int 
         label = "用户" if role == "user" else "助手"
         lines.append(f"{label}: {text[:600]}")
     return "\n".join(lines)
+
+
+# Backward compatibility: tests import this name from llm_planner
+_conversation_for_planner = _conversation_for_planner_original
 
 
 def _task_from_entry(entry: dict[str, Any], ctx: SessionContext) -> TaskSpec | None:
@@ -177,8 +255,9 @@ def llm_plan_dispatch(messages: list[dict[str, Any]]) -> DispatchPlan:
     ctx = build_session_context(messages)
     text = (ctx.current_user_text or "").strip()
     if not text and not ctx.has_images_current:
-        return _fallback_plan(SessionContext(current_user_text="你好"))
+        return _merge_pob_task(_fallback_plan(SessionContext(current_user_text="你好")).tasks, ctx)
 
+    # R-01: use budget-controlled conversation for planner input
     convo = _conversation_for_planner(messages)
     user_block = f"## 对话记录\n{convo}\n\n## 当前轮\n用户: {text or '(截图)'}"
     if ctx.has_images_current:
@@ -199,7 +278,10 @@ def llm_plan_dispatch(messages: list[dict[str, Any]]) -> DispatchPlan:
         parsed = _extract_json(llm_message_text(msg) if msg else "")
     except Exception as e:
         logger.warning("[ORCH] LLM planner failed: %s", e)
-        return _merge_pob_task(_fallback_plan(ctx).tasks, ctx)
+        return DispatchPlan(
+            tasks=_merge_pob_task(_fallback_plan(ctx).tasks, ctx),
+            planning_note="llm_planner_error",
+        )
 
     if not parsed or not isinstance(parsed.get("tasks"), list):
         logger.warning("[ORCH] LLM planner invalid JSON")
