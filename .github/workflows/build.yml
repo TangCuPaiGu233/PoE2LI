@@ -1,0 +1,33 @@
+name: Build
+
+# Stage 3 placeholder — 等待织墨完成 Docker Step 0（Dockerfile / 构建上下文 / 测试镜像）后再实现。
+#
+# 对接条件：
+# - backend/Dockerfile 与 frontend/Dockerfile 已就绪并通过本地构建验证
+# - 镜像仓库（GHCR / 私有仓库）可访问，GHCR_PAT 已配置
+# - 镜像 tag 策略已确认（如 sha-<commit> + :main）
+#
+# 触发建议：push 到 main 后执行
+# 步骤建议：
+# - docker/login-action
+# - docker/build-push-action（backend / frontend）
+# - 推送镜像 + 生成 release notes
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: TODO — 对接织墨 Docker 配置后实现
+        run: echo "Build backend image pending Dockerfile readiness"
+
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: TODO — 对接织墨 Docker 配置后实现
+        run: echo "Build frontend image pending Dockerfile readiness"
