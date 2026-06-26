@@ -18,12 +18,24 @@
 
 **待决策项**：
 - `game_relations.json` 是否双写 PostgreSQL？（建议先保持 JSON）
-- `KbEntity` 是否需要 `game_version` 字段？（建议需要）
+- `KbEntity` 是否需要 `game_version` 字段？（**已决策：需要**）
 - 路线 B 是否依赖 TC 数据补齐？（建议不阻塞，EN fallback 启动）
 
 **协作对齐**：
 - 已与守夜对齐分工边界：守夜负责 GGPK 导出侧，松烟负责入库/知识图谱/pipeline 编排
 - 守夜已产出 `docs/phase2-alignment-draft.md`，松烟已 review 无异议
+
+**远岫评审结论**（Phase 2 架构 review）：
+- 整体 approve
+- 路线 C（统一 `GameGraph` 查询入口）推迟到 Phase 3
+- `KbEntity` 增加 `game_version` 字段，支持多版本并存
+- 继续内存方案，不引入图数据库
+
+**Benchmark 基线**（`backend/scripts/benchmarks/game_graph_latency.py`）：
+- `find_entity`：p50 50~78ms，p95 56~114ms，max 56~700ms
+- `expand` 2 跳：p50 0.024~0.507ms
+- 瓶颈定位：`find_entity` 词匹配循环，不在 BFS
+- Neo4j 迁移阈值建议：`find_entity` 平均 >200ms 或 `expand` 平均 >10ms 或内存 >2GB 或边数 >2M
 
 ---
 
