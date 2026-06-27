@@ -18,8 +18,8 @@ from app.services.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
 from app.services.llm_stream import (
-    emit_streamed_answer,
-    first_choice,
+    emit_streamed_answer as _emit_streamed_answer,
+    first_choice as _first_choice,
     get_llm_client,
     get_model as _model,
     sanitize_answer as _sanitize_answer,
@@ -211,76 +211,6 @@ def _parse_tool_args(raw: str | None) -> dict[str, Any]:
         return json.loads(raw)
     except json.JSONDecodeError:
         return {}
-
-
-def _first_choice(obj: Any) -> Any | None:
-    choices = getattr(obj, "choices", None) or []
-    return choices[0] if choices else None
-
-
-async def _emit_streamed_answer(
-    client: AsyncOpenAI,
-    messages: list[dict[str, Any]],
-    *,
-    temperature: float = 0.3,
-    max_tokens: int = 8192,
-) -> AsyncIterator[tuple[str, str]]:
-    """Yield (event_type, text) for answer/reasoning. Falls back to non-stream if needed."""
-    stream_kwargs: dict[str, Any] = {
-        "model": _model(),
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "stream": True,
-    }
-    thinking = llm_thinking_extra_body()
-    if thinking:
-        stream_kwargs["extra_body"] = thinking
-        stream_kwargs["reasoning_effort"] = "max"
-
-    answer_parts: list[str] = []
-    try:
-        stream = await client.chat.completions.create(**stream_kwargs)
-        async for chunk in stream:
-            choice = _first_choice(chunk)
-            if choice is None:
-                continue
-            delta = choice.delta
-            reasoning = getattr(delta, "reasoning_content", None) or (
-                delta.model_extra.get("reasoning_content")
-                if hasattr(delta, "model_extra") and delta.model_extra
-                else None
-            )
-            if reasoning:
-                yield ("reasoning", reasoning)
-            if delta.content:
-                answer_parts.append(delta.content)
-                yield ("answer", delta.content)
-    except Exception as e:
-        logger.warning("[CHAT] stream synthesis failed, fallback: %s", e)
-
-    if answer_parts:
-        return
-
-    # MiMo sometimes returns empty stream chunks — non-stream fallback
-    fb_kwargs = dict(stream_kwargs)
-    fb_kwargs.pop("stream", None)
-    fb_kwargs.pop("extra_body", None)
-    fb_kwargs.pop("reasoning_effort", None)
-    if thinking:
-        fb_kwargs["extra_body"] = thinking
-        fb_kwargs["reasoning_effort"] = "max"
-    resp = await client.chat.completions.create(**fb_kwargs)
-    choice = _first_choice(resp)
-    if choice is None:
-        raise RuntimeError("LLM returned no choices")
-    msg = choice.message
-    reasoning = getattr(msg, "reasoning_content", None) or ""
-    if reasoning:
-        yield ("reasoning", reasoning)
-    text = msg.content or ""
-    if text:
-        yield ("answer", text)
 
 
 

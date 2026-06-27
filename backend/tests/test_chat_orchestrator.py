@@ -315,5 +315,5 @@ class TestRetryFallbackPlaceholders:
         assert hasattr(ChatToolContext, "consecutive_failures") or True
 
     def test_agent_has_retry_slot(self):
-        from app.services.chat_agent import _emit_streamed_answer
-        assert callable(_emit_streamed_answer)
+        from app.services.llm_stream import emit_streamed_answer
+        assert callable(emit_streamed_answer)
