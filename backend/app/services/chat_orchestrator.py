@@ -196,10 +196,10 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
             },
         )
 
-    client = _llm_client()
+    client = get_llm_client()
     answer_acc = ""
     try:
-        async for kind, text in _emit_streamed_answer(client, synth_messages):
+        async for kind, text in emit_streamed_answer(client, synth_messages):
             if kind == "reasoning":
                 yield {"type": "reasoning", "content": text}
             else:

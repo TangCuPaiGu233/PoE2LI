@@ -336,7 +336,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     ctx = ChatToolContext(user_msg=session.effective_user_msg())
     failure_tracker = ToolFailureTracker()
     tool_dedup = ToolLoopDedup()
-    client = _llm_client()
+    client = get_llm_client()
 
     agent_messages = build_agent_messages(messages, _build_system_message(user_msg))
 
@@ -580,7 +580,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}
 
     try:
-        async for kind, text in _emit_streamed_answer(client, agent_messages):
+        async for kind, text in emit_streamed_answer(client, agent_messages):
             if kind == "reasoning":
                 clean = _sanitize_reasoning(text)
                 if clean:
