@@ -11,7 +11,7 @@ from typing import Any
 from app.core.llm_config import LLM_MODEL, llm_message_text
 from app.core.llm_client import get_llm_client
 from app.orchestrator.schemas import AgentName, DispatchPlan, SkillAgentResult, TaskSpec
-from app.orchestrator.session_context import SessionContext, build_session_context
+from app.services.session_context import SessionContext, build_session_context
 from app.services.chat_multimodal import extract_text, message_has_images
 from app.services.chat_tools import find_build_input
 
