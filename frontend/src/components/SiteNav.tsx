@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/", label: "PoB 解析", desc: "导入 & 攻略" },
   { href: "/chat", label: "AI 问答", desc: "百科 & 市集" },
+  { href: "/trade", label: "交易搜索", desc: "物品市集" },
   { href: "/filter", label: "筛选器", desc: "智能过滤" },
 ];
 
