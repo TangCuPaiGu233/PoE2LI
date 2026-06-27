@@ -1,0 +1,69 @@
+# Coverage Baseline Report
+
+**Generated**: main after test-infrastructure merge  
+**Command**: `pytest backend/tests/ --cov=app --cov-report=term-missing -q`  
+**Result**: 236 passed, 2 warnings  
+**Overall Coverage**: 37% (11251 stmts, 7109 miss)
+
+## Top Gap Modules (0-50%)
+
+| Module | Coverage | Notes |
+|--------|----------|-------|
+| filter_generator | 0% | Large file, needs unit tests for tier/hide logic |
+| chat_orchestrator | 0% | Orchestration wrapper, needs integration tests |
+| trade_stat_availability | 0% | Large data module, needs sampling tests |
+| poe_ninja_service | 0% | External HTTP, needs mocked integration |
+| price_scanner | 0% | Scan loop, needs fixture-based tests |
+| base_scanner | 0% | Currency fallback logic, needs unit tests |
+| chat_agent | 16% | Agent loop, needs scenario tests |
+| trade_agent | 19% | Large trade flow, needs phased coverage |
+| retrieval_pipeline | 30% | RAG pipeline, needs retrieval mocks |
+| trade_service | 44% | Trade API client, needs HTTP mocks |
+| entity_tooltip | 41% | Tooltip generation, needs data fixtures |
+| entity_icon_service | 29% | Icon mapping, needs sample assets |
+| game_graph_service | 21% | Graph queries, needs seed data |
+| knowledge_service | 11% | KG service, needs DB fixtures |
+| observability | 14% | Metrics/logging, needs probe tests |
+| concept_links | 14% | Link expansion, needs graph fixtures |
+| follow_up_suggestions | 26% | LLM prompt, needs mock LLM |
+| recommend_agent | 29% | Recommendation logic, needs mock LLM |
+| recommend_runtime | 22% | Runtime routing, needs scenario tests |
+
+## Healthy Modules (>=60%)
+
+- rag_retrieval_policy: 96%
+- redis_client: 92%
+- build model: 97%
+- schemas: 100%
+- main.py: 100%
+- game_context: 100%
+- chat_response_guard: 100%
+- chat_item_profile: 70%
+- multi_item_price: 68%
+- trade_stats_index: 60%
+- chat_stream_lifecycle: 73%
+- chat_multimodal: 85%
+- chat_async_util: 85%
+- knowledge_graph_service: 69%
+- knowledge_guard: 56%
+- entity_resolver: 46%
+- entity_data: 41%
+- entity_dict: 32%
+- name_validation: 42%
+- trade_items_index: 52%
+- trade_realm: 90%
+- wegame_service: 64%
+- pob_rare_trade: 59%
+- session_context: 86%
+- llm_planner: 71%
+- planner: 91%
+- dispatcher: 88%
+
+## Next Steps
+
+Phase 1 target: lift overall coverage from 37% to >=50% by adding tests for:
+1. filter_generator tier/hide rules
+2. chat_orchestrator happy-path
+3. trade_service HTTP mocks
+4. retrieval_pipeline mocked retrieval
+5. trade_agent core flows
