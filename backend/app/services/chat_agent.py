@@ -14,9 +14,19 @@ import asyncio
 from app.core.llm_config import LLM_MODEL, llm_thinking_extra_body
 from app.core.llm_client import get_async_llm_client
 from app.core.game_context import POE2_SITE_RULE
-from app.orchestrator.session_context import build_session_context
+from app.services.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
+from app.services.llm_stream import (
+    emit_streamed_answer,
+    first_choice,
+    get_llm_client,
+    get_model as _model,
+    sanitize_answer as _sanitize_answer,
+    sanitize_reasoning as _sanitize_reasoning,
+    safe_flush_point as _safe_flush_point,
+    filter_reasoning_chunk as _filter_reasoning_chunk,
+)
 
 from app.services.chat_guard import ToolLoopDedup, ToolFailureTracker, should_abort_on_failure
 from app.services.chat_response_guard import strip_ungrounded_price_claims
@@ -96,119 +106,6 @@ _WIKI_BRACKET_RE = re.compile(r'\[poe:([^\]|\n]+?)(?:\|[^\]|\n]+?)?\]')  # [poe:
 _WIKI_ORPHAN_RE = re.compile(r'\[poe:([^|\n\]]+)')  # **[poe:法师之血** → **法师之血**
 _WIKI_PIPE_RE = re.compile(r'\|poe:')  # stray |poe: tags
 
-
-def _sanitize_answer(text: str) -> str:
-    """Strip wiki syntax and tool-call XML leaks from LLM output."""
-    if not text:
-        return text
-    # Remove raw tool call XML (e.g. <｜DSML｜tool_calls>...</｜DSML｜tool_calls>)
-    text = _TOOL_CALL_XML_RE.sub('', text)
-    text = _TOOL_CALL_XML_OPEN_RE.sub('', text)
-    # Convert wiki links [[page|display]] → display
-    text = _WIKI_LINK_RE.sub(r'\2', text)
-    # Convert single-bracket [poe:name] or [poe:name|en] → name
-    text = _WIKI_BRACKET_RE.sub(r'\1', text)
-    # Catch remaining unclosed [poe:Name fragments (split across table cells by |)
-    text = _WIKI_ORPHAN_RE.sub(r'\1', text)
-    # Remove stray |poe: fragments
-    text = _WIKI_PIPE_RE.sub('', text)
-    return text.strip()
-
-
-def _sanitize_reasoning(text: str) -> str:
-    """Strip tool-call XML and wiki syntax from reasoning/thinking content (shown in UI)."""
-    if not text:
-        return text
-    text = _TOOL_CALL_XML_RE.sub('', text)
-    text = _TOOL_CALL_XML_OPEN_RE.sub('', text)
-    text = _WIKI_LINK_RE.sub(r'\2', text)
-    text = _WIKI_BRACKET_RE.sub(r'\1', text)
-    text = _WIKI_ORPHAN_RE.sub(r'\1', text)
-    text = _WIKI_PIPE_RE.sub('', text)
-    return text.strip()
-
-
-def _safe_flush_point(buf: str) -> int:
-    """Find the last safe position to flush the content buffer.
-
-    Avoids cutting in the middle of unclosed [poe:...] patterns that could
-    span across buffer boundaries and evade sanitization.  Returns the
-    number of characters that can be safely flushed from the front.
-    """
-    last_open = buf.rfind('[poe:')
-    if last_open < 0:
-        return len(buf)
-    # Check if this [poe: has a closing ] after it
-    close = buf.find(']', last_open + 5)
-    if close >= 0:
-        # Pattern is fully closed — safe to flush everything
-        return len(buf)
-    # Unclosed [poe: found — hold back from that position
-    return last_open
-
-
-# Regex to detect tool-call XML tags (handles fullwidth ｜ and ASCII |, optional spaces)
-_TOOL_TAG_RE = re.compile(r'<\s*[｜|]\s*DSML\s*[｜|][^>]*>')
-_TOOL_TAG_CLOSE_RE = re.compile(r'</\s*[｜|]\s*DSML\s*[｜|][^>]*>')
-
-def _filter_reasoning_chunk(
-    text: str, in_tool_xml: bool, partial: str
-) -> tuple[str, bool, str]:
-    """Filter tool-call XML from a streaming reasoning chunk.
-
-    Returns (clean_text, still_in_tool_xml, leftover_partial).
-    Strips everything between <...DSML...> and </...DSML...> tags.
-    """
-    combined = partial + text
-    if not combined:
-        return "", in_tool_xml, ""
-
-    result_chars: list[str] = []
-    i = 0
-    while i < len(combined):
-        ch = combined[i]
-        if in_tool_xml:
-            # We're inside a DSML block — suppress everything until we find
-            # the closing </｜DSML｜...> or </...DSML...>
-            m = _TOOL_TAG_CLOSE_RE.search(combined, i)
-            if m:
-                # Found closing tag — skip to after it
-                i = m.end()
-                in_tool_xml = False
-            else:
-                # No closing tag in this chunk — suppress everything
-                return "".join(result_chars), True, ""
-        elif ch == '<':
-            # Check for opening DSML tag: <｜DSML｜...> or <|DSML|...>
-            rest = combined[i:]
-            tag_match = _TOOL_TAG_RE.match(rest)
-            if tag_match:
-                # Found complete opening tag — skip it and enter suppression mode
-                i += tag_match.end()
-                in_tool_xml = True
-            elif len(rest) <= 25 and any(
-                rest.startswith(pfx)
-                for pfx in ('<|', '<｜', '< |', '< ｜', '<|D', '<｜D', '< |D', '< ｜D',
-                            '<| D', '<｜ D', '< | D', '< ｜ D')
-            ):
-                # Possible partial opening tag at end — buffer it for next chunk
-                return "".join(result_chars), in_tool_xml, rest
-            else:
-                result_chars.append(ch)
-                i += 1
-        else:
-            result_chars.append(ch)
-            i += 1
-
-    return "".join(result_chars), in_tool_xml, ""
-
-
-def _is_tool_call_only(text: str) -> bool:
-    """Check if the text is entirely tool-call XML (no real answer content)."""
-    if not text or not text.strip():
-        return False
-    cleaned = _TOOL_CALL_XML_RE.sub('', text).strip()
-    return len(cleaned) < 10  # only whitespace/trivial text left
 
 AGENT_SYSTEM = """你是「流放漓」Path of Exile 2 智能助手。""" + POE2_SITE_RULE + """
 
@@ -297,14 +194,6 @@ def _active_tools(ctx: ChatToolContext) -> list[dict[str, Any]]:
     if ctx.rag_search_calls >= RAG_SOFT_LIMIT:
         active = [t for t in active if t["function"]["name"] != "rag_search"]
     return active
-
-
-def _llm_client():
-    return get_async_llm_client()
-
-
-def _model() -> str:
-    return LLM_MODEL
 
 
 def _build_system_message(user_msg: str) -> str:
@@ -447,7 +336,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     ctx = ChatToolContext(user_msg=session.effective_user_msg())
     failure_tracker = ToolFailureTracker()
     tool_dedup = ToolLoopDedup()
-    client = _llm_client()
+    client = get_llm_client()
 
     agent_messages = build_agent_messages(messages, _build_system_message(user_msg))
 
@@ -691,7 +580,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
     yield {"type": "thinking", "content": "正在综合工具结果生成回答..."}
 
     try:
-        async for kind, text in _emit_streamed_answer(client, agent_messages):
+        async for kind, text in emit_streamed_answer(client, agent_messages):
             if kind == "reasoning":
                 clean = _sanitize_reasoning(text)
                 if clean:
