@@ -1,19 +1,5 @@
 name: Deploy
 
-# Stage 4 placeholder — 等待以下条件满足后再实现：
-# 1. 织墨 Step 0 完成：Docker 镜像可正常 build/pull
-# 2. 朝露配置好 GitHub Environments（dev/staging/prod）及对应 secrets
-# 3. 人间草木确认 prod required reviewers 与主机清单
-#
-# 部署策略（草案）：
-# - dev：main 合并自动部署到 NAS（192.168.110.26）
-# - staging：manual_dispatch，可复用腾讯云同机不同端口
-# - prod：manual_dispatch + required reviewers，部署到腾讯云（159.75.231.110）
-#
-# 回滚策略：
-# - 保留历史镜像 tag
-# - 部署失败自动回滚到上一 tag
-
 on:
   push:
     branches: ["main"]
@@ -34,6 +20,45 @@ jobs:
     name: Deploy to ${{ github.event.inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
+
     steps:
-      - name: TODO — 部署实现待 Docker 与 Environment 就绪
-        run: echo "Deploy pipeline pending build images and environment configuration"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install deployment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install paramiko
+
+      - name: Deploy to NAS (dev)
+        if: github.event.inputs.environment != 'staging' && github.event.inputs.environment != 'prod'
+        env:
+          NAS_HOST: ${{ vars.NAS_HOST || '192.168.110.26' }}
+          NAS_PORT: ${{ vars.NAS_PORT || '2212' }}
+          NAS_USER: ${{ vars.NAS_USER || 'skc' }}
+          NAS_PASS: ${{ secrets.NAS_PASS }}
+          NAS_GIT_REF: ${{ github.ref_name }}
+        run: |
+          python deploy_nas.py
+
+      - name: Deploy to Tencent Cloud (staging/prod)
+        if: github.event.inputs.environment == 'staging' || github.event.inputs.environment == 'prod'
+        env:
+          TENCENT_HOST: ${{ vars.TENCENT_HOST }}
+          TENCENT_PORT: ${{ vars.TENCENT_PORT || '22' }}
+          TENCENT_USER: ${{ vars.TENCENT_USER || 'root' }}
+          TENCENT_SSH_PASS: ${{ secrets.TENCENT_SSH_PASS }}
+          TENCENT_ROOT: ${{ vars.TENCENT_ROOT || '/opt/PoE2LI' }}
+          TENCENT_BRANCH: ${{ github.ref_name }}
+          NAS_HOST: ${{ vars.NAS_HOST || '192.168.110.26' }}
+          NAS_PORT: ${{ vars.NAS_PORT || '2212' }}
+          NAS_USER: ${{ vars.NAS_USER || 'skc' }}
+          NAS_PASS: ${{ secrets.NAS_PASS }}
+        run: |
+          python scripts/deploy_tencent.py
