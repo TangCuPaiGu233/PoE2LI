@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.orchestrator.llm_planner import _conversation_for_planner
-from app.orchestrator.session_context import build_session_context
+from app.services.session_context import build_session_context
 from app.services.chat_orchestrator import _build_synthesis_messages
 from app.orchestrator.schemas import SkillAgentResult, TaskSpec
 
