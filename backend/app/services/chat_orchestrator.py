@@ -15,6 +15,7 @@ from app.orchestrator.schemas import SkillAgentResult
 from app.services.session_context import build_session_context
 from app.services.llm_stream import emit_streamed_answer, get_llm_client
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
+from app.services.chat_guard import ToolFailureTracker, ToolLoopDedup, retry_with_backoff
 from app.services.chat_response_guard import strip_ungrounded_price_claims
 from app.services.entity_validator import validate_answer
 from app.services.follow_up_suggestions import generate_follow_up_questions
@@ -22,6 +23,9 @@ from app.services.observability import flush
 from app.skills.router import get_skill
 
 logger = logging.getLogger(__name__)
+
+_GLOBAL_TOOL_TRACKER = ToolFailureTracker()
+_GLOBAL_TOOL_DEDUP = ToolLoopDedup()
 
 _AGENT_LABELS: dict[str, str] = {
     "trade_search": "交易搜索",
@@ -237,9 +241,53 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
                 },
             },
         )
+        # B.8/R-04: update global failure tracker
+        if result.ok:
+            _GLOBAL_TOOL_TRACKER.record_success()
+        else:
+            _GLOBAL_TOOL_TRACKER.record_failure(result.agent)
+        # B.9/R-05: record this task for cross-turn dedup
+        _GLOBAL_TOOL_DEDUP.record(result.agent, {"task_id": result.task_id, "query": str(result.summary)[:80]})
+
+    # B.9/R-05: skip tasks that are exact duplicates of already-dispatched ones in this turn
+    def _is_recent_duplicate(agent: str, payload: dict[str, Any]) -> bool:
+        for entry in reversed(_GLOBAL_TOOL_DEDUP.history[-6:]):
+            if entry.get("fn") != agent:
+                continue
+            prev_args = entry.get("args", {})
+            if agent == "trade_search":
+                pq = str(prev_args.get("query", "")).strip()
+                cq = str(payload.get("query", "")).strip()
+                if pq and cq:
+                    sa, sb = set(pq.lower().split()), set(cq.lower().split())
+                    u = len(sa | sb)
+                    if u and len(sa & sb) / u >= 0.6:
+                        return True
+                return False
+            return prev_args == payload
+        return False
+
+    filtered_tasks: list[TaskSpec] = []
+    for t in plan.tasks:
+        if _is_recent_duplicate(t.agent, t.payload):
+            logger.info("[ORCH] skip duplicate task agent=%s task_id=%s", t.agent, t.task_id)
+            continue
+        filtered_tasks.append(t)
+
+    # B.8/R-04: abort if tracker says so before dispatching
+    if filtered_tasks and any(
+        _GLOBAL_TOOL_TRACKER.should_abort_critical(t.agent)
+        or _GLOBAL_TOOL_TRACKER.should_abort_general()
+        for t in filtered_tasks
+    ):
+        logger.warning("[ORCH] aborting tool dispatch due to failure threshold")
+        yield {"type": "answer", "content": "工具连续失败，已跳过进一步查询。请稍后重试或换个问法。"}
+        flush()
+        yield {"type": "done"}
+        return
 
     results = await dispatch_parallel(
-        plan.tasks,
+        filtered_tasks,
         user_msg=user_msg,
         on_task_done=_on_task_done,
     )
@@ -292,13 +340,27 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
     synth_messages = _enforce_synthesis_budget(synth_messages)
     client = get_llm_client()
     answer_acc = ""
-    try:
-        async for kind, text in emit_streamed_answer(client, synth_messages):
+    # B.10/R-03: buffer + retry the synthesis stream so transient LLM errors can be retried
+    async def _collect_stream(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
+        async for kind, text in emit_streamed_answer(client, messages):
             if kind == "reasoning":
-                yield {"type": "reasoning", "content": text}
+                events.append({"type": "reasoning", "content": text})
             else:
-                answer_acc += text
-                yield {"type": "answer", "content": text}
+                events.append({"type": "answer", "content": text})
+        return events
+
+    try:
+        events = await retry_with_backoff(
+            _collect_stream,
+            synth_messages,
+            max_attempts=3,
+            base_delay=1.0,
+        )
+        for ev in events:
+            yield ev
+            if ev.get("type") == "answer":
+                answer_acc += ev.get("content", "")
     except Exception as e:
         logger.error("[ORCH] synthesis failed: %s", e)
         err = f"生成失败: {e}"
