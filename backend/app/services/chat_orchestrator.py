@@ -46,8 +46,26 @@ SYNTHESIS_SYSTEM = (
 7. 使用清晰中文 markdown（### 小标题、列表、**关键数值**）。
 8. 评价装备时必须识别所有高价值信号（T1 词缀、破裂、稀有附魔、Desecrated 基底、crafted、高 ilvl），禁止只看最强单词缀就定性。listing_price 是搜索最低价，不等于用户物品估价。
 9. 子 Agent 返回的 listings[] 含 fractured_mods / enchant_mods / crafted_mods / implicit_mods 字段，综合评估时**必须逐条列出**这些特殊词缀的价值。
+10. 你生成的任何价格声明（含数值、范围、货币单位的陈述）必须附带至少一个 source_ref（来自搜索结果）。无来源的价格陈述将被后处理清除。
 """
 )
+
+
+def _verify_price_claims(synthesis: str, search_results: list) -> str:
+    """Post-hoc guard: warn on price claims without a source_ref marker."""
+    import re
+
+    price_pattern = re.compile(r"\b\d+(?:\.\d+)?\s*(?:c|ex|div| exalted| divine| chaos)?\b", re.IGNORECASE)
+    source_marker = re.compile(r"〖source:[^〗]+〗")
+
+    def replacer(match: re.Match) -> str:
+        start = max(0, match.start() - 40)
+        snippet = synthesis[start : match.end() + 40]
+        if source_marker.search(snippet):
+            return match.group(0)
+        return f"{match.group(0)}〖source: 未验证，请自行核实〗"
+
+    return price_pattern.sub(replacer, synthesis)
 
 
 def _had_listing_price(results: list[SkillAgentResult]) -> bool:
@@ -211,8 +229,9 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
         answer_acc += err
         yield {"type": "answer", "content": err}
 
+    guarded = _verify_price_claims(answer_acc, results)
     guarded = strip_ungrounded_price_claims(
-        answer_acc,
+        guarded,
         had_listing=_had_listing_price(results),
     )
     if guarded != answer_acc:

@@ -88,6 +88,21 @@ async def _run_trade(
         best = trade_data.get("best_match") or {}
         summary = f"trade: {best.get('label', '?')} count={best.get('count')} — {exp[:500]}"
 
+    source_refs: list[dict[str, Any]] = []
+    if trade_data:
+        best = trade_data.get("best_match") or {}
+        listing_price = trade_data.get("listing_price") or {}
+        source_refs.append(
+            {
+                "type": "trade_listing",
+                "url": listing_price.get("url"),
+                "listing_price": listing_price.get("display"),
+                "confidence": "high" if listing_price.get("url") else "low",
+                "label": best.get("label"),
+                "count": best.get("count"),
+            }
+        )
+
     return SkillAgentResult(
         task_id=spec.task_id,
         agent="trade_search",
@@ -96,6 +111,8 @@ async def _run_trade(
         summary=summary,
         facts={"trade_payload": json.loads(result.content) if result.content else {}},
         warnings=warnings,
+        sources=result.sources or [],
+        source_refs=source_refs,
         trade_data=trade_data,
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
@@ -129,6 +146,22 @@ async def _run_encyclopedia(
         context = f"{rag_context}\n\n{game_context}" if rag_context else game_context
 
     has_data = bool(context and context.strip())
+    source_refs: list[dict[str, Any]] = []
+    if result.sources:
+        source_refs.extend(
+            [
+                {"type": s.get("source"), "preview": (s.get("preview") or "")[:120]}
+                for s in result.sources[:5]
+            ]
+        )
+    if game_result and game_result.content:
+        source_refs.append(
+            {
+                "type": "game_graph",
+                "preview": game_context[:120],
+            }
+        )
+
     return SkillAgentResult(
         task_id=spec.task_id,
         agent="encyclopedia",
@@ -140,7 +173,8 @@ async def _run_encyclopedia(
             "context": context[:12000],
             "game_graph": game_context[:3000] if game_context else "",
         },
-        sources=result.sources or ctx.last_sources,
+        sources=result.sources or [],
+        source_refs=source_refs,
         warnings=[] if has_data else ["知识库与游戏数据均未命中"],
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
@@ -184,7 +218,8 @@ async def _run_build_design(
             "context": context[:12000],
             "game_graph": game_context[:3000] if game_context else "",
         },
-        sources=result.sources or ctx.last_sources,
+        sources=result.sources or [],
+        source_refs=[],
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
 
