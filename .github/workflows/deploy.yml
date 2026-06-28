@@ -1,8 +1,10 @@
 name: Deploy
 
 on:
-  push:
-    branches: ["main"]
+  workflow_run:
+    workflows: ["CI", "Test"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       environment:
@@ -20,6 +22,9 @@ jobs:
     name: Deploy to ${{ github.event.inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
+    if: >-
+      ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+      || ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout
@@ -39,9 +44,9 @@ jobs:
       - name: Deploy to NAS (dev)
         if: github.event.inputs.environment != 'staging' && github.event.inputs.environment != 'prod'
         env:
-          NAS_HOST: ${{ vars.NAS_HOST || '192.168.110.26' }}
-          NAS_PORT: ${{ vars.NAS_PORT || '2212' }}
-          NAS_USER: ${{ vars.NAS_USER || 'skc' }}
+          NAS_HOST: ${{ vars.NAS_HOST }}
+          NAS_PORT: ${{ vars.NAS_PORT }}
+          NAS_USER: ${{ vars.NAS_USER }}
           NAS_PASS: ${{ secrets.NAS_PASS }}
           NAS_GIT_REF: ${{ github.ref_name }}
         run: |
@@ -51,14 +56,14 @@ jobs:
         if: github.event.inputs.environment == 'staging' || github.event.inputs.environment == 'prod'
         env:
           TENCENT_HOST: ${{ vars.TENCENT_HOST }}
-          TENCENT_PORT: ${{ vars.TENCENT_PORT || '22' }}
-          TENCENT_USER: ${{ vars.TENCENT_USER || 'root' }}
+          TENCENT_PORT: ${{ vars.TENCENT_PORT }}
+          TENCENT_USER: ${{ vars.TENCENT_USER }}
           TENCENT_SSH_PASS: ${{ secrets.TENCENT_SSH_PASS }}
-          TENCENT_ROOT: ${{ vars.TENCENT_ROOT || '/opt/PoE2LI' }}
+          TENCENT_ROOT: ${{ vars.TENCENT_ROOT }}
           TENCENT_BRANCH: ${{ github.ref_name }}
-          NAS_HOST: ${{ vars.NAS_HOST || '192.168.110.26' }}
-          NAS_PORT: ${{ vars.NAS_PORT || '2212' }}
-          NAS_USER: ${{ vars.NAS_USER || 'skc' }}
+          NAS_HOST: ${{ vars.NAS_HOST }}
+          NAS_PORT: ${{ vars.NAS_PORT }}
+          NAS_USER: ${{ vars.NAS_USER }}
           NAS_PASS: ${{ secrets.NAS_PASS }}
         run: |
           python scripts/deploy_tencent.py
