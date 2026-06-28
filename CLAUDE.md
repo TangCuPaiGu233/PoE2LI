@@ -75,7 +75,7 @@ ReAct loop (≤8 rounds)           plan → parallel dispatch → synthesize
 |------|------|
 | `backend/app/services/chat_agent.py` | System prompt (`AGENT_SYSTEM` rules 0–36), ReAct loop, streaming |
 | `backend/app/services/chat_tools.py` | Tool definitions + `execute_tool()` + `detect_input_signals()` |
-| `backend/app/orchestrator/session_context.py` | `build_session_context()` — prior turns, trade anchors, PoB detection |
+| `backend/app/services/session_context.py` | `build_session_context()` — prior turns, trade anchors, PoB detection |
 
 The agent calls OpenAI-compatible tools (`entity_resolve`, `rag_search`, `trade_search`, `decode_pob`, `recommend`, `resolve_trade_stat`, `search_game`). Rules in `AGENT_SYSTEM` cover multi-turn price follow-ups, 百科 vs 市集, 扭曲项链/畸变项链 disambiguation, WeGame panels, etc.
 
@@ -88,7 +88,7 @@ The agent calls OpenAI-compatible tools (`entity_resolve`, `rag_search`, `trade_
 | `backend/app/services/chat_orchestrator.py` | SSE events, synthesis prompt, `stream_chat()` entry |
 | `backend/app/orchestrator/llm_planner.py` | LLM reads conversation → JSON `{tasks: [{agent, query, …}]}` |
 | `backend/app/orchestrator/planner.py` | Thin wrapper → `llm_plan_dispatch(messages)` |
-| `backend/app/orchestrator/session_context.py` | `SessionContext` — anchors, `effective_user_msg()`, `trade_search_query()` |
+| `backend/app/services/session_context.py` | `SessionContext` — anchors, `effective_user_msg()`, `trade_search_query()` |
 | `backend/app/orchestrator/dispatcher.py` | `dispatch_parallel()` — semaphore + per-task timeout |
 | `backend/app/orchestrator/runners.py` | Maps each `TaskSpec` → `execute_tool()` |
 | `backend/app/orchestrator/schemas.py` | `TaskSpec`, `SkillAgentResult`, `DispatchPlan` |
@@ -484,7 +484,7 @@ Users download (GET /api/filter/download)
 | `backend/app/services/game_graph_service.py` | LLM-callable GGPK search (auto-fallback, expand, community synonyms) |
 | `backend/app/services/chat_response_guard.py` | Post-hoc price fabrication guard (`strip_ungrounded_price_claims`) |
 | `backend/app/orchestrator/llm_planner.py` | LLM task planner |
-| `backend/app/orchestrator/session_context.py` | Multi-turn context contract |
+| `backend/app/services/session_context.py` | Multi-turn context contract |
 | `backend/app/orchestrator/dispatcher.py` | Parallel sub-agent dispatch |
 | `backend/app/orchestrator/runners.py` | Agent → tool mapping |
 
