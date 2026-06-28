@@ -1,0 +1,10 @@
+# Development overrides — expose DB/Redis for local tooling
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+services:
+  postgres:
+    ports:
+      - "5433:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
