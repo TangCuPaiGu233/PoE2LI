@@ -115,6 +115,80 @@ def _build_synthesis_messages(
     ]
 
 
+def _enforce_synthesis_budget(messages: list[dict[str, Any]], *, budget: int = 80000) -> list[dict[str, Any]]:
+    """R-01: enforce synthesis token budget by trimming assistant/user blocks proportionally."""
+    if not messages:
+        return messages
+
+    def _count(text: str) -> int:
+        if not text:
+            return 0
+        return max(1, int(len(text) / 1.5))
+
+    total = sum(_count(m.get("content", "")) for m in messages if isinstance(m.get("content"), str))
+    if total <= budget:
+        return messages
+
+    weights: dict[str, float] = {
+        "trade_search": 3.0,
+        "encyclopedia": 2.0,
+        "build_design": 2.0,
+        "recommend": 1.0,
+        "decode_pob": 1.0,
+    }
+
+    blocks: list[dict[str, Any]] = []
+    block_weights: list[float] = []
+    for m in messages:
+        if m.get("role") == "system":
+            blocks.append(m)
+            block_weights.append(1.0)
+            continue
+
+        agent = "unknown"
+        content = m.get("content", "")
+        if isinstance(content, str):
+            marker = "### Sub-agent: "
+            idx = content.find(marker)
+            if idx != -1:
+                tail = content[idx + len(marker):]
+                agent = tail.split("(", 1)[0].strip()
+
+        blocks.append(m)
+        block_weights.append(weights.get(agent, 1.0))
+
+    total_weight = sum(block_weights)
+    if total_weight <= 0:
+        return messages
+
+    allowed: dict[int, int] = {}
+    budget_remaining = budget
+    for idx, w in enumerate(block_weights):
+        if idx == 0 and blocks[idx].get("role") == "system":
+            allowed[idx] = _count(blocks[idx].get("content", ""))
+            budget_remaining = max(0, budget_remaining - allowed[idx])
+            continue
+        share = int(budget * (w / total_weight))
+        allowed[idx] = max(0, min(share, budget_remaining))
+        budget_remaining = max(0, budget_remaining - allowed[idx])
+
+    trimmed: list[dict[str, Any]] = []
+    for idx, m in enumerate(blocks):
+        if allowed[idx] <= 0:
+            continue
+        content = m.get("content", "")
+        if not isinstance(content, str):
+            trimmed.append(m)
+            continue
+        count = _count(content)
+        if count <= allowed[idx]:
+            trimmed.append(m)
+            continue
+        ratio = allowed[idx] / count if count else 0
+        trimmed.append({**m, "content": content[: max(1, int(len(content) * ratio))]})
+    return trimmed
+
+
 async def _follow_up_event(user_msg: str, answer: str) -> dict[str, Any] | None:
     questions = await generate_follow_up_questions(user_msg, answer)
     if questions:
