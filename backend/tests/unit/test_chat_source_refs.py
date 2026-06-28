@@ -20,8 +20,8 @@ def test_strip_ungrounded_price_claims_noop_when_listing_present():
 def test_strip_ungrounded_price_claims_appends_warning_when_no_listing():
     text = "大概 3-8 崇高"
     out = strip_ungrounded_price_claims(text, had_listing=False)
-    assert "未能从市集读取在售标价" in out
-    assert "3-8 崇高" in out
+    assert "[价格需市集查询确认]" in out
+    assert out != text
 
 
 def test_strip_ungrounded_price_claims_noop_when_no_price():

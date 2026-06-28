@@ -175,8 +175,7 @@ class TestStripUngroundedPriceClaims:
     def test_price_assertion_without_listing_appends_warning(self):
         text = "建议售价 3-5 崇高"
         result = strip_ungrounded_price_claims(text, had_listing=False)
-        assert "说明" in result
-        assert "未能从市集读取" in result
+        assert "[价格需市集查询确认]" in result
 
     def test_empty_text(self):
         assert strip_ungrounded_price_claims("", had_listing=False) == ""
@@ -184,17 +183,17 @@ class TestStripUngroundedPriceClaims:
     def test_price_range_pattern(self):
         text = "大概 2~8 div"
         result = strip_ungrounded_price_claims(text, had_listing=False)
-        assert "说明" in result
+        assert "[价格需市集查询确认]" in result
 
     def test_exalt_price(self):
         text = "市价约 10e"
         result = strip_ungrounded_price_claims(text, had_listing=False)
-        assert "说明" in result
+        assert "[价格需市集查询确认]" in result
 
     def test_divine_price(self):
         text = "建议挂 1div"
         result = strip_ungrounded_price_claims(text, had_listing=False)
-        assert "说明" in result
+        assert "[价格需市集查询确认]" in result
 
 
 # ── Agent loop exit conditions ──────────────────────────────────────
