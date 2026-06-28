@@ -40,6 +40,7 @@ class SkillAgentResult(BaseModel):
     facts: dict[str, Any] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     sources: list[dict[str, Any]] = Field(default_factory=list)
+    source_refs: list[dict[str, Any]] = Field(default_factory=list)
     trade_data: dict[str, Any] | None = None
     recommend_data: dict[str, Any] | None = None
     latency_ms: int = 0
