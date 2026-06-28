@@ -288,6 +288,8 @@ async def stream_chat_orchestrator(messages: list[dict]) -> AsyncIterator[dict[s
             },
         )
 
+
+    synth_messages = _enforce_synthesis_budget(synth_messages)
     client = get_llm_client()
     answer_acc = ""
     try:

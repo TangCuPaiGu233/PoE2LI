@@ -28,7 +28,7 @@ from app.services.llm_stream import (
     filter_reasoning_chunk as _filter_reasoning_chunk,
 )
 
-from app.services.chat_guard import ToolLoopDedup, ToolFailureTracker, should_abort_on_failure
+from app.services.chat_guard import ToolLoopDedup, ToolFailureTracker, retry_with_backoff, should_abort_on_failure
 from app.services.chat_response_guard import strip_ungrounded_price_claims
 from app.services.chat_tools import (
     RAG_SOFT_LIMIT,
@@ -438,6 +438,7 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                 result = _tool_task.result()
             except Exception as e:
                 logger.error("[CHAT] tool %s failed: %s", fn, e)
+                ctx.consecutive_failures += 1
                 result_content = json.dumps({"error": str(e)}, ensure_ascii=False)
                 yield {
                     "type": "tool_result",
@@ -450,8 +451,15 @@ async def stream_chat_agent(messages: list[dict]) -> AsyncIterator[dict[str, Any
                         "content": result_content,
                     },
                 )
+                if (fn == "decode_pob" and ctx.consecutive_failures >= 2) or ctx.consecutive_failures >= 3:
+                    yield {
+                        "type": "thinking",
+                        "content": f"工具连续失败 {ctx.consecutive_failures} 次，已中止工具循环，转为综合回答。",
+                    }
+                    break
                 continue
 
+            ctx.consecutive_failures = 0
             preview = result.content[:240] + ("..." if len(result.content) > 240 else "")
             yield {
                 "type": "tool_result",

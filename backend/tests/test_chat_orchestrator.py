@@ -202,8 +202,8 @@ def _make_fake_llm_client(monkeypatch):
 
     fake = FakeClient()
     # Patch where these are imported, not where they are defined
-    monkeypatch.setattr("app.services.chat_agent._llm_client", lambda: fake)
-    monkeypatch.setattr("app.services.chat_orchestrator._llm_client", lambda: fake)
+    monkeypatch.setattr("app.services.chat_agent.get_llm_client", lambda: fake)
+    monkeypatch.setattr("app.services.chat_orchestrator.get_llm_client", lambda: fake)
 
     async def _fake_follow_up(*a, **k):
         return None
