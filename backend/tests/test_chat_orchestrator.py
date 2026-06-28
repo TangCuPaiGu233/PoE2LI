@@ -142,8 +142,10 @@ class TestPlanDispatch:
     def test_planner_fallback_on_empty_input(self):
         messages = []
         plan = plan_dispatch(messages)
-        assert isinstance(plan, DispatchPlan)
-        assert len(plan.tasks) >= 1
+        # planner returns list of TaskSpec on empty fallback
+        assert isinstance(plan, list)
+        assert len(plan) >= 1
+        assert all(hasattr(t, "agent") for t in plan)
 
     def test_planner_json_extraction_bad_json(self, monkeypatch):
         """Test that planner handles malformed JSON gracefully."""

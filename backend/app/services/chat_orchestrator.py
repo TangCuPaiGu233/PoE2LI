@@ -12,7 +12,7 @@ from app.orchestrator.dispatcher import dispatch_parallel
 from app.orchestrator.llm_planner import _prior_snippet_for_synthesis, _truncate_sub_agent_results
 from app.orchestrator.planner import plan_dispatch
 from app.orchestrator.schemas import SkillAgentResult
-from app.orchestrator.session_context import build_session_context
+from app.services.session_context import build_session_context
 from app.services.chat_agent import _emit_streamed_answer, _llm_client
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.chat_response_guard import strip_ungrounded_price_claims

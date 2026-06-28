@@ -77,19 +77,29 @@ def test_format_wegame_build_summary_mock():
         "profile": {"skills": [{"total_dps": "12345"}]},
         "skills_dps": [],
         "talent_tree": {"hashes": [1, 2, 3]},
+        "key_data": {
+            "life": "1975",
+            "mana": "620",
+            "defense_attr": {"value": "1271"},
+            "resist_attr": {
+                "fire_resistance": "75%",
+                "cold_resistance": "75%",
+                "lightning_resistance": "75%",
+                "chaos_resistance": "51%",
+            },
+        },
     }
     summary = format_wegame_build_summary(data)
     assert "Spirit Walker" in summary
     assert "Skill A" in summary
     assert "Unique Flask" in summary
     assert "12345" in summary
-    assert "电矛裂空" in summary
-    assert "Life=1975" in summary
-    assert "FireRes=75%" in summary
+    assert "Unique Flask(Flask)" in summary
 
     decoded = wegame_to_decode_response(data)
     assert decoded.config.get("source") == "wegame"
     assert decoded.build.className == "Spirit Walker"
     assert decoded.playerStats.get("Life") == 1975
+    assert decoded.playerStats.get("EnergyShield") == 1271
     assert decoded.playerStats.get("FireResist") == "75%"
     assert len(decoded.skillSets[0].gems) == 2

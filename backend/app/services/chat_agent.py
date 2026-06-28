@@ -14,7 +14,7 @@ import asyncio
 from app.core.llm_config import LLM_MODEL, llm_thinking_extra_body
 from app.core.llm_client import get_async_llm_client
 from app.core.game_context import POE2_SITE_RULE
-from app.orchestrator.session_context import build_session_context
+from app.services.session_context import build_session_context
 from app.services.chat_multimodal import build_agent_messages, message_has_images, resolve_user_text
 from app.services.follow_up_suggestions import generate_follow_up_questions
 
