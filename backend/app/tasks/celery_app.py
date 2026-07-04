@@ -27,5 +27,9 @@ celery_app.conf.update(
             "task": "app.tasks.worker.scan_base_prices_task",
             "schedule": crontab(hour=6, minute=0),
         },
+        "refresh-currency-rates-hourly": {
+            "task": "app.tasks.worker.refresh_currency_rates_task",
+            "schedule": crontab(minute=0),
+        },
     },
 )

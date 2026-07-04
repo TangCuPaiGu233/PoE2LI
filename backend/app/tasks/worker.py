@@ -1,20 +1,24 @@
 """Celery worker tasks for background processing."""
 
+import asyncio
+import logging
+
 from app.tasks.celery_app import celery_app
 from app.services.ai_service import generate_homework
 from app.services.knowledge_service import ingest_build
+from app.services.pricing_service import PricingService
 from app.models.schemas import DecodeResponse
 from app.core.database import SessionLocal
 from app.models.build import Build
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 @celery_app.task(bind=True, max_retries=3)
 def generate_homework_task(self, build_id: int, build_data_dict: dict):
     """Generate Chinese playbook via AI, update the DB record, and ingest into knowledge base."""
     logger.info(f"Starting homework generation for build_id={build_id}")
-    
+
     db = SessionLocal()
     try:
         # Check if build exists
@@ -27,10 +31,10 @@ def generate_homework_task(self, build_id: int, build_data_dict: dict):
         if build.status == "done" and build.homework:
             logger.info(f"Build {build_id} already has homework. Skipping.")
             return True
-            
+
         # Reconstruct DecodeResponse from dict
         build_data = DecodeResponse.model_validate(build_data_dict)
-        
+
         # Call AI service
         try:
             homework = generate_homework(build_data)
@@ -39,13 +43,13 @@ def generate_homework_task(self, build_id: int, build_data_dict: dict):
             build.status = "failed"
             db.commit()
             raise self.retry(exc=exc, countdown=60)  # Retry after 60s
-            
+
         # Update DB
         build.set_homework(homework)
         db.commit()
         logger.info(f"Homework generated and saved for build_id={build_id}")
 
-        # ── RAG: Ingest into knowledge base ──
+        # RAG: Ingest into knowledge base
         try:
             n_chunks = ingest_build(db, build, homework)
             if n_chunks > 0:
@@ -53,9 +57,9 @@ def generate_homework_task(self, build_id: int, build_data_dict: dict):
         except Exception as e:
             # Ingestion failure is non-fatal — homework is already saved
             logger.warning(f"Knowledge ingestion failed for build {build_id}: {e}")
-        
+
         return True
-        
+
     except Exception as exc:
         logger.error(f"Error in generate_homework_task: {exc}")
         db.rollback()
@@ -110,4 +114,21 @@ def scan_base_prices_task(self, market: str = "cn", league: str | None = None):
 
     except Exception as exc:
         logger.error(f"Base price scan failed: {exc}")
+        raise self.retry(exc=exc, countdown=300)
+
+
+@celery_app.task(bind=True, max_retries=2)
+def refresh_currency_rates_task(self, realm: str = "poe2") -> dict:
+    """Refresh currency exchange rates from official API and cache in Redis."""
+    logger.info(f"Starting currency rate refresh: realm={realm}")
+
+    try:
+        service = PricingService()
+        result = asyncio.get_event_loop().run_until_complete(
+            service.refresh_currency_rates(realm=realm)
+        )
+        logger.info(f"Currency rates refreshed successfully for realm={realm}")
+        return result
+    except Exception as exc:
+        logger.error(f"Currency rate refresh failed: {exc}")
         raise self.retry(exc=exc, countdown=300)

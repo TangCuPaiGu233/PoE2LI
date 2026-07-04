@@ -19,12 +19,17 @@ from app.api.trade import router as trade_router
 from app.api.api_recommend import router as recommend_router
 from app.api.entities import router as entities_router
 from app.api.filter import router as filter_router
+from app.api.pricing import router as pricing_router
+from app.api.auth import router as auth_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create database tables on startup."""
     from app.core.database import engine, Base
+    Base.metadata.create_all(bind=engine)
+    # Ensure OAuth tables exist
+    import app.models.oauth  # noqa: F401
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -54,6 +59,8 @@ app.include_router(qa_router)
 app.include_router(recommend_router)
 app.include_router(entities_router)
 app.include_router(filter_router)
+app.include_router(pricing_router)
+app.include_router(auth_router)
 
 
 @app.get("/health")
