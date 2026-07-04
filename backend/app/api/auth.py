@@ -5,7 +5,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.services.oauth_service import (
@@ -14,6 +14,7 @@ from app.services.oauth_service import (
     exchange_code_for_token,
     fetch_user_info,
     get_authorization_url,
+    get_current_user,
     get_user_from_token,
     revoke_session,
     upsert_user_from_oauth,
@@ -86,7 +87,7 @@ async def callback(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
-    # Validate state
+    # Validate state (CSRF protection)
     pending = _pending_states.pop(state, None)
     if pending is None or pending.get("provider") != oauth_provider:
         raise HTTPException(status_code=400, detail="Invalid or expired state")
@@ -107,7 +108,7 @@ async def callback(
     # Fetch user info from provider
     user_info = await fetch_user_info(oauth_provider, access_token)
 
-    # Upsert local user
+    # Upsert local user (tokens encrypted before storage)
     user = upsert_user_from_oauth(
         provider=oauth_provider,
         provider_user_id=user_info["provider_user_id"],
@@ -135,32 +136,23 @@ async def callback(
 
 
 @router.get("/api/auth/me", response_model=MeResponse)
-async def get_me(request: Request) -> MeResponse:
+async def get_me(current_user = Depends(get_current_user)) -> MeResponse:
     """Return the current authenticated user."""
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-
-    token = auth_header.split(" ", 1)[1].strip()
-    user = get_user_from_token(token)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     return MeResponse(
-        id=user.id,
-        email=user.email,
-        display_name=user.display_name,
-        avatar_url=user.avatar_url,
+        id=current_user.id,
+        email=current_user.email,
+        display_name=current_user.display_name,
+        avatar_url=current_user.avatar_url,
     )
 
 
 @router.post("/api/auth/logout", response_model=LogoutResponse)
-async def logout(request: Request) -> LogoutResponse:
+async def logout(
+    request: Request,
+    current_user = Depends(get_current_user),
+) -> LogoutResponse:
     """Revoke the current session."""
     auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-
-    token = auth_header.split(" ", 1)[1].strip()
+    token = auth_header.split(" ", 1)[1].strip() if auth_header.startswith("Bearer ") else ""
     revoked = revoke_session(token)
     return LogoutResponse(message="Logged out" if revoked else "No active session")

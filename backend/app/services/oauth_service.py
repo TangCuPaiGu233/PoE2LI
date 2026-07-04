@@ -15,6 +15,8 @@ from app.core.security import (
     ALGORITHM,
     create_access_token,
     decode_access_token,
+    decrypt_token,
+    encrypt_token,
     get_subject_from_token,
     hash_password,
 )
@@ -187,7 +189,10 @@ def upsert_user_from_oauth(
     refresh_token: str | None = None,
     expires_at: int | None = None,
 ) -> User:
-    """Find or create a local user from OAuth info, link the OAuth account."""
+    """Find or create a local user from OAuth info, link the OAuth account.
+    
+    OAuth tokens are encrypted before storage (Tier A compliance).
+    """
     db = SessionLocal()
     try:
         # Find existing OAuth account
@@ -203,9 +208,11 @@ def upsert_user_from_oauth(
 
         if oauth_account:
             user = db.execute(select(User).where(User.id == oauth_account.user_id).limit(1)).scalar_one()
-            # Update linkage
-            oauth_account.access_token = access_token or oauth_account.access_token
-            oauth_account.refresh_token = refresh_token or oauth_account.refresh_token
+            # Update linkage — store encrypted tokens
+            if access_token:
+                oauth_account.access_token = encrypt_token(access_token)
+            if refresh_token:
+                oauth_account.refresh_token = encrypt_token(refresh_token)
             oauth_account.expires_at = expires_at or oauth_account.expires_at
             user.display_name = name or user.display_name
             user.avatar_url = avatar_url or user.avatar_url
@@ -224,8 +231,8 @@ def upsert_user_from_oauth(
                 user_id=user.id,
                 provider=provider,
                 provider_user_id=str(provider_user_id),
-                access_token=access_token,
-                refresh_token=refresh_token,
+                access_token=encrypt_token(access_token),
+                refresh_token=encrypt_token(refresh_token),
                 expires_at=expires_at,
             )
             db.add(oauth_account)
@@ -288,3 +295,27 @@ def get_user_from_token(token: str) -> User | None:
         return user
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency: get_current_user
+# ---------------------------------------------------------------------------
+
+from fastapi import Depends, HTTPException, Request
+
+async def get_current_user(request: Request) -> User:
+    """FastAPI dependency to extract and validate the current authenticated user.
+    
+    Reads Bearer token from Authorization header, validates JWT, returns User.
+    Raises 401 if missing/invalid.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    
+    token = auth_header.split(" ", 1)[1].strip()
+    user = get_user_from_token(token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    return user

@@ -12,3 +12,4 @@ openai>=1.30.0
 langfuse>=3.0.0
 cloudscraper>=1.2.71
 jieba>=0.42.1
+cryptography>=42.0.0
